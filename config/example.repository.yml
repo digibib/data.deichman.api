@@ -1,6 +1,5 @@
-rdfstore:
-  sparql_endpoint: http://www.example.com/sparql/
-  sparul_endpoint: http://www.example.com/sparql-auth/
-  username: user
-  password: secret
-  auth_method: 'digest'
+sparql_endpoint: http://www.example.com/sparql/
+sparul_endpoint: http://www.example.com/sparql-auth/
+username: user
+password: secret
+auth_method: 'digest'
