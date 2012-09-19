@@ -20,15 +20,18 @@ describe API do
       end
 
       it "returns all reviews of an author" do
-        get "/reviews", :author =>  "Knut Hamsun" 
+        get "/api/reviews", :author =>  "Knut Hamsun" 
       end
 
       it "returns reviews of a title given an ISBN" do
-        get "/reviews", :isbn =>  "234567890" 
+        get "/api/reviews", :isbn =>  "9788205367081" 
+        last_response.status.must_equal 200
+        response = JSON.parse(last_response.body)
+        response["review_title"] == "Is-slottet"
       end
 
       it "returns reviews og a book given title and author" do
-        get "/reviews", :author => "Hamsun, Knut", :title => "Sult"
+        get "/api/reviews", :author => "Hamsun, Knut", :title => "Sult"
       end
 
       it "is should be case-insensitive to author & title" do
