@@ -25,10 +25,10 @@ http get http://data.deichman.no/api/v1/reviews author="Nesbø, Jo"
 http get http://data.deichman.no/api/v1/reviews URI="http://data.deichman.no/bookreviews/deich3456"
 ```
 ### POST /reviews
-Parameters: `ISBN`, `ID`, `Author`, `Title`, `Source`
+Parameters: `Key`, `ISBN`, `ID`, `Author`, `Title`, `Source`
 
 ### PUT /reviews
-Parameters: `ISBN`, `URI`, `Author`, `Title`,  `Source`
+Parameters: `Key`, `ISBN`, `URI`, `Author`, `Title`,  `Source`
 
 ### DELETE /reviews
-Parameters: `URI`
+Parameters: `Key`, `URI`
