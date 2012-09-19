@@ -63,4 +63,5 @@ PLATFORMS
 DEPENDENCIES
   grape
   rack-test
+  rdf
   rdf-virtuoso!
