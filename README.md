@@ -11,16 +11,16 @@ The API is open for anyone to use, but a key is required in order to write to th
 
 The return format is JSON.
 
-* GET /reviews
+### GET /reviews
 Parameters: `ISBN`, `URI`, `Author`, `Title` 
 
 Other parameters will be ignored if `ISBN` or `URI` is present.
 
-* POST /reviews
+### POST /reviews
 Parameters: `ISBN`, `ID`, `Author`, `Title`, `Source`
 
-* PUT /reviews
+### PUT /reviews
 Parameters: `ISBN`, `URI`, `Author`, `Title`,  `Source`
 
-* DELETE /reviews
+### DELETE /reviews
 Parameters: `URI`
