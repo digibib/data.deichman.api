@@ -18,14 +18,14 @@ POST /reviews
 "Pusher en ny bokanbefaling"
 ---------------------------------------------------------
 Parametre:
-	AuthKey, ISBN, Title, Teaser, Text, ID/URI
+	AuthKey, ISBN, Title, Teaser, Text, Source, ID/URI
 
 
 PUT /reviews
 "Oppdaterer  eksisterende anbefaling"
 ---------------------------------------------------------
 Parametere:
-	AuthKey, ID/URI, ISBN|Title|Teaser|Text
+	AuthKey, ID/URI, ISBN|Title|Teaser|Text|Source
 
 
 DELETE /reviews
