@@ -1,3 +1,5 @@
+#!/usr/bin/env ruby 
+# encoding: UTF-8
 require "minitest/autorun"
 require "rack/test"
 require "./api.rb"
@@ -20,22 +22,31 @@ describe API do
       end
 
       it "returns all reviews of an author" do
-        get "/api/reviews", :author =>  "Knut Hamsun" 
+        get "/api/reviews", :author =>  "Knut Hamsun"
+        last_response.status.must_equal 200
+        response = JSON.parse(last_response.body)
+        response["reviews"]["review"].count.must_equal 12
       end
 
       it "returns reviews of a title given an ISBN" do
-        get "/api/reviews", :isbn =>  "9788205367081" 
+        get "/api/reviews", :isbn =>  "9788205367081"
         last_response.status.must_equal 200
         response = JSON.parse(last_response.body)
-        response["review_title"] == "Is-slottet"
+        response["reviews"]["review_title"].first.must_equal "Is-slottet"
       end
 
-      it "returns reviews og a book given title and author" do
+      it "returns reviews of a book given title and author" do
         get "/api/reviews", :author => "Hamsun, Knut", :title => "Sult"
+        last_response.status.must_equal 200
+        response = JSON.parse(last_response.body)
+        response["reviews"]["book_title"].first.must_equal "Sult"
       end
 
       it "is should be case-insensitive to author & title" do
-        #test
+        get "/api/reviews", :author => "hamsun, knut", :title => "sult"
+        last_response.status.must_equal 200
+        response = JSON.parse(last_response.body)
+        response["reviews"]["book_title"].first.must_equal "Sult"
       end
     end
 
