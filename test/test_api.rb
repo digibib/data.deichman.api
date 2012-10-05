@@ -52,9 +52,10 @@ describe API do
 
       it "is should be case-insensitive to author & title" do
         get "/api/reviews", :author => "hamsun, knut", :title => "sult"
-        last_response.status.must_equal 200
-        response = JSON.parse(last_response.body)
-        response["reviews"]["book_title"].first.must_equal "Sult"
+        response1 = JSON.parse(last_response.body)
+        get "/api/reviews", :author => "Hamsun, Knut", :title => "Sult"
+        response2 = JSON.parse(last_response.body)
+        response1.must_equal response2
       end
     end
 
