@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby 
+#!/usr/bin/env ruby
 # encoding: UTF-8
 require "minitest/autorun"
 require "rack/test"
@@ -33,6 +33,14 @@ describe API do
         last_response.status.must_equal 200
         response = JSON.parse(last_response.body)
         response["reviews"]["review_title"].first.must_equal "Is-slottet"
+      end
+
+      it "sanitizes ISBN numbers" do
+        get "/api/reviews", :isbn =>  "9788205367081"
+        response1 = JSON.parse(last_response.body)
+        get "/api/reviews", :isbn =>  "978-82-05-36708-1(h.)"
+        response2 = JSON.parse(last_response.body)
+        response1.must_equal response2
       end
 
       it "returns reviews of a book given title and author" do

@@ -10,10 +10,10 @@ REPO = RDF::Virtuoso::Repository.new(
               :username => repository["username"],
               :password => repository["password"],
               :auth_method => repository["auth_method"])
-              
+
 QUERY       = RDF::Virtuoso::Query
 REVIEWGRAPH = RDF::URI('http://data.deichman.no/reviews')
-BOOKGRAPH = RDF::URI('http://data.deichman.no/books') 
+BOOKGRAPH = RDF::URI('http://data.deichman.no/books')
 
 #sanitize_isbn: isbn.strip.gsub(/\s+|-/, '')
 isbn ="9788205367081"
@@ -21,15 +21,15 @@ isbn ="9788205367081"
 class API < Grape::API
   prefix 'api'
   format :json
-  
+
   resource :reviews do
     desc "returns reviews"
     get "/" do
-      isbn          = params[:isbn] ? "#{params[:isbn]}" : :isbn
+      isbn          = params[:isbn] ? "#{params[:isbn].strip.gsub(/[^0-9]/, '')}" : :isbn
       author_search = params[:author] ? params[:author].gsub(/[[:punct:]]/, '').split(" ") : nil
       title_search  = params[:title] ? params[:title].gsub(/[[:punct:]]/, '').split(" ") : nil
       uri           = params[:uri] ? params[:uri] : :review
-      
+
       query = QUERY.select.distinct.where(
         [:review, RDF.type, RDF::REV.Review, :context => REVIEWGRAPH],
         [:review, RDF::DEICHMAN.basedOnManifestation, :book, :context => REVIEWGRAPH],
@@ -47,12 +47,12 @@ class API < Grape::API
       query.optional([:review, RDF::DC.publisher, :review_publisher, :context => REVIEWGRAPH])
       query.filter('lang(?review_text) != "nn"')
       if author_search
-        author_search.each do |author| 
+        author_search.each do |author|
           query.filter("regex(?author_name, \"#{author}\", \"i\")")
         end
       end
       if title_search
-        title_search.each do |title| 
+        title_search.each do |title|
           query.filter("regex(?book_title, \"#{title}\", \"i\")")
         end
       end
@@ -65,7 +65,7 @@ class API < Grape::API
     get "/" do
       "Hello world"
     end
-    
+
     desc "creates a review"
     post "/" do
       "Hello world"
