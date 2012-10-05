@@ -43,6 +43,13 @@ describe API do
         response1.must_equal response2
       end
 
+      it "returns reviews given an URI" do
+        get "/api/reviews", :uri => "http://data.deichman.no/bookreviews/onskebok#1025"
+        last_response.status.must_equal 200
+        response = JSON.parse(last_response.body)
+        response["reviews"]["book_title"].first.must_equal "Is-slottet"
+      end
+
       it "returns reviews of a book given title and author" do
         get "/api/reviews", :author => "Hamsun, Knut", :title => "Sult"
         last_response.status.must_equal 200

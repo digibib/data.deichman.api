@@ -15,8 +15,6 @@ QUERY       = RDF::Virtuoso::Query
 REVIEWGRAPH = RDF::URI('http://data.deichman.no/reviews')
 BOOKGRAPH = RDF::URI('http://data.deichman.no/books')
 
-#sanitize_isbn: isbn.strip.gsub(/\s+|-/, '')
-isbn ="9788205367081"
 
 class API < Grape::API
   prefix 'api'
