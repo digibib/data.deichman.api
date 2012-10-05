@@ -25,14 +25,14 @@ describe API do
         get "/api/reviews", :author =>  "Knut Hamsun"
         last_response.status.must_equal 200
         response = JSON.parse(last_response.body)
-        response["reviews"]["review"].count.must_equal 12
+        response["reviews"].count.must_equal 12
       end
 
       it "returns reviews of a title given and ISBN" do
         get "/api/reviews", :isbn =>  "9788205367081"
         last_response.status.must_equal 200
         response = JSON.parse(last_response.body)
-        response["reviews"]["review_title"].first.must_equal "Is-slottet"
+        response["reviews"].first["review_title"].must_equal "Is-slottet"
       end
 
       it "sanitizes ISBN numbers" do
@@ -47,7 +47,7 @@ describe API do
         get "/api/reviews", :uri => "http://data.deichman.no/bookreviews/onskebok#1025"
         last_response.status.must_equal 200
         response = JSON.parse(last_response.body)
-        response["reviews"]["book_title"].first.must_equal "Is-slottet"
+        response["reviews"].first["book_title"].must_equal "Is-slottet"
       end
 
       it "ignores author & title params given an isbn" do
@@ -74,7 +74,7 @@ describe API do
         get "/api/reviews", :author => "Hamsun, Knut", :title => "Sult"
         last_response.status.must_equal 200
         response = JSON.parse(last_response.body)
-        response["reviews"]["book_title"].first.must_equal "Sult"
+        response["reviews"].first["book_title"].must_equal "Sult"
       end
 
       it "is should be case-insensitive to author & title" do

@@ -1,7 +1,10 @@
+#encoding: utf-8
+
 require "bundler/setup"
 require "grape"
 require "rdf/virtuoso"
 require "./vocabularies.rb"
+
 
 repository = YAML::load(File.open("config/repository.yml"))
 REPO = RDF::Virtuoso::Repository.new(
@@ -19,6 +22,7 @@ BOOKGRAPH = RDF::URI('http://data.deichman.no/books')
 class API < Grape::API
   prefix 'api'
   format :json
+  default_format :json
 
   resource :reviews do
     desc "returns reviews"
@@ -55,9 +59,17 @@ class API < Grape::API
         end
       end
       query.limit(50)
-      #{ :query => query }
+
       solutions = REPO.select(query)
-      { :reviews => solutions.bindings }
+      reviews = []
+      solutions.each do |solution|
+        s = {}
+        solution.each_binding { |name, value| s[name] = value.to_s }
+        reviews.push(s)
+      end
+
+      header['Content-Type'] = 'application/json; charset=utf-8'
+      { :reviews => reviews }.to_json
     end
 
     get "/" do
