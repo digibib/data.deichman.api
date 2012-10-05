@@ -50,6 +50,26 @@ describe API do
         response["reviews"]["book_title"].first.must_equal "Is-slottet"
       end
 
+      it "ignores author & title params given an isbn" do
+        get "/api/reviews", :isbn => "9788205367081",
+                            :author => "Ibsen, Henrik",
+                            :title => "En folkefiende"
+        response1 = JSON.parse(last_response.body)
+        get "/api/reviews", :isbn => "9788205367081"
+        response2 = JSON.parse(last_response.body)
+        response1.must_equal response2
+      end
+
+      it "ignores author & title params given an uri" do
+        get "/api/reviews", :uri => "http://data.deichman.no/bookreviews/onskebok#1025",
+                            :author => "Ibsen, Henrik",
+                            :title => "En folkefiende"
+        response1 = JSON.parse(last_response.body)
+        get "/api/reviews", :uri => "http://data.deichman.no/bookreviews/onskebok#1025"
+        response2 = JSON.parse(last_response.body)
+        response1.must_equal response2
+      end
+
       it "returns reviews of a book given title and author" do
         get "/api/reviews", :author => "Hamsun, Knut", :title => "Sult"
         last_response.status.must_equal 200
