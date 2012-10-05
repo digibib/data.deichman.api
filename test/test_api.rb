@@ -28,7 +28,7 @@ describe API do
         response["reviews"]["review"].count.must_equal 12
       end
 
-      it "returns reviews of a title given an ISBN" do
+      it "returns reviews of a title given and ISBN" do
         get "/api/reviews", :isbn =>  "9788205367081"
         last_response.status.must_equal 200
         response = JSON.parse(last_response.body)
