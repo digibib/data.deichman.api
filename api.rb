@@ -48,11 +48,13 @@ class API < Grape::API
       query.optional([:review, RDF::REV.reviewer, :reviewer, :context => REVIEWGRAPH])
       query.optional([:review, RDF::DC.publisher, :review_publisher, :context => REVIEWGRAPH])
       query.filter('lang(?review_text) != "nn"')
+
       if author_search
         author_search.each do |author|
           query.filter("regex(?author_name, \"#{author}\", \"i\")")
         end
       end
+
       if title_search
         title_search.each do |title|
           query.filter("regex(?book_title, \"#{title}\", \"i\")")
@@ -62,6 +64,7 @@ class API < Grape::API
 
       solutions = REPO.select(query)
       reviews = []
+
       solutions.each do |solution|
         s = {}
         solution.each_binding { |name, value| s[name] = value.to_s }
@@ -70,10 +73,6 @@ class API < Grape::API
 
       header['Content-Type'] = 'application/json; charset=utf-8'
       { :reviews => reviews }.to_json
-    end
-
-    get "/" do
-      "Hello world"
     end
 
     desc "creates a review"
