@@ -30,23 +30,28 @@ class API < Grape::API
       isbn          = params[:isbn] ? "#{params[:isbn].strip.gsub(/[^0-9]/, '')}" : :isbn
       author_search = params[:author] ? params[:author].gsub(/[[:punct:]]/, '').split(" ") : nil
       title_search  = params[:title] ? params[:title].gsub(/[[:punct:]]/, '').split(" ") : nil
-      uri           = params[:uri] ? params[:uri] : :review
+      uri           = params[:uri] ? RDF::URI(params[:uri]) : :uri
 
-      query = QUERY.select.distinct.where(
-        [:review, RDF.type, RDF::REV.Review, :context => REVIEWGRAPH],
-        [:review, RDF::DEICHMAN.basedOnManifestation, :book, :context => REVIEWGRAPH],
-        [:review, RDF::DC.issued, :issued, :context => REVIEWGRAPH],
+      query = QUERY.select(:uri, :book_title, :issued, :review_title, :review_abstract, :review_text, :review_source, :reviewer, :review_publisher)
+      query.group_digest(:isbn, ', ', 1000, 1)
+      query.group_digest(:author, ', ', 1000, 1)
+      query.distinct.where(
+        [uri, RDF.type, RDF::REV.Review, :context => REVIEWGRAPH],
+        [uri, RDF::DEICHMAN.basedOnManifestation, :book, :context => REVIEWGRAPH],
+        [uri, RDF::DC.issued, :issued, :context => REVIEWGRAPH],
         [:book, RDF::BIBO.isbn, isbn, :context => BOOKGRAPH],
         [:book, RDF::DC.title, :book_title, :context => BOOKGRAPH],
-        [:book, RDF::DC.creator, :author, :context => BOOKGRAPH],
-        [:author, RDF::FOAF.name, :author_name, :context => BOOKGRAPH]
+        [:book, RDF::DC.creator, :author_id, :context => BOOKGRAPH],
+        [:author_id, RDF::FOAF.name, :author, :context => BOOKGRAPH]
         )
-      query.optional([:review, RDF::REV.title, :review_title, :context => REVIEWGRAPH])
-      query.optional([:review, RDF::DC.abstract, :review_abstract, :context => REVIEWGRAPH])
-      query.optional([:review, RDF::REV.text, :review_text, :context => REVIEWGRAPH])
-      query.optional([:review, RDF::DC.source, :review_source, :context => REVIEWGRAPH])
-      query.optional([:review, RDF::REV.reviewer, :reviewer, :context => REVIEWGRAPH])
-      query.optional([:review, RDF::DC.publisher, :review_publisher, :context => REVIEWGRAPH])
+      query.optional([uri, RDF::REV.title, :review_title, :context => REVIEWGRAPH])
+      query.optional([uri, RDF::DC.abstract, :review_abstract, :context => REVIEWGRAPH])
+      query.optional([uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH])
+      query.optional([uri, RDF::DC.source, :review_source, :context => REVIEWGRAPH])
+      query.optional([uri, RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
+                     [:reviewer_id, RDF::FOAF.name, :reviewer, :context => REVIEWGRAPH])
+      query.optional([uri, RDF::DC.publisher, :publisher_id, :context => REVIEWGRAPH],
+                     [:publisher_id, RDF::FOAF.name, :review_publisher, :context => REVIEWGRAPH])
       query.filter('lang(?review_text) != "nn"')
 
       if author_search
@@ -61,10 +66,9 @@ class API < Grape::API
         end
       end
       query.limit(50)
-
+puts query
       solutions = REPO.select(query)
       reviews = []
-
       solutions.each do |solution|
         s = {}
         solution.each_binding { |name, value| s[name] = value.to_s }
