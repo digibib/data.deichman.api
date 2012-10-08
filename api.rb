@@ -72,7 +72,7 @@ class API < Grape::API
       end
 
       header['Content-Type'] = 'application/json; charset=utf-8'
-      { :reviews => reviews }.to_json
+      { :reviews => reviews }
     end
 
     desc "creates a review"
