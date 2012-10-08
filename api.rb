@@ -18,6 +18,17 @@ QUERY       = RDF::Virtuoso::Query
 REVIEWGRAPH = RDF::URI('http://data.deichman.no/reviews')
 BOOKGRAPH = RDF::URI('http://data.deichman.no/books')
 
+module Grape
+  class Endpoint
+    def params
+      return @params if @params
+      params = request.params
+      params.merge!(request.env['action_dispatch.request.request_parameters'] || {})
+      params.merge!(request.env['rack.routing_args'] || {})
+      @params = params
+    end
+  end
+end
 
 class API < Grape::API
   prefix 'api'
@@ -66,7 +77,7 @@ class API < Grape::API
         end
       end
       query.limit(50)
-puts query
+#puts query
       solutions = REPO.select(query)
       reviews = []
       solutions.each do |solution|
