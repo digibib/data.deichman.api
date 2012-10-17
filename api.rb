@@ -1,4 +1,5 @@
 #encoding: utf-8
+$stdout.sync = true
 
 require "bundler/setup"
 require "grape"
@@ -18,18 +19,6 @@ QUERY       = RDF::Virtuoso::Query
 REVIEWGRAPH = RDF::URI('http://data.deichman.no/reviews')
 BOOKGRAPH = RDF::URI('http://data.deichman.no/books')
 
-module Grape
-  class Endpoint
-    def params
-      return @params if @params
-      params = request.params
-      params.merge!(request.env['action_dispatch.request.request_parameters'] || {})
-      params.merge!(request.env['rack.routing_args'] || {})
-      @params = params
-    end
-  end
-end
-
 class API < Grape::API
   prefix 'api'
   format :json
@@ -38,10 +27,26 @@ class API < Grape::API
   resource :reviews do
     desc "returns reviews"
     get "/" do
-      isbn          = params[:isbn] ? "#{params[:isbn].strip.gsub(/[^0-9]/, '')}" : :isbn
-      author_search = params[:author] ? params[:author].gsub(/[[:punct:]]/, '').split(" ") : nil
-      title_search  = params[:title] ? params[:title].gsub(/[[:punct:]]/, '').split(" ") : nil
-      uri           = params[:uri] ? RDF::URI(params[:uri]) : :uri
+    content_type :json
+    puts params
+    
+      if params.has_key?(:uri)
+        begin 
+          uri = URI::parse(params[:uri])
+          uri = RDF::URI(uri)
+          isbn = :isbn
+        rescue URI::InvalidURIError
+          throw :error, :status => 400, :message => "#{params[:uri]}: must be a valid URI"
+        end
+      elsif params.has_key?(:isbn)
+        uri           = :uri
+        isbn          = "#{params[:isbn].strip.gsub(/[^0-9]/, '')}"
+      else
+        author_search = params[:author] ? params[:author].gsub(/[[:punct:]]/, '').split(" ") : nil
+        title_search  = params[:title] ? params[:title].gsub(/[[:punct:]]/, '').split(" ") : nil
+        uri           = :uri
+        isbn          = :isbn
+      end
 
       query = QUERY.select(:uri, :book_title, :issued, :review_title, :review_abstract, :review_text, :review_source, :reviewer, :review_publisher)
       query.group_digest(:isbn, ', ', 1000, 1)
@@ -63,11 +68,10 @@ class API < Grape::API
                      [:reviewer_id, RDF::FOAF.name, :reviewer, :context => REVIEWGRAPH])
       query.optional([uri, RDF::DC.publisher, :publisher_id, :context => REVIEWGRAPH],
                      [:publisher_id, RDF::FOAF.name, :review_publisher, :context => REVIEWGRAPH])
-      query.filter('lang(?review_text) != "nn"')
 
       if author_search
         author_search.each do |author|
-          query.filter("regex(?author_name, \"#{author}\", \"i\")")
+          query.filter("regex(?author, \"#{author}\", \"i\")")
         end
       end
 
@@ -77,7 +81,7 @@ class API < Grape::API
         end
       end
       query.limit(50)
-#puts query
+puts query
       solutions = REPO.select(query)
       reviews = []
       solutions.each do |solution|

@@ -25,7 +25,7 @@ describe API do
         get "/api/reviews", :author =>  "Knut Hamsun"
         last_response.status.must_equal 200
         response = JSON.parse(last_response.body)
-        response["reviews"].count.must_equal 12
+        response["reviews"].count.must_be  :>=, 5
       end
 
       it "returns reviews of a title given and ISBN" do
@@ -44,7 +44,7 @@ describe API do
       end
 
       it "returns reviews given an URI" do
-        get "/api/reviews", :uri => "http://data.deichman.no/bookreviews/onskebok#1025"
+        get "/api/reviews", :uri => "http://data.deichman.no/bookreviews/onskebok/id_1025"
         last_response.status.must_equal 200
         response = JSON.parse(last_response.body)
         response["reviews"].first["book_title"].must_equal "Is-slottet"
@@ -61,11 +61,11 @@ describe API do
       end
 
       it "ignores author & title params given an uri" do
-        get "/api/reviews", :uri => "http://data.deichman.no/bookreviews/onskebok#1025",
+        get "/api/reviews", :uri => "http://data.deichman.no/bookreviews/onskebok/id_1025",
                             :author => "Ibsen, Henrik",
                             :title => "En folkefiende"
         response1 = JSON.parse(last_response.body)
-        get "/api/reviews", :uri => "http://data.deichman.no/bookreviews/onskebok#1025"
+        get "/api/reviews", :uri => "http://data.deichman.no/bookreviews/onskebok/id_1025"
         response2 = JSON.parse(last_response.body)
         response1.must_equal response2
       end
