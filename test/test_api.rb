@@ -14,11 +14,11 @@ describe API do
   describe 'reviews' do
     describe 'GET /reviews' do
       before do
-        #create some reviews
+        #create some dummy reviews
       end
 
       after do
-        #delete some reviews
+        #delete some dummy reviews
       end
 
       it "returns all reviews of an author" do
@@ -87,6 +87,16 @@ describe API do
     end
 
     describe 'POST /reviews' do
+      it "is should create a review" do
+        post "/api/reviews", :api_key  => "deichmankey", 
+                             :isbn     => "9788205367081",
+                             :title    => "sulten",
+                             :teaser   => "trenger no mat",
+                             :text     => "boka for deg hvis du trenger no fôr, kjapt!"
+        response = JSON.parse(last_response.body)
+        response["review"].first["book_title"].must_equal "Sult"
+      end
+        
       after do
         #delete the reivews
       end
