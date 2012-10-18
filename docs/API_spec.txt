@@ -2,7 +2,7 @@ data.deichman.no/api/v1
 ============================
 REST API
 
-Alle untatt POST/PUT/DELETE requests autentiseres med en API-nøkkel
+Alle POST/PUT/DELETE requests autentiseres med en API-nøkkel
 Resultatformat: JSON
 
 
@@ -18,7 +18,7 @@ POST /reviews
 "Pusher en ny bokanbefaling"
 ---------------------------------------------------------
 Parametre:
-	påkrevd: auth_key, isbn, title, teaser, text, id/uri
+	påkrevd: api_key, isbn, title, teaser, text
   valgfri: audience, reviewer, source
 
 
@@ -26,11 +26,11 @@ PUT /reviews
 "Oppdaterer  eksisterende anbefaling"
 ---------------------------------------------------------
 Parametere:
-	authkey, id/uri, isbn|title|teaser|text|source
+	api_key, id/uri, isbn|title|teaser|text|reviewer|audience|source
 
 
 DELETE /reviews
 "Sletter en anbefaling"
 ---------------------------------------------------------
 Parametere:
-	authkey, id/uri
+	api_key, id/uri

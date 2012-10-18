@@ -45,8 +45,8 @@ class Review
       @review_title     = params[:title]
       @review_abstract  = params[:teaser]
       @review_text      = params[:text]
-      @review_reviewer  = params[:reviewer]
-      @review_audience  = params[:audience]
+      @review_reviewer  = params[:reviewer] if params[:reviewer] 
+      @review_audience  = params[:audience] if params[:audience]
     else
       throw :error, :status => 400, :message => "#{@isbn} matches no known book in our base" 
     end
@@ -75,7 +75,7 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
   EOQ
       # nb: to reset count
       # query = "INSERT INTO GRAPH <#{REVIEWGRAPH}> { <http://test> <http://sequence> `bif:sequence_set ('http://data.deichman.no/reviews', 0, 0)` }"
-      
+
       solutions = REPO.construct(query)
       review_id = solutions.first[:s]
     end
@@ -94,8 +94,9 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
     insert_statements << RDF::Statement.new(self.review_id, RDF::DC.created, RDF::Literal(Time.now.xmlschema, :datatype => RDF::XSD.dateTime))
 
     # optionals
-    insert_statements << RDF::Statement.new(self.review_id, RDF::REV.reviewer, RDF::URI(self.review_reviewer)) if self.review_reviewer
-    insert_statements << RDF::Statement.new(self.review_id, RDF::DC.audience, RDF::URI(self.review_audience)) if self.review_audience
+    # need lookup in rdf store before these can be used!
+    #insert_statements << RDF::Statement.new(self.review_id, RDF::REV.reviewer, RDF::URI(self.review_reviewer)) if self.review_reviewer
+    #insert_statements << RDF::Statement.new(self.review_id, RDF::DC.audience, RDF::URI(self.review_audience)) if self.review_audience
         
     query = QUERY.insert_data(insert_statements).graph(REVIEWGRAPH)
     puts query
@@ -104,6 +105,20 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
   
   def update(uri)
     # update review here
+  end
+  
+  # convenience methods to export class instance variables to hash
+  def to_hash
+      hash = {}
+      self.instance_variables.each do |var|
+          hash[var.to_s.delete("@")] = self.instance_variable_get var
+      end
+      hash
+  end
+  def from_json! string
+      JSON.load(string).each do |var, val|
+          self.instance_variable_set var, val
+      end
   end
 end
 
@@ -135,8 +150,9 @@ class API < Grape::API
         isbn          = :isbn
       end
 
-      query = QUERY.select(:uri, :book_title, :issued, :review_title, :review_abstract, :review_text, :review_source, :reviewer, :review_publisher)
-      query.group_digest(:isbn, ', ', 1000, 1)
+      query = QUERY.select(:book_title, :issued, :review_title, :review_abstract, :review_text, :review_source, :reviewer, :review_publisher)
+      query.sample(:uri)                              if uri  == :uri   # make sure only requested if not already known
+      query.group_digest(:isbn, ', ', 1000, 1)        if isbn == :isbn  # make sure only requested if not already known
       query.group_digest(:author, ', ', 1000, 1)
       query.distinct.where(
         [uri, RDF.type, RDF::REV.Review, :context => REVIEWGRAPH],
@@ -145,7 +161,7 @@ class API < Grape::API
         [:book, RDF::BIBO.isbn, isbn, :context => BOOKGRAPH],
         [:book, RDF::DC.title, :book_title, :context => BOOKGRAPH],
         [:book, RDF::DC.creator, :author_id, :context => BOOKGRAPH],
-        [:author_id, RDF::FOAF.name, :author, :context => BOOKGRAPH]
+        [:author_id, RDF::FOAF.name, :author, :context => BOOKGRAPH]    # should we really require foaf:name on book author?
         )
       query.optional([uri, RDF::REV.title, :review_title, :context => REVIEWGRAPH])
       query.optional([uri, RDF::DC.abstract, :review_abstract, :context => REVIEWGRAPH])
@@ -178,7 +194,7 @@ class API < Grape::API
       end
 
       header['Content-Type'] = 'application/json; charset=utf-8'
-      { :reviews => reviews }
+      { :request => params, :reviews => reviews }
     end
 
     desc "creates a review"
@@ -197,7 +213,8 @@ class API < Grape::API
       review = Review.new(params)
       review.create
       
-      {:params => params, :review => review.inspect }
+      header['Content-Type'] = 'application/json; charset=utf-8'      
+      {:request => params, :review => review.to_json }
     end
 
     desc "updates a review"
