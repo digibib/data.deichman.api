@@ -14,11 +14,24 @@ describe API do
   describe 'reviews' do
     describe 'GET /reviews' do
       before do
-        #create some dummy reviews
+        #create dummy review
+        post "/api/reviews", :api_key  => "dummykey", 
+                             :isbn     => "9788205367081",
+                             :title    => "A dummy review",
+                             :teaser   => "Don't read if already hungry",
+                             :text     => "boka for deg hvis du trenger no fôr, kjapt!"
+        last_response.status.must_equal 200
+        response = JSON.parse(last_response.body)
+        @uri = response["review"].first["uri"]
       end
 
       after do
-        #delete some dummy reviews
+        #delete dummy review
+        delete "/api/reviews", :api_key  => "dummykey", 
+                               :uri      => "#{@uri}"
+        last_response.status.must_equal 200
+        response = JSON.parse(last_response.body)
+        @uri = response["review"].first["uri"]
       end
 
       it "returns all reviews of an author" do
@@ -40,7 +53,7 @@ describe API do
         response1 = JSON.parse(last_response.body)
         get "/api/reviews", :isbn =>  "978-82-05-36708-1(h.)"
         response2 = JSON.parse(last_response.body)
-        response1.must_equal response2
+        response1["reviews"].must_equal response2["reviews"]
       end
 
       it "returns reviews given an URI" do
@@ -57,7 +70,7 @@ describe API do
         response1 = JSON.parse(last_response.body)
         get "/api/reviews", :isbn => "9788205367081"
         response2 = JSON.parse(last_response.body)
-        response1.must_equal response2
+        response1["reviews"].must_equal response2["reviews"]
       end
 
       it "ignores author & title params given an uri" do
@@ -67,7 +80,7 @@ describe API do
         response1 = JSON.parse(last_response.body)
         get "/api/reviews", :uri => "http://data.deichman.no/bookreviews/onskebok/id_1025"
         response2 = JSON.parse(last_response.body)
-        response1.must_equal response2
+        response1["reviews"].must_equal response2["reviews"]
       end
 
       it "returns reviews of a book given title and author" do
@@ -94,7 +107,8 @@ describe API do
                              :teaser   => "trenger no mat",
                              :text     => "boka for deg hvis du trenger no fôr, kjapt!"
         response = JSON.parse(last_response.body)
-        response["review"].first["book_title"].must_equal "Sult"
+        response["review"].first["review_title"].must_equal "sulten"
+        @uri = response["review"].first["uri"]
       end
         
       after do
