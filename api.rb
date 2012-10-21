@@ -27,15 +27,20 @@ class Review
 
   def find(params = {})
     # find reviews by uri, isbn, title/author
+    
+    selects = [:uri, :isbn, :book_title, :issued, :review_title, :review_abstract, :review_text, :review_source, :reviewer, :review_publisher]
+    
     if params.has_key?(:uri)
       begin 
+        selects.delete(:uri)
         uri = URI::parse(params[:uri])
         uri = RDF::URI(uri)
         isbn = :isbn
       rescue URI::InvalidURIError
-        throw :error, :status => 400, :message => "#{params[:uri]}: must be a valid URI"
+        return "Invalid URI"
       end
     elsif params.has_key?(:isbn)
+      selects.delete(:isbn)
       uri           = :uri
       isbn          = "#{params[:isbn].strip.gsub(/[^0-9]/, '')}"
     else
@@ -45,9 +50,7 @@ class Review
       isbn          = :isbn
     end
 
-    query = QUERY.select(:book_title, :issued, :review_title, :review_abstract, :review_text, :review_source, :reviewer, :review_publisher)
-    query.sample(:uri)                              if uri  == :uri   # make sure only requested if not already known
-    query.group_digest(:isbn, ', ', 1000, 1)        if isbn == :isbn  # make sure only requested if not already known
+    query = QUERY.select(*selects)
     query.group_digest(:author, ', ', 1000, 1)
     query.distinct.where(
       [uri, RDF.type, RDF::REV.Review, :context => REVIEWGRAPH],
@@ -79,7 +82,7 @@ class Review
       end
     end
     query.limit(50)
-
+puts query
     solutions = REPO.select(query)
     reviews = []
     solutions.each do |solution|
@@ -91,6 +94,7 @@ class Review
   end  
   
   def find_source_by_apikey(api_key)
+    # make query to http://data.deichman.no/reviews/sources/apikeys
     case api_key
     when 'deichmanapikey'
       source = 'http://data.deichman.no/sources/dummy'
@@ -110,8 +114,8 @@ PREFIX rev: <http://purl.org/stuff/rev#>
 CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(str(?source), "http://data.deichman.no/sources/", ""), "/id_", str(bif:sequence_next ('#{self.review_source}', 1, ?source)) ) )` a rev:Review } 
   WHERE { <#{self.review_source}> a rdfs:Resource ; rdfs:label ?label . ?source a rdfs:Resource ; rdfs:label ?label } ORDER BY(?source) LIMIT 1 
   EOQ
-      # nb: to reset count
-      # query = "INSERT INTO GRAPH <#{REVIEWGRAPH}> { <http://test> <http://sequence> `bif:sequence_set ('http://data.deichman.no/reviews', 0, 0)` }"
+      # nb: to reset count use sequence_set instead, with an iri f.ex. like this:
+      # `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(str(?source), "http://data.deichman.no/sources/", ""), "/id_", str(bif:sequence_next ('#{self.review_source}', 0, 0)) ) )`
 
       solutions = REPO.construct(query)
       review_id = solutions.first[:s]
@@ -124,6 +128,7 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
     @review_source = find_source_by_apikey(params[:api_key])
     @isbn          = params[:isbn].strip.gsub(/[^0-9]/, '')
     
+    # lookup book based on isbn
     query = QUERY.select(:book_id, :book_title, :work_id)
     query.from(BOOKGRAPH)
     query.where(
@@ -135,6 +140,7 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
     puts "#{query}"
     solutions = REPO.select(query)
     
+    # populate review attributes
     unless solutions.empty?
       @book_id          = solutions.first[:book_id]
       @book_title       = solutions.first[:book_title]
@@ -146,7 +152,7 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
       @review_reviewer  = params[:reviewer] if params[:reviewer] 
       @review_audience  = params[:audience] if params[:audience]
     else
-      return nil
+      return nil # break out if isbn returns no hits
     end    
     
     insert_statements = []
@@ -178,20 +184,23 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
   def delete(params = {})
     # delete review here
     # first use api_key parameter to fetch source
+
     @review_source = find_source_by_apikey(params[:api_key])
     source = RDF::URI(@review_source)
     uri    = RDF::URI(params[:uri])
-    # find it first
-    review = self.find(params)
+    
+    # find review
+    review = find(params)
 
-    # then delete
-    query = QUERY.delete.where([uri, RDF::DC.source, source], [uri, :p, :o]).graph(REVIEWGRAPH)
+    # then delete review, but only if source matches
+    query = QUERY.delete([uri, :p, :o]).where([uri, RDF::DC.source, source], [uri, :p, :o]).graph(REVIEWGRAPH)
     puts query
+    
     result = REPO.delete(query)
-    return "success", result if result
   end
   
-  # convenience methods to export class instance variables to hash
+  # methods to export class instance variables to hash
+  # necessary to export JSON
   def to_hash
       hash = {}
       self.instance_variables.each do |var|
@@ -199,6 +208,8 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
       end
       hash
   end
+  # method to import JSON to class instant variables
+  # currently not used
   def from_json! string
       JSON.load(string).each do |var, val|
           self.instance_variable_set var, val
@@ -222,8 +233,9 @@ class API < Grape::API
     get "/" do
     content_type 'json'
       reviews = Review.new.find(params)
-      header['Content-Type'] = 'application/json; charset=utf-8'
+      throw :error, :status => 400, :message => "\"#{params[:uri]}\" is not a valid URI" if reviews == "Invalid URI"
       throw :error, :status => 200, :message => "no reviews found" if reviews.empty?
+      header['Content-Type'] = 'application/json; charset=utf-8'
       { :request => params, :reviews => reviews }
     end
 
@@ -260,11 +272,14 @@ class API < Grape::API
       end    
     delete "/" do
       content_type 'json'
+      # is it in the base?
+      review = Review.new.find(params)
+      throw :error, :status => 400, :message => "Sorry, \"#{params[:uri]}\" matches no review in our base" if review.empty?
+      # yes, then delete it!
       result = Review.new.delete(params)
-      throw :error, :status => 400, :message => "Sorry, \"#{params[:uri]}\" matches no review in our base" unless result
-      #throw :error, :status => 400, :message => "Sorry, unable to delete review #{params[:uri]} ..." unless result
+      throw :error, :status => 400, :message => "Sorry, unable to delete review #{params[:uri]} ..." if result =~ /nothing to do/
       header['Content-Type'] = 'application/json; charset=utf-8' 
-      {:request => params, :result => result }
+      {:request => params, :review => review, :result => result }
     end
   end
 end
