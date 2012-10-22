@@ -103,9 +103,9 @@ class Review
     #          deichman:apikey "apikey" .    
     query = QUERY.select(:source).from(APIGRAPH)
     query.where(
-    [:source, RDF.type, RDF::RDFS.Resource], 
-    [:source, RDF::RDFS.label, :label],
-    [:source, RDF::DEICHMAN.apikey, "#{api_key}"])
+      [:source, RDF.type, RDF::RDFS.Resource], 
+      [:source, RDF::RDFS.label, :label],
+      [:source, RDF::DEICHMAN.apikey, "#{api_key}"])
     query.limit(1)
     puts query
     solutions = REPO.select(query)
@@ -195,6 +195,30 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
   
   def update(params = {})
     # update review here
+    # first use api_key parameter to fetch source
+    @review_source = find_source_by_apikey(params[:api_key])
+    source = RDF::URI(@review_source)
+    uri    = RDF::URI(params[:uri])
+    
+    # handle modified variables from given params
+    puts "params before:\n #{params}"
+    delete_params = ['uri', 'api_key', 'route_info', 'method', 'path']
+    params_map = {'title' => '@review_title', 
+                  'teaser' => '@review_abstract', 
+                  'text' => '@review_text', 
+                  'reviewer' => '@review_reviewer', 
+                  'audience' => '@review_audience'}
+    
+    delete_params.each {|d| params.delete(d)}
+    params.keys.each { |k| params[ params_map[k] ] = params.delete(k) if params_map[k] }
+    
+    puts "params after:\n #{params}"
+    
+    puts "before update:\n#{self.to_hash}"
+    # update review from new params
+    self.from_json! params.to_json
+    puts "after update:\n#{self.to_hash}"
+    
   end
   
   def delete(params = {})
@@ -205,12 +229,9 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
     source = RDF::URI(@review_source)
     uri    = RDF::URI(params[:uri])
     
-    # find review
-    review = find(params)
-
     # then delete review, but only if source matches
     query = QUERY.delete([uri, :p, :o]).where([uri, RDF::DC.source, source], [uri, :p, :o]).graph(REVIEWGRAPH)
-    puts query
+    puts "#{query}"
     
     result = REPO.delete(query)
   end
@@ -278,8 +299,27 @@ class API < Grape::API
     end
 
     desc "updates a review"
+      params do
+        requires :api_key,  type: String, desc: "Authorization Key"
+        requires :uri,      type: String, desc: "URI of review"
+        optional :title,    type: String, desc: "Title of review"
+        optional :teaser,   type: String, desc: "Abstract of review"
+        optional :text,     type: String, desc: "Text of review"
+        optional :isbn,     type: String, desc: "ISBN of reviewed book"
+        optional :reviewer, type: String, desc: "Name of reviewer"
+        optional :audience, type: String, desc: "Audience of review"
+        #optional :source, type: String, desc: "Source of review"
+      end    
     put "/" do
-      "Hello world"
+      content_type 'json'
+      # is it in the base?
+      review = Review.new.find(params[:uri] => params[:uri])
+      throw :error, :status => 400, :message => "Sorry, \"#{params[:uri]}\" matches no review in our base" if review.empty?
+      # yes, then update
+      result = Review.new.update(params)
+      throw :error, :status => 400, :message => "Sorry, unable to update review #{params[:uri]} ..." if result =~ /nothing to do/
+      header['Content-Type'] = 'application/json; charset=utf-8' 
+      {:request => params, :review => review, :result => result }
     end
 
     desc "deletes a review"
