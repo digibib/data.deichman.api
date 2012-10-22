@@ -6,6 +6,7 @@ require "grape"
 require "rdf/virtuoso"
 require "./vocabularies.rb"
 
+# read configuration file into constants
 repository = YAML::load(File.open("config/repository.yml"))
 REPO = RDF::Virtuoso::Repository.new(
               repository["sparql_endpoint"],
@@ -14,9 +15,10 @@ REPO = RDF::Virtuoso::Repository.new(
               :password => repository["password"],
               :auth_method => repository["auth_method"])
 
+REVIEWGRAPH = RDF::URI(repository["reviewgraph"])
+BOOKGRAPH   = RDF::URI(repository["bookgraph"])
+APIGRAPH    = RDF::URI(repository["apigraph"])
 QUERY       = RDF::Virtuoso::Query
-REVIEWGRAPH = RDF::URI('http://data.deichman.no/reviews')
-BOOKGRAPH   = RDF::URI('http://data.deichman.no/books')
 
 class Review
   attr_accessor :review_id, :review_title, :review_abstract, :review_text, :review_source, :review_reviewer, :review_audience
@@ -82,7 +84,7 @@ class Review
       end
     end
     query.limit(50)
-puts query
+
     solutions = REPO.select(query)
     reviews = []
     solutions.each do |solution|
@@ -94,13 +96,21 @@ puts query
   end  
   
   def find_source_by_apikey(api_key)
-    # make query to http://data.deichman.no/reviews/sources/apikeys
-    case api_key
-    when 'deichmanapikey'
-      source = 'http://data.deichman.no/sources/dummy'
-    else
-      source = 'http://data.deichman.no/sources/dummy'
-    end
+    # fetch source by api key in protected graph
+    # each source needs three statements: 
+    # <source> a rdfs:Resource ;
+    #          rdfs:label "Label" ;
+    #          deichman:apikey "apikey" .    
+    query = QUERY.select(:source).from(APIGRAPH)
+    query.where(
+    [:source, RDF.type, RDF::RDFS.Resource], 
+    [:source, RDF::RDFS.label, :label],
+    [:source, RDF::DEICHMAN.apikey, "#{api_key}"])
+    query.limit(1)
+    puts query
+    solutions = REPO.select(query)
+    return nil if solutions.empty?
+    source = solutions.first[:source]
   end
   
   def autoincrement_source
@@ -108,6 +118,7 @@ puts query
     # sql:sequence_next("GRAPH_IDENTIFIER") => returns next sequence from GRAPH_IDENTIFIER
     # sql:sequence_set("GRAPH_IDENTIFIER", new_sequence_number, ignorelower_boolean) => sets sequence number
     # get unique sequential id by CONSTRUCTing an id based on source URI
+
     if self.review_source
       query = <<-EOQ
 PREFIX rev: <http://purl.org/stuff/rev#>
@@ -116,8 +127,10 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
   EOQ
       # nb: to reset count use sequence_set instead, with an iri f.ex. like this:
       # `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(str(?source), "http://data.deichman.no/sources/", ""), "/id_", str(bif:sequence_next ('#{self.review_source}', 0, 0)) ) )`
-
+      puts "#{query}"
       solutions = REPO.construct(query)
+      
+      return nil if solutions.empty?
       review_id = solutions.first[:s]
     end
   end
@@ -126,7 +139,9 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
     # create new review here
     # first use api_key parameter to fetch source
     @review_source = find_source_by_apikey(params[:api_key])
-    @isbn          = params[:isbn].strip.gsub(/[^0-9]/, '')
+    return "Invalid apikey" unless @review_source
+    
+    @isbn = params[:isbn].strip.gsub(/[^0-9]/, '')
     
     # lookup book based on isbn
     query = QUERY.select(:book_id, :book_title, :work_id)
@@ -139,13 +154,14 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
       )
     puts "#{query}"
     solutions = REPO.select(query)
-    
+
     # populate review attributes
     unless solutions.empty?
+      @review_id        = autoincrement_source
+      return "Invalid UID" unless @review_id
       @book_id          = solutions.first[:book_id]
       @book_title       = solutions.first[:book_title]
       @work_id          = solutions.first[:work_id]
-      @review_id        = autoincrement_source
       @review_title     = params[:title]
       @review_abstract  = params[:teaser]
       @review_text      = params[:text]
@@ -172,7 +188,7 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
     #insert_statements << RDF::Statement.new(self.review_id, RDF::DC.audience, RDF::URI(self.review_audience)) if self.review_audience
         
     query = QUERY.insert_data(insert_statements).graph(REVIEWGRAPH)
-    puts query
+    puts "#{query}"
     result = REPO.insert_data(query)
     
   end
@@ -254,8 +270,9 @@ class API < Grape::API
       content_type 'json'
       review = Review.new
       result = review.create(params)
-           
       throw :error, :status => 400, :message => "Sorry, #{params[:isbn]} matches no known book in our base" unless result
+      throw :error, :status => 400, :message => "Sorry, \"#{params[:api_key]}\" is not a valid api key" if result == "Invalid apikey"
+      throw :error, :status => 400, :message => "Sorry, unable to generate unique ID of review" if result == "Invalid UID"
       header['Content-Type'] = 'application/json; charset=utf-8' 
       {:request => params, :result => result, :review => review.to_hash }
     end

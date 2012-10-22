@@ -1,8 +1,8 @@
 GIT
   remote: http://github.com/digibib/rdf-virtuoso.git
-  revision: e8b9c12a5120bcb2785065ac0a05d0b99fa72ede
+  revision: 9eb3ff0cb1c47de5eb102c8404d866d0cdd58844
   specs:
-    rdf-virtuoso (0.0.14)
+    rdf-virtuoso (0.0.15)
       active_attr
       activesupport (~> 3.2.3)
       api_smith (~> 1.2.0)
