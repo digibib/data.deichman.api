@@ -20,17 +20,13 @@ BOOKGRAPH   = RDF::URI(repository["bookgraph"])
 APIGRAPH    = RDF::URI(repository["apigraph"])
 QUERY       = RDF::Virtuoso::Query
 
-class Review
-  attr_accessor :review_id, :review_title, :review_abstract, :review_text, :review_source, :review_reviewer, :review_audience
-  attr_reader   :book_id, :book_title, :isbn, :work_id
-                
-  def initialize
-  end
+Work = Struct.new(:book_id, :book_title, :isbn, :work_id, :author, :reviews)
 
-  def find(params = {})
+Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :review_source, :review_reviewer, :review_audience) do
+  def find_reviews(params = {})
     # find reviews by uri, isbn, title/author
     
-    selects = [:uri, :isbn, :book_title, :issued, :review_title, :review_abstract, :review_text, :review_source, :reviewer, :review_publisher]
+    selects = [:uri, :book, :isbn, :book_title, :issued, :modified, :review_title, :review_abstract, :review_text, :review_source, :reviewer, :review_publisher]
     
     if params.has_key?(:uri)
       begin 
@@ -63,6 +59,7 @@ class Review
       [:book, RDF::DC.creator, :author_id, :context => BOOKGRAPH],
       [:author_id, RDF::FOAF.name, :author, :context => BOOKGRAPH]    # should we really require foaf:name on book author?
       )
+    query.optional([uri, RDF::DC.modified, :modified, :context => REVIEWGRAPH])
     query.optional([uri, RDF::REV.title, :review_title, :context => REVIEWGRAPH])
     query.optional([uri, RDF::DC.abstract, :review_abstract, :context => REVIEWGRAPH])
     query.optional([uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH])
@@ -85,14 +82,25 @@ class Review
     end
     query.limit(50)
 
+    puts query
     solutions = REPO.select(query)
+    puts solutions.first.inspect
     reviews = []
+    #solutions.first[:work_id].to_s
+    #solutions.first[:author].to_s
+    solutions.first[:book_title].to_s
+    work = Work.new
+    work.book_id = solutions.first[:book].to_s
+    work.book_title = solutions.first[:book_title].to_s
+    work.isbn = solutions.first[:isbn] ? solutions.first[:isbn] : isbn
+    work.author = solutions.first[:author].to_s
+    
     solutions.each do |solution|
       s = {}
       solution.each_binding { |name, value| s[name] = value.to_s }
       reviews.push(s)
     end
-    reviews
+    work
   end  
   
   def find_source_by_apikey(api_key)
@@ -238,6 +246,7 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
   
   # methods to export class instance variables to hash
   # necessary to export JSON
+  
   def to_hash
       hash = {}
       self.instance_variables.each do |var|
@@ -254,6 +263,19 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
   end
 end
 
+# patched Struct and Hash classes to allow easy conversion
+class Struct
+  def to_hash
+    Hash[*members.zip(values).flatten]
+  end
+end
+
+class Hash
+  def to_struct(name)
+    Struct.new(name, *keys).new(*values)
+  end
+end
+ 
 class API < Grape::API
   prefix 'api'
   format :json
@@ -269,7 +291,10 @@ class API < Grape::API
       end
     get "/" do
     content_type 'json'
-      reviews = Review.new.find(params)
+      work = Work.new
+      work.reviews = Review.new.find_reviews(params)
+      
+      #reviews = Review.new.find_reviews(params)
       throw :error, :status => 400, :message => "\"#{params[:uri]}\" is not a valid URI" if reviews == "Invalid URI"
       throw :error, :status => 200, :message => "no reviews found" if reviews.empty?
       header['Content-Type'] = 'application/json; charset=utf-8'
@@ -313,7 +338,7 @@ class API < Grape::API
     put "/" do
       content_type 'json'
       # is it in the base?
-      review = Review.new.find(params[:uri] => params[:uri])
+      review = Review.new.find_reviews(params[:uri] => params[:uri])
       throw :error, :status => 400, :message => "Sorry, \"#{params[:uri]}\" matches no review in our base" if review.empty?
       # yes, then update
       result = Review.new.update(params)
@@ -330,7 +355,7 @@ class API < Grape::API
     delete "/" do
       content_type 'json'
       # is it in the base?
-      review = Review.new.find(params)
+      review = Review.new.find_reviews(params)
       throw :error, :status => 400, :message => "Sorry, \"#{params[:uri]}\" matches no review in our base" if review.empty?
       # yes, then delete it!
       result = Review.new.delete(params)
