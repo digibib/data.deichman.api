@@ -1,19 +1,6 @@
 GIT
-  remote: http://github.com/digibib/rdf-virtuoso.git
-  revision: 9eb3ff0cb1c47de5eb102c8404d866d0cdd58844
-  specs:
-    rdf-virtuoso (0.0.15)
-      active_attr
-      activesupport (~> 3.2.3)
-      api_smith (~> 1.2.0)
-      httparty (~> 0.8.2)
-      rdf (~> 0.3.7)
-      transaction-simple (~> 1.4.0)
-      uuid (~> 2.3.5)
-
-GIT
   remote: https://github.com/intridea/grape.git
-  revision: 53cbb5855c82ec6463dfb31705f76fd5ec22859d
+  revision: e2f640393757f75c282973b6f3f9947dd6ce0937
   specs:
     grape (0.2.3)
       activesupport
@@ -28,12 +15,6 @@ GIT
 GEM
   remote: http://rubygems.org/
   specs:
-    active_attr (0.6.0)
-      activemodel (>= 3.0.2, < 4.1)
-      activesupport (>= 3.0.2, < 4.1)
-    activemodel (3.2.8)
-      activesupport (= 3.2.8)
-      builder (~> 3.0.0)
     activesupport (3.2.8)
       i18n (~> 0.6)
       multi_json (~> 1.0)
@@ -43,14 +24,11 @@ GEM
       httparty
       net-http-persistent
     backports (2.6.4)
-    builder (3.0.4)
     hashie (1.2.0)
     httparty (0.8.3)
       multi_json (~> 1.0)
       multi_xml
     i18n (0.6.1)
-    macaddr (1.6.1)
-      systemu (~> 2.5.0)
     multi_json (1.3.6)
     multi_xml (0.5.1)
     net-http-persistent (2.8)
@@ -63,10 +41,10 @@ GEM
       rack (>= 1.0)
     rdf (0.3.8)
       addressable (>= 2.2.6)
-    systemu (2.5.2)
-    transaction-simple (1.4.0.2)
-    uuid (2.3.5)
-      macaddr (~> 1.0)
+    rdf-virtuoso (0.1.0)
+      api_smith (~> 1.2.0)
+      httparty (~> 0.8.2)
+      rdf (~> 0.3.7)
     virtus (0.5.2)
       backports (~> 2.6.1)
 
@@ -77,4 +55,4 @@ DEPENDENCIES
   grape!
   rack-test
   rdf
-  rdf-virtuoso!
+  rdf-virtuoso

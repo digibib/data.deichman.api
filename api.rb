@@ -20,13 +20,13 @@ BOOKGRAPH   = RDF::URI(repository["bookgraph"])
 APIGRAPH    = RDF::URI(repository["apigraph"])
 QUERY       = RDF::Virtuoso::Query
 
-Work = Struct.new(:book_id, :book_title, :isbn, :work_id, :author, :reviews)
+Work = Struct.new(:book_title, :isbn, :book_id, :work_id, :author, :reviews)
+Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :review_source, :reviewer, :review_audience, :issued, :modified) do
 
-Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :review_source, :review_reviewer, :review_audience) do
   def find_reviews(params = {})
     # find reviews by uri, isbn, title/author
     
-    selects = [:uri, :book, :isbn, :book_title, :issued, :modified, :review_title, :review_abstract, :review_text, :review_source, :reviewer, :review_publisher]
+    selects = [:uri, :book_id, :work_id, :isbn, :book_title, :issued, :modified, :review_title, :review_abstract, :review_text, :review_source, :reviewer, :review_publisher]
     
     if params.has_key?(:uri)
       begin 
@@ -48,15 +48,17 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
       isbn          = :isbn
     end
 
+    # query RDF store for work and reviews
     query = QUERY.select(*selects)
     query.group_digest(:author, ', ', 1000, 1)
     query.distinct.where(
       [uri, RDF.type, RDF::REV.Review, :context => REVIEWGRAPH],
-      [uri, RDF::DEICHMAN.basedOnManifestation, :book, :context => REVIEWGRAPH],
+      [uri, RDF::DEICHMAN.basedOnManifestation, :book_id, :context => REVIEWGRAPH],
       [uri, RDF::DC.issued, :issued, :context => REVIEWGRAPH],
-      [:book, RDF::BIBO.isbn, isbn, :context => BOOKGRAPH],
-      [:book, RDF::DC.title, :book_title, :context => BOOKGRAPH],
-      [:book, RDF::DC.creator, :author_id, :context => BOOKGRAPH],
+      [:book_id, RDF::BIBO.isbn, isbn, :context => BOOKGRAPH],
+      [:book_id, RDF::DC.title, :book_title, :context => BOOKGRAPH],
+      [:book_id, RDF::DC.creator, :author_id, :context => BOOKGRAPH],
+      [:work_id, RDF::FABIO.hasManifestation, :book_id, :context => BOOKGRAPH],
       [:author_id, RDF::FOAF.name, :author, :context => BOOKGRAPH]    # should we really require foaf:name on book author?
       )
     query.optional([uri, RDF::DC.modified, :modified, :context => REVIEWGRAPH])
@@ -84,23 +86,47 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
 
     puts query
     solutions = REPO.select(query)
-    puts solutions.first.inspect
-    reviews = []
-    #solutions.first[:work_id].to_s
-    #solutions.first[:author].to_s
-    solutions.first[:book_title].to_s
-    work = Work.new
-    work.book_id = solutions.first[:book].to_s
-    work.book_title = solutions.first[:book_title].to_s
-    work.isbn = solutions.first[:isbn] ? solutions.first[:isbn] : isbn
-    work.author = solutions.first[:author].to_s
     
-    solutions.each do |solution|
-      s = {}
-      solution.each_binding { |name, value| s[name] = value.to_s }
-      reviews.push(s)
+    works = []
+    unless solutions.empty?
+        solutions.each do |solution|
+          # use already defined Work if present
+          work = works.find {|w| w[:work_id] == solution[:work_id].to_s}
+          # or make a new Work object
+          unless work
+            work = Work.new(
+                            solution[:book_title].to_s,
+                            solution[:isbn] ? solution[:isbn].to_s : isbn,
+                            solution[:book_id].to_s,
+                            solution[:work_id].to_s,
+                            solution[:author].to_s
+                            )
+            work.reviews = []
+          end
+          # and fill with reviews
+          review = Review.new(
+                          solution[:uri] ? solution[:uri].to_s : uri,
+                          solution[:review_title].to_s,
+                          solution[:review_abstract].to_s,
+                          solution[:review_text].to_s,
+                          solution[:review_source].to_s,
+                          solution[:reviewer].to_s,
+                          solution[:review_audience].to_s,
+                          solution[:issued].to_s,
+                          solution[:modified].to_s
+                          )
+          work.reviews << review
+
+        # append to or replace work in works array
+        unless works.any? {|w| w[:work_id] == solution[:work_id].to_s}
+          works << work
+        else
+          works.map! {|w| (w[:work_id] == solution[:work_id].to_s) ? work : w }
+        end
+
+      end
     end
-    work
+    works
   end  
   
   def find_source_by_apikey(api_key)
@@ -121,17 +147,16 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     source = solutions.first[:source]
   end
   
-  def autoincrement_source
+  def autoincrement_source(review_source = nil)
     # This method uses Virtuoso's internal sequence function to generate unique ID from api_key mapped to source
     # sql:sequence_next("GRAPH_IDENTIFIER") => returns next sequence from GRAPH_IDENTIFIER
     # sql:sequence_set("GRAPH_IDENTIFIER", new_sequence_number, ignorelower_boolean) => sets sequence number
     # get unique sequential id by CONSTRUCTing an id based on source URI
-
-    if self.review_source
+    if review_source
       query = <<-EOQ
-PREFIX rev: <http://purl.org/stuff/rev#>
-CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(str(?source), "http://data.deichman.no/sources/", ""), "/id_", str(bif:sequence_next ('#{self.review_source}', 1, ?source)) ) )` a rev:Review } 
-  WHERE { <#{self.review_source}> a rdfs:Resource ; rdfs:label ?label . ?source a rdfs:Resource ; rdfs:label ?label } ORDER BY(?source) LIMIT 1 
+  PREFIX rev: <http://purl.org/stuff/rev#>
+  CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(str(?source), "http://data.deichman.no/sources/", ""), "/id_", str(bif:sequence_next ('#{review_source}', 1, ?source)) ) )` a rev:Review } 
+  WHERE { <#{review_source}> a rdfs:Resource ; rdfs:label ?label . ?source a rdfs:Resource ; rdfs:label ?label } ORDER BY(?source) LIMIT 1 
   EOQ
       # nb: to reset count use sequence_set instead, with an iri f.ex. like this:
       # `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(str(?source), "http://data.deichman.no/sources/", ""), "/id_", str(bif:sequence_next ('#{self.review_source}', 0, 0)) ) )`
@@ -146,18 +171,20 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
   def create(params)
     # create new review here
     # first use api_key parameter to fetch source
-    @review_source = find_source_by_apikey(params[:api_key])
-    return "Invalid apikey" unless @review_source
+    review_source = find_source_by_apikey(params[:api_key])
+    return "Invalid apikey" unless review_source
     
-    @isbn = params[:isbn].strip.gsub(/[^0-9]/, '')
+    isbn = params[:isbn].strip.gsub(/[^0-9]/, '')
     
     # lookup book based on isbn
-    query = QUERY.select(:book_id, :book_title, :work_id)
+    query = QUERY.select(:book_id, :book_title, :work_id, :author)
     query.from(BOOKGRAPH)
     query.where(
-      [:book_id, RDF::BIBO.isbn, "#{@isbn}"],
+      [:book_id, RDF::BIBO.isbn, "#{isbn}"],
       [:book_id, RDF.type, RDF::BIBO.Document],
       [:book_id, RDF::DC.title, :book_title],
+      [:book_id, RDF::DC.creator, :creator],
+      [:creator, RDF::FOAF.name, :author],
       [:work_id, RDF::FABIO.hasManifestation, :book_id]
       )
     puts "#{query}"
@@ -165,30 +192,40 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
 
     # populate review attributes
     unless solutions.empty?
-      @review_id        = autoincrement_source
-      return "Invalid UID" unless @review_id
-      @book_id          = solutions.first[:book_id]
-      @book_title       = solutions.first[:book_title]
-      @work_id          = solutions.first[:work_id]
-      @review_title     = params[:title]
-      @review_abstract  = params[:teaser]
-      @review_text      = params[:text]
-      @review_reviewer  = params[:reviewer] if params[:reviewer] 
-      @review_audience  = params[:audience] if params[:audience]
+      review_id = autoincrement_source(review_source)
+      return "Invalid UID" unless review_id
+      work = Work.new(
+          solutions.first[:book_title],
+          isbn,
+          solutions.first[:book_id],
+          solutions.first[:work_id],
+          solutions.first[:author]
+          )
+      work.reviews = Review.new(
+          review_id,
+          params[:title],
+          params[:teaser],
+          params[:text],
+          review_source,
+          params[:reviewer] ? params[:reviewer] : nil,
+          params[:audience] ? params[:audience] : nil,
+          Time.now.xmlschema,
+          Time.now.xmlschema
+          )
     else
-      return nil # break out if isbn returns no hits
+      return "Invalid ISBN" # break out if isbn returns no hits
     end    
     
     insert_statements = []
-    insert_statements << RDF::Statement.new(self.review_id, RDF.type, RDF::REV.Review)
-    insert_statements << RDF::Statement.new(self.review_id, RDF::DC.source, RDF::URI(self.review_source))
-    insert_statements << RDF::Statement.new(self.review_id, RDF::REV.title, RDF::Literal(self.review_title))
-    insert_statements << RDF::Statement.new(self.review_id, RDF::DC.abstract, RDF::Literal(self.review_abstract))
-    insert_statements << RDF::Statement.new(self.review_id, RDF::REV.text, RDF::Literal(self.review_text))
-    insert_statements << RDF::Statement.new(self.review_id, RDF::DC.subject, RDF::URI(self.work_id))
-    insert_statements << RDF::Statement.new(self.review_id, RDF::DEICHMAN.basedOnManifestation, RDF::URI(self.book_id))
-    insert_statements << RDF::Statement.new(self.review_id, RDF::DC.created, RDF::Literal(Time.now.xmlschema, :datatype => RDF::XSD.dateTime))
-    insert_statements << RDF::Statement.new(self.review_id, RDF::DC.issued, RDF::Literal(Time.now.xmlschema, :datatype => RDF::XSD.dateTime))
+    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF.type, RDF::REV.Review)
+    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.source, RDF::URI(work.reviews.review_source))
+    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::REV.title, RDF::Literal(work.reviews.review_title))
+    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.abstract, RDF::Literal(work.reviews.review_abstract))
+    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::REV.text, RDF::Literal(work.reviews.review_text))
+    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.subject, RDF::URI(work.work_id))
+    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DEICHMAN.basedOnManifestation, RDF::URI(work.book_id))
+    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.issued, RDF::Literal(work.reviews.issued, :datatype => RDF::XSD.dateTime))
+    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.modified, RDF::Literal(work.reviews.modified, :datatype => RDF::XSD.dateTime))
     
     # optionals
     # need lookup in rdf store before these can be used!
@@ -198,43 +235,46 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
     query = QUERY.insert_data(insert_statements).graph(REVIEWGRAPH)
     puts "#{query}"
     result = REPO.insert_data(query)
-    
+    return work
   end
   
   def update(params = {})
     # update review here
     # first use api_key parameter to fetch source
-    @review_source = find_source_by_apikey(params[:api_key])
-    source = RDF::URI(@review_source)
+    review_source = find_source_by_apikey(params[:api_key])
+    source = RDF::URI(review_source)
     uri    = RDF::URI(params[:uri])
     
     # handle modified variables from given params
     puts "params before:\n #{params}"
-    delete_params = ['uri', 'api_key', 'route_info', 'method', 'path']
-    params_map = {'title' => '@review_title', 
-                  'teaser' => '@review_abstract', 
-                  'text' => '@review_text', 
-                  'reviewer' => '@review_reviewer', 
-                  'audience' => '@review_audience'}
+    unwanted_params = ['uri', 'api_key', 'route_info', 'method', 'path']
+    mapped_params   = {
+                      'title'    => 'review_title', 
+                      'teaser'   => 'review_abstract', 
+                      'text'     => 'review_text', 
+                      'reviewer' => 'review_reviewer', 
+                      'audience' => 'review_audience'
+                      }
     
-    delete_params.each {|d| params.delete(d)}
-    params.keys.each { |k| params[ params_map[k] ] = params.delete(k) if params_map[k] }
+    unwanted_params.each {|d| params.delete(d)}
+    params.keys.each     {|k| params[ mapped_params[k] ] = params.delete(k) if mapped_params[k] }
     
     puts "params after:\n #{params}"
     
-    puts "before update:\n#{self.to_hash}"
+    puts "before update:\n#{self}"
     # update review from new params
-    self.from_json! params.to_json
-    puts "after update:\n#{self.to_hash}"
-    
+    params.each{|k,v| self[k] = v}
+    #new = params.to_struct "Review"
+    puts "after update:\n#{self}"
+    self
   end
   
   def delete(params = {})
     # delete review here
     # first use api_key parameter to fetch source
 
-    @review_source = find_source_by_apikey(params[:api_key])
-    source = RDF::URI(@review_source)
+    review_source = find_source_by_apikey(params[:api_key])
+    source = RDF::URI(review_source)
     uri    = RDF::URI(params[:uri])
     
     # then delete review, but only if source matches
@@ -244,29 +284,17 @@ CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(
     result = REPO.delete(query)
   end
   
-  # methods to export class instance variables to hash
-  # necessary to export JSON
-  
-  def to_hash
-      hash = {}
-      self.instance_variables.each do |var|
-          hash[var.to_s.delete("@")] = self.instance_variable_get var
-      end
-      hash
-  end
-  # method to import JSON to class instant variables
-  # currently not used
-  def from_json! string
-      JSON.load(string).each do |var, val|
-          self.instance_variable_set var, val
-      end
-  end
 end
 
-# patched Struct and Hash classes to allow easy conversion
+# patched Struct and Hash classes to allow easy conversion to/from JSON and Hash
 class Struct
-  def to_hash
-    Hash[*members.zip(values).flatten]
+  def to_map
+    map = Hash.new
+    self.members.each { |m| map[m] = self[m] }
+    map
+  end
+  def to_json(*a)
+    to_map.to_json(*a)
   end
 end
 
@@ -291,14 +319,11 @@ class API < Grape::API
       end
     get "/" do
     content_type 'json'
-      work = Work.new
-      work.reviews = Review.new.find_reviews(params)
-      
-      #reviews = Review.new.find_reviews(params)
-      throw :error, :status => 400, :message => "\"#{params[:uri]}\" is not a valid URI" if reviews == "Invalid URI"
-      throw :error, :status => 200, :message => "no reviews found" if reviews.empty?
+      works = Review.new.find_reviews(params)
+      throw :error, :status => 400, :message => "\"#{params[:uri]}\" is not a valid URI" if works == "Invalid URI"
+      throw :error, :status => 200, :message => "no reviews found" if works.empty?
       header['Content-Type'] = 'application/json; charset=utf-8'
-      { :request => params, :reviews => reviews }
+      { :request => params, :work => works }
     end
 
     desc "creates a review"
@@ -314,13 +339,12 @@ class API < Grape::API
       end
     post "/" do
       content_type 'json'
-      review = Review.new
-      result = review.create(params)
-      throw :error, :status => 400, :message => "Sorry, #{params[:isbn]} matches no known book in our base" unless result
-      throw :error, :status => 400, :message => "Sorry, \"#{params[:api_key]}\" is not a valid api key" if result == "Invalid apikey"
-      throw :error, :status => 400, :message => "Sorry, unable to generate unique ID of review" if result == "Invalid UID"
+      work = Review.new.create(params)
+      throw :error, :status => 400, :message => "Sorry, #{params[:isbn]} matches no known book in our base" if work == "Invalid ISBN"
+      throw :error, :status => 400, :message => "Sorry, \"#{params[:api_key]}\" is not a valid api key" if work == "Invalid apikey"
+      throw :error, :status => 400, :message => "Sorry, unable to generate unique ID of review" if work == "Invalid UID"
       header['Content-Type'] = 'application/json; charset=utf-8' 
-      {:request => params, :result => result, :review => review.to_hash }
+      {:request => params, :work => work }
     end
 
     desc "updates a review"
@@ -338,13 +362,15 @@ class API < Grape::API
     put "/" do
       content_type 'json'
       # is it in the base?
-      review = Review.new.find_reviews(params[:uri] => params[:uri])
-      throw :error, :status => 400, :message => "Sorry, \"#{params[:uri]}\" matches no review in our base" if review.empty?
+      old = Review.new
+      old = Review.new.find_reviews(params)
+      throw :error, :status => 400, :message => "Sorry, \"#{params[:uri]}\" matches no review in our base" if old.empty?
       # yes, then update
-      result = Review.new.update(params)
-      throw :error, :status => 400, :message => "Sorry, unable to update review #{params[:uri]} ..." if result =~ /nothing to do/
+      puts old
+      new = old.first.reviews.first.update(params)
+      #throw :error, :status => 400, :message => "Sorry, unable to update review #{params[:uri]} ..." if result =~ /nothing to do/
       header['Content-Type'] = 'application/json; charset=utf-8' 
-      {:request => params, :review => review, :result => result }
+      {:request => params, :old => old, :new => new }
     end
 
     desc "deletes a review"
@@ -361,7 +387,7 @@ class API < Grape::API
       result = Review.new.delete(params)
       throw :error, :status => 400, :message => "Sorry, unable to delete review #{params[:uri]} ..." if result =~ /nothing to do/
       header['Content-Type'] = 'application/json; charset=utf-8' 
-      {:request => params, :review => review, :result => result }
+      {:request => params, :result => result, :review => review }
     end
   end
 end
