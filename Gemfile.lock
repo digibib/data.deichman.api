@@ -12,14 +12,6 @@ GIT
       rack-mount
       virtus
 
-PATH
-  remote: ../rdf-virtuoso
-  specs:
-    rdf-virtuoso (0.1.0)
-      api_smith (~> 1.2.0)
-      httparty (~> 0.8.2)
-      rdf (~> 0.3.7)
-
 GEM
   remote: http://rubygems.org/
   specs:
@@ -49,6 +41,10 @@ GEM
       rack (>= 1.0)
     rdf (0.3.8)
       addressable (>= 2.2.6)
+    rdf-virtuoso (0.1.0)
+      api_smith (~> 1.2.0)
+      httparty (~> 0.8.2)
+      rdf (~> 0.3.7)
     virtus (0.5.2)
       backports (~> 2.6.1)
 
@@ -59,4 +55,4 @@ DEPENDENCIES
   grape!
   rack-test
   rdf
-  rdf-virtuoso!
+  rdf-virtuoso

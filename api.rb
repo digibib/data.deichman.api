@@ -85,7 +85,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     end
     query.limit(50)
 
-    puts query
+    #puts query
     solutions = REPO.select(query)
     
     works = []
@@ -148,7 +148,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
       [:source, RDF::RDFS.label, :label],
       [:source, RDF::DEICHMAN.apikey, "#{api_key}"])
     query.limit(1)
-    puts query
+    #puts query
     solutions = REPO.select(query)
     return nil if solutions.empty?
     source = solutions.first[:source]
@@ -167,7 +167,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
   EOQ
       # nb: to reset count use sequence_set instead, with an iri f.ex. like this:
       # `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(str(?source), "http://data.deichman.no/sources/", ""), "/id_", str(bif:sequence_next ('#{self.review_source}', 0, 0)) ) )`
-      puts "#{query}"
+      #puts "#{query}"
       solutions = REPO.construct(query)
       
       return nil if solutions.empty?
@@ -194,7 +194,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
       [:creator, RDF::FOAF.name, :author],
       [:work_id, RDF::FABIO.hasManifestation, :book_id]
       )
-    puts "#{query}"
+    #puts "#{query}"
     solutions = REPO.select(query)
 
     # populate review attributes
@@ -240,7 +240,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     #insert_statements << RDF::Statement.new(self.review_id, RDF::DC.audience, RDF::URI(self.review_audience)) if self.review_audience
         
     query = QUERY.insert_data(insert_statements).graph(REVIEWGRAPH)
-    puts "#{query}"
+    #puts "#{query}"
     result = REPO.insert_data(query)
     return work
   end
@@ -249,31 +249,58 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     # update review here
     # first use api_key parameter to fetch source
     review_source = find_source_by_apikey(params[:api_key])
-    source = RDF::URI(review_source)
-    uri    = RDF::URI(params[:uri])
+    return "Invalid apikey" unless review_source
     
+    work   = self.find_reviews(params).first
+    review = work.reviews.first 
     # handle modified variables from given params
-    puts "params before:\n #{params}"
+    #puts "params before:\n #{params}"
     unwanted_params = ['uri', 'api_key', 'route_info', 'method', 'path']
     mapped_params   = {
                       'title'    => 'review_title', 
                       'teaser'   => 'review_abstract', 
                       'text'     => 'review_text', 
-                      'reviewer' => 'review_reviewer', 
+                      'reviewer' => 'reviewer', 
                       'audience' => 'review_audience'
                       }
     
     unwanted_params.each {|d| params.delete(d)}
     params.keys.each     {|k| params[ mapped_params[k] ] = params.delete(k) if mapped_params[k] }
     
-    puts "params after:\n #{params}"
+    #puts "params after:\n #{params}"
     
-    puts "before update:\n#{self}"
+    #puts "before update:\n#{work}"
     # update review from new params
-    params.each{|k,v| self[k] = v}
+    params.each{|k,v| review[k] = v}
     #new = params.to_struct "Review"
-    puts "after update:\n#{self}"
-    self
+    #puts "after update:\n#{work}"
+    
+    # SPARQL UPDATE
+    deletequery = QUERY.delete([review.review_id, :p, :o]).graph(REVIEWGRAPH)
+    deletequery.where([review.review_id, :p, :o]).minus([review.review_id, RDF::DC.issued, :o])
+    #puts "deletequery:\n #{deletequery}"
+    result = REPO.delete(deletequery)
+    #puts "delete result:\n #{result}"
+    
+    insert_statements = []
+    insert_statements << RDF::Statement.new(review.review_id, RDF.type, RDF::REV.Review)
+    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.source, RDF::URI(review.review_source))
+    insert_statements << RDF::Statement.new(review.review_id, RDF::REV.title, RDF::Literal(review.review_title))
+    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.abstract, RDF::Literal(review.review_abstract))
+    insert_statements << RDF::Statement.new(review.review_id, RDF::REV.text, RDF::Literal(review.review_text))
+    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.subject, RDF::URI(work.work_id))
+    insert_statements << RDF::Statement.new(review.review_id, RDF::DEICHMAN.basedOnManifestation, RDF::URI(work.book_id))
+    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.modified, RDF::Literal(review.modified, :datatype => RDF::XSD.dateTime))
+    
+    # optionals
+    # need lookup in rdf store before these can be used!
+    #insert_statements << RDF::Statement.new(review.review_id, RDF::REV.reviewer, RDF::URI(review.review_reviewer)) if review.review_reviewer
+    #insert_statements << RDF::Statement.new(review.review_id, RDF::DC.audience, RDF::URI(review.review_audience)) if review.review_audience
+    insertquery = QUERY.insert_data(insert_statements).graph(REVIEWGRAPH)
+    #puts "insertquery:\n #{insert_statements.to_s}"
+    result = REPO.insert_data(insertquery)
+    #puts "insert result:\n #{result}"    
+    work
   end
   
   def delete(params = {})
@@ -286,7 +313,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     
     # then delete review, but only if source matches
     query = QUERY.delete([uri, :p, :o]).where([uri, RDF::DC.source, source], [uri, :p, :o]).graph(REVIEWGRAPH)
-    puts "#{query}"
+    #puts "#{query}"
     
     result = REPO.delete(query)
   end
@@ -369,15 +396,14 @@ class API < Grape::API
     put "/" do
       content_type 'json'
       # is it in the base?
-      old = Review.new
-      old = Review.new.find_reviews(params)
-      throw :error, :status => 400, :message => "Sorry, \"#{params[:uri]}\" matches no review in our base" if old.empty?
+      before = Review.new.find_reviews(params)
+      throw :error, :status => 400, :message => "Sorry, \"#{params[:uri]}\" matches no review in our base" if before.empty?
       # yes, then update
-      puts old
-      new = old.first.reviews.first.update(params)
+      after = Review.new.update(params)
+      #after = after.first.reviews.first.update(params)
       #throw :error, :status => 400, :message => "Sorry, unable to update review #{params[:uri]} ..." if result =~ /nothing to do/
       header['Content-Type'] = 'application/json; charset=utf-8' 
-      {:request => params, :old => old, :new => new }
+      {:request => params, :after => after, :before => before }
     end
 
     desc "deletes a review"
