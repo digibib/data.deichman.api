@@ -26,7 +26,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
   def find_reviews(params = {})
     # find reviews by uri, isbn, title/author
     
-    selects = [:uri, :book_id, :work_id, :isbn, :book_title, :issued, :modified, :review_title, :review_abstract, :review_text, :review_source, :reviewer, :review_publisher]
+    selects = [:uri, :book_id, :work_id, :book_title, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer, :review_publisher]
     
     if params.has_key?(:uri)
       begin 
@@ -38,7 +38,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
         return "Invalid URI"
       end
     elsif params.has_key?(:isbn)
-      selects.delete(:isbn)
+      #selects.delete(:isbn)
       uri           = :uri
       isbn          = "#{params[:isbn].strip.gsub(/[^0-9]/, '')}"
     else
@@ -51,6 +51,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     # query RDF store for work and reviews
     query = QUERY.select(*selects)
     query.group_digest(:author, ', ', 1000, 1)
+    query.group_digest(:isbn, ', ', 1000, 1)
     query.distinct.where(
       [uri, RDF.type, RDF::REV.Review, :context => REVIEWGRAPH],
       [uri, RDF::DEICHMAN.basedOnManifestation, :book_id, :context => REVIEWGRAPH],
@@ -64,7 +65,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     query.optional([uri, RDF::DC.modified, :modified, :context => REVIEWGRAPH])
     query.optional([uri, RDF::REV.title, :review_title, :context => REVIEWGRAPH])
     query.optional([uri, RDF::DC.abstract, :review_abstract, :context => REVIEWGRAPH])
-    query.optional([uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH])
+    #query.optional([uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH])
     query.optional([uri, RDF::DC.source, :review_source, :context => REVIEWGRAPH])
     query.optional([uri, RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
                    [:reviewer_id, RDF::FOAF.name, :reviewer, :context => REVIEWGRAPH])
@@ -104,11 +105,17 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
             work.reviews = []
           end
           # and fill with reviews
+          # append text of reviews here to avvoid "Temporary row length exceeded error" in Virtuoso on sorting long texts
+          review_uri = solution[:uri] ? solution[:uri] : uri
+          query = QUERY.select(:review_text).where([review_uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH])
+          review_text = REPO.select(query).first[:review_text].to_s
+          
           review = Review.new(
                           solution[:uri] ? solution[:uri].to_s : uri,
                           solution[:review_title].to_s,
                           solution[:review_abstract].to_s,
-                          solution[:review_text].to_s,
+                          #solution[:review_text].to_s,
+                          review_text,
                           solution[:review_source].to_s,
                           solution[:reviewer].to_s,
                           solution[:review_audience].to_s,

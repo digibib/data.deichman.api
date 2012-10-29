@@ -9,7 +9,7 @@ GRANT SPARQL_UPDATE TO "admin";
 -- the whole storage becomes confidential: 
 DB.DBA.RDF_DEFAULT_USER_PERMS_SET ('nobody', 0);
 
--- Allow anonymous read on public graphs
+-- Allow anonymous SPARQL on public graphs
 DB.DBA.RDF_GRAPH_USER_PERMS_SET ('http://data.deichman.no/books', 'nobody', 1);
 DB.DBA.RDF_GRAPH_USER_PERMS_SET ('http://data.deichman.no/reviews', 'nobody', 1);
 
