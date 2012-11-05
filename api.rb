@@ -20,13 +20,13 @@ BOOKGRAPH   = RDF::URI(repository["bookgraph"])
 APIGRAPH    = RDF::URI(repository["apigraph"])
 QUERY       = RDF::Virtuoso::Query
 
-Work = Struct.new(:book_title, :isbn, :book_id, :work_id, :author, :reviews)
+Work = Struct.new(:book_title, :isbn, :book_id, :work_id, :author, :cover_url, :reviews)
 Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :review_source, :reviewer, :review_audience, :issued, :modified) do
 
   def find_reviews(params = {})
     # find reviews by uri, isbn, title/author
     
-    selects = [:uri, :book_id, :work_id, :book_title, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer, :review_publisher]
+    selects = [:uri, :book_id, :work_id, :book_title, :cover_url, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer, :review_publisher]
     
     if params.has_key?(:uri)
       begin 
@@ -51,7 +51,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     # query RDF store for work and reviews
     query = QUERY.select(*selects)
     query.group_digest(:author, ', ', 1000, 1)
-    query.group_digest(:isbn, ', ', 1000, 1)
+    query.group_digest(:isbn, ', ', 1000, 1) if isbn == :isbn
     query.distinct.where(
       [uri, RDF.type, RDF::REV.Review, :context => REVIEWGRAPH],
       [uri, RDF::DEICHMAN.basedOnManifestation, :book_id, :context => REVIEWGRAPH],
@@ -62,9 +62,11 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
       [:work_id, RDF::FABIO.hasManifestation, :book_id, :context => BOOKGRAPH],
       [:author_id, RDF::FOAF.name, :author, :context => BOOKGRAPH]    # should we really require foaf:name on book author?
       )
+    query.optional([:book_id, RDF::FOAF.depiction, :cover_url, :context => BOOKGRAPH])
     query.optional([uri, RDF::DC.modified, :modified, :context => REVIEWGRAPH])
     query.optional([uri, RDF::REV.title, :review_title, :context => REVIEWGRAPH])
     query.optional([uri, RDF::DC.abstract, :review_abstract, :context => REVIEWGRAPH])
+    
     #query.optional([uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH])
     query.optional([uri, RDF::DC.source, :review_source, :context => REVIEWGRAPH])
     query.optional([uri, RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
@@ -85,7 +87,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     end
     query.limit(50)
 
-    #puts query
+    puts query
     solutions = REPO.select(query)
     
     works = []
@@ -100,7 +102,8 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
                             solution[:isbn] ? solution[:isbn].to_s : isbn,
                             solution[:book_id].to_s,
                             solution[:work_id].to_s,
-                            solution[:author].to_s
+                            solution[:author].to_s,
+                            solution[:cover_url].to_s
                             )
             work.reviews = []
           end
@@ -325,6 +328,8 @@ class Struct
   def to_map
     map = Hash.new
     self.members.each { |m| map[m] = self[m] }
+    # strip out empty struct values
+    map.reject! {|k,v| v.strip.empty? if v.is_a?(String) && v.respond_to?('empty?')}
     map
   end
   def to_json(*a)
