@@ -87,7 +87,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     end
     query.limit(50)
 
-    puts query
+    #puts query
     solutions = REPO.select(query)
     
     works = []

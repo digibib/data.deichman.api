@@ -5,12 +5,11 @@ REST API
 Alle POST/PUT/DELETE requests autentiseres med en API-nøkkel
 Resultatformat: JSON
 
-
 GET /reviews
 "Henter ut bokanbefalinger"
 ---------------------------------------------------------
-Parametere:
-	uri, isbn, author, title
+Parametre:
+	en eller flere av: uri, isbn, author, title
 	(author+title ignorert hvis isbn tilstede)
   (alt annet enn uri ignorert hvis uri tilstede)
 
@@ -24,12 +23,13 @@ Parametre:
 PUT /reviews
 "Oppdaterer  eksisterende anbefaling"
 ---------------------------------------------------------
-Parametere:
-	api_key, id/uri, isbn|title|teaser|text|reviewer|audience|source
+Parametre:
+	påkrevd: api_key, id/uri, 
+  valgfri: en eller flere av isbn|title|teaser|text|reviewer|audience|source
 
 
 DELETE /reviews
 "Sletter en anbefaling"
 ---------------------------------------------------------
-Parametere:
-	api_key, id/uri
+Parametre:
+	påkrevd: api_key, id/uri

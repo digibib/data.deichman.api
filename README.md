@@ -15,7 +15,7 @@ The API is open for anyone to use, but a key is required in order to write to th
 Parameters: `isbn`, `uri`, `author`, `title` 
 
 Other parameters will be ignored if `isbn` or `uri` is present.
-The `uri` can refer either to /bookreviews or /work. 
+The `uri` must refer to a bookreview. 
 
 Examples
 ```
@@ -24,6 +24,9 @@ http GET http://data.deichman.no/api/v1/reviews author="Knut Hamsun" title="Sult
 http GET http://data.deichman.no/api/v1/reviews author="Nesbø, Jo"
 http GET http://data.deichman.no/api/v1/reviews uri="http://data.deichman.no/bookreviews/deich3456"
 ```
+#### Returns
+
+JSON hash of one or more `work`, and an array of its `reviews`
 
 ### POST /reviews
 
@@ -41,9 +44,11 @@ http POST http://data.deichman.no/api/v1/reviews api_key="dummyapikey" isbn=9788
 
 #### Returns
 
-JSON hash of review and `uri` of review 
+JSON hash of one or more `work`, its `reviews` and `uri` of review 
 
 ### PUT /reviews
+
+Updates existing review
 
 #### Parameters
 
@@ -52,7 +57,7 @@ JSON hash of review and `uri` of review
 
 #### Returns
 
-JSON hash of modified review
+JSON hash of modified review, `before` and `after`
 
 ### DELETE /reviews
 
