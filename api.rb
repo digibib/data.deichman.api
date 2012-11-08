@@ -257,13 +257,18 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
       when 'barn/ungdom'
         insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/juvenile"))
       else
-        #
+        # insert nothing
       end
     end
 
     query = QUERY.insert_data(insert_statements).graph(REVIEWGRAPH)
     #puts "#{query}"
     result = REPO.insert_data(query)
+    
+    # also insert hasReview property on work
+    hasreview = RDF::Statement.new(RDF::URI(work.work_id), RDF::FABIO.hasReview, work.reviews.review_id)
+    workquery = QUERY.insert_data(insert_statements).graph(BOOKGRAPH)
+    result = REPO.insert_data(workquery)
     return work
   end
   
@@ -350,8 +355,11 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     # then delete review, but only if source matches
     query = QUERY.delete([uri, :p, :o]).where([uri, RDF::DC.source, source], [uri, :p, :o]).graph(REVIEWGRAPH)
     #puts "#{query}"
-    
     result = REPO.delete(query)
+    # and delete hasReview reference from work
+    workquery = QUERY.delete([:work, RDF::FABIO.hasReview, uri])
+    workquery.where([:work, RDF.type, RDF::FABIO.Work],[:work, RDF::FABIO.hasReview, uri]).graph(BOOKGRAPH)
+    result = REPO.delete(workquery)
   end
   
 end
@@ -379,14 +387,20 @@ end
 class API < Grape::API
   helpers do
     def logger
-      API.logger
+      logger = Logger.new(File.expand_path("../log/#{ENV['RACK_ENV']}.log", __FILE__))
     end
   end
-
+  
   prefix 'api'
   format :json
   default_format :json
 
+  before do
+    # Of course this makes the request.body unavailable afterwards.
+    # You can just use a helper method to store it away for later if needed. 
+    logger.info "#{env['REMOTE_ADDR']} #{env['HTTP_USER_AGENT']} #{env['REQUEST_METHOD']} #{env['REQUEST_PATH']} -- Request: #{request.body.read}"
+  end
+  
   resource :reviews do
     desc "returns reviews"
       params do
@@ -398,11 +412,17 @@ class API < Grape::API
     get "/" do
     content_type 'json'
       works = Review.new.find_reviews(params)
-      throw :error, :status => 400, :message => "\"#{params[:uri]}\" is not a valid URI" if works == "Invalid URI"
-      throw :error, :status => 200, :message => "no reviews found" if works.empty?
-      logger.info "GET: params: #{params} - works: #{works.count}"
-      header['Content-Type'] = 'application/json; charset=utf-8'
-      { :request => params, :work => works }
+      if works == "Invalid URI"
+        logger.error "Invalid URI"
+        error!("\"#{params[:uri]}\" is not a valid URI", 400)
+      elsif works.empty? 
+        logger.info "no reviews found"
+        error!("no reviews found", 200)
+      else
+        logger.info "Works: #{works.count}"
+        header['Content-Type'] = 'application/json; charset=utf-8'
+        { :request => params, :work => works }
+      end
     end
 
     desc "creates a review"
@@ -419,10 +439,10 @@ class API < Grape::API
     post "/" do
       content_type 'json'
       work = Review.new.create(params)
-      throw :error, :status => 400, :message => "Sorry, #{params[:isbn]} matches no known book in our base" if work == "Invalid ISBN"
-      throw :error, :status => 400, :message => "Sorry, \"#{params[:api_key]}\" is not a valid api key" if work == "Invalid apikey"
-      throw :error, :status => 400, :message => "Sorry, unable to generate unique ID of review" if work == "Invalid UID"
-      logger.info "POST: params: #{params} - review: #{work.review}"
+      error!("Sorry, #{params[:isbn]} matches no known book in our base", 400) if work == "Invalid ISBN"
+      error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if work == "Invalid apikey"
+      error!("Sorry, unable to generate unique ID of review", 400) if work == "Invalid UID"
+      logger.info "POST: params: #{params} - review: #{work.reviews}"
       header['Content-Type'] = 'application/json; charset=utf-8' 
       {:request => params, :work => work }
     end
@@ -442,7 +462,7 @@ class API < Grape::API
       content_type 'json'
       # is it in the base?
       before = Review.new.find_reviews(params)
-      throw :error, :status => 400, :message => "Sorry, \"#{params[:uri]}\" matches no review in our base" if before.empty?
+      error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if before.empty?
       # yes, then update
       after = Review.new.update(params)
       #after = after.first.reviews.first.update(params)
@@ -461,10 +481,10 @@ class API < Grape::API
       content_type 'json'
       # is it in the base?
       review = Review.new.find_reviews(params)
-      throw :error, :status => 400, :message => "Sorry, \"#{params[:uri]}\" matches no review in our base" if review.empty?
+      error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if review.empty?
       # yes, then delete it!
       result = Review.new.delete(params)
-      throw :error, :status => 400, :message => "Sorry, unable to delete review #{params[:uri]} ..." if result =~ /nothing to do/
+      error!("Sorry, unable to delete review #{params[:uri]} ...", 400) if result =~ /nothing to do/
       logger.info "DELETE: params: #{params} - result: #{result}"
       header['Content-Type'] = 'application/json; charset=utf-8' 
       {:request => params, :result => result, :review => review }
