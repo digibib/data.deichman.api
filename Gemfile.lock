@@ -24,6 +24,8 @@ GEM
       httparty
       net-http-persistent
     backports (2.6.5)
+    daemons (1.1.9)
+    eventmachine (1.0.0)
     hashie (1.2.0)
     httparty (0.8.3)
       multi_json (~> 1.0)
@@ -47,6 +49,10 @@ GEM
       rdf (~> 0.3.7)
     shotgun (0.9)
       rack (>= 1.0)
+    thin (1.5.0)
+      daemons (>= 1.0.9)
+      eventmachine (>= 0.12.6)
+      rack (>= 1.0.0)
     virtus (0.5.2)
       backports (~> 2.6.1)
 
@@ -59,3 +65,4 @@ DEPENDENCIES
   rdf
   rdf-virtuoso
   shotgun
+  thin

@@ -21,12 +21,12 @@ APIGRAPH    = RDF::URI(repository["apigraph"])
 QUERY       = RDF::Virtuoso::Query
 
 Work = Struct.new(:book_title, :isbn, :book_id, :work_id, :author, :cover_url, :reviews)
-Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :review_source, :reviewer, :review_audience, :issued, :modified) do
+Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :review_source, :reviewer, :review_audience, :created, :issued, :modified) do
 
   def find_reviews(params = {})
     # find reviews by uri, isbn, title/author
     
-    selects = [:uri, :book_id, :work_id, :book_title, :cover_url, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer, :review_publisher]
+    selects = [:uri, :book_id, :work_id, :book_title, :cover_url, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer, :review_publisher, :review_audience]
     
     if params.has_key?(:uri)
       begin 
@@ -55,24 +55,30 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     query.distinct.where(
       [uri, RDF.type, RDF::REV.Review, :context => REVIEWGRAPH],
       [uri, RDF::DEICHMAN.basedOnManifestation, :book_id, :context => REVIEWGRAPH],
+      [uri, RDF::DC.created, :created, :context => REVIEWGRAPH],
       [uri, RDF::DC.issued, :issued, :context => REVIEWGRAPH],
+      [uri, RDF::DC.modified, :modified, :context => REVIEWGRAPH],
       [:book_id, RDF::BIBO.isbn, isbn, :context => BOOKGRAPH],
       [:book_id, RDF::DC.title, :book_title, :context => BOOKGRAPH],
       [:book_id, RDF::DC.creator, :author_id, :context => BOOKGRAPH],
       [:work_id, RDF::FABIO.hasManifestation, :book_id, :context => BOOKGRAPH],
       [:author_id, RDF::FOAF.name, :author, :context => BOOKGRAPH]    # should we really require foaf:name on book author?
       )
+    # optional attributes
     query.optional([:book_id, RDF::FOAF.depiction, :cover_url, :context => BOOKGRAPH])
     query.optional([uri, RDF::DC.modified, :modified, :context => REVIEWGRAPH])
     query.optional([uri, RDF::REV.title, :review_title, :context => REVIEWGRAPH])
     query.optional([uri, RDF::DC.abstract, :review_abstract, :context => REVIEWGRAPH])
     
     #query.optional([uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH])
-    query.optional([uri, RDF::DC.source, :review_source, :context => REVIEWGRAPH])
+    query.optional([uri, RDF::DC.source, :review_source_id, :context => REVIEWGRAPH],
+      [:review_source_id, RDF::RDFS.label, :review_source, :context => BOOKGRAPH])
     query.optional([uri, RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
-                   [:reviewer_id, RDF::FOAF.name, :reviewer, :context => REVIEWGRAPH])
+      [:reviewer_id, RDF::FOAF.name, :reviewer, :context => REVIEWGRAPH])
+    query.optional([uri, RDF::DC.audience, :review_audience_id, :context => REVIEWGRAPH],
+      [:review_audience_id, RDF::RDFS.label, :review_audience, :context => BOOKGRAPH])                   
     query.optional([uri, RDF::DC.publisher, :publisher_id, :context => REVIEWGRAPH],
-                   [:publisher_id, RDF::FOAF.name, :review_publisher, :context => REVIEWGRAPH])
+      [:publisher_id, RDF::FOAF.name, :review_publisher, :context => REVIEWGRAPH])
 
     if author_search
       author_search.each do |author|
@@ -122,6 +128,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
                           solution[:review_source].to_s,
                           solution[:reviewer].to_s,
                           solution[:review_audience].to_s,
+                          solution[:created].to_s,
                           solution[:issued].to_s,
                           solution[:modified].to_s
                           )
@@ -219,8 +226,9 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
           review_source,
           params[:reviewer] ? params[:reviewer] : nil,
           params[:audience] ? params[:audience] : nil,
-          Time.now.xmlschema,
-          Time.now.xmlschema
+          Time.now.xmlschema, # created
+          Time.now.xmlschema, # issued
+          Time.now.xmlschema  # modified
           )
     else
       return "Invalid ISBN" # break out if isbn returns no hits
@@ -234,14 +242,25 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::REV.text, RDF::Literal(work.reviews.review_text))
     insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.subject, RDF::URI(work.work_id))
     insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DEICHMAN.basedOnManifestation, RDF::URI(work.book_id))
+    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.created, RDF::Literal(work.reviews.created, :datatype => RDF::XSD.dateTime))
     insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.issued, RDF::Literal(work.reviews.issued, :datatype => RDF::XSD.dateTime))
     insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.modified, RDF::Literal(work.reviews.modified, :datatype => RDF::XSD.dateTime))
-    
+
     # optionals
     # need lookup in rdf store before these can be used!
-    #insert_statements << RDF::Statement.new(self.review_id, RDF::REV.reviewer, RDF::URI(self.review_reviewer)) if self.review_reviewer
-    #insert_statements << RDF::Statement.new(self.review_id, RDF::DC.audience, RDF::URI(self.review_audience)) if self.review_audience
-        
+    #insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::REV.reviewer, RDF::URI(self.review_reviewer)) if self.review_reviewer
+    # audience, FIX: better to lookup labels on the fly!
+    if work.reviews.review_audience
+      case work.reviews.review_audience.downcase
+      when 'voksen'
+        insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
+      when 'barn/ungdom'
+        insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/juvenile"))
+      else
+        #
+      end
+    end
+
     query = QUERY.insert_data(insert_statements).graph(REVIEWGRAPH)
     #puts "#{query}"
     result = REPO.insert_data(query)
@@ -257,14 +276,15 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     work   = self.find_reviews(params).first
     review = work.reviews.first 
     # handle modified variables from given params
-    #puts "params before:\n #{params}"
+    puts "params before:\n #{params}"
     unwanted_params = ['uri', 'api_key', 'route_info', 'method', 'path']
     mapped_params   = {
                       'title'    => 'review_title', 
                       'teaser'   => 'review_abstract', 
                       'text'     => 'review_text', 
                       'reviewer' => 'reviewer', 
-                      'audience' => 'review_audience'
+                      'audience' => 'review_audience',
+                      'modified' => 'modified'
                       }
     
     unwanted_params.each {|d| params.delete(d)}
@@ -280,14 +300,16 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     
     # SPARQL UPDATE
     deletequery = QUERY.delete([review.review_id, :p, :o]).graph(REVIEWGRAPH)
-    deletequery.where([review.review_id, :p, :o]).minus([review.review_id, RDF::DC.issued, :o])
+    deletequery.where([review.review_id, :p, :o])
+      .minus([review.review_id, RDF::DC.created, :o])
+      .minus([review.review_id, RDF::DC.issued, :o])
     #puts "deletequery:\n #{deletequery}"
     result = REPO.delete(deletequery)
     #puts "delete result:\n #{result}"
     
     insert_statements = []
     insert_statements << RDF::Statement.new(review.review_id, RDF.type, RDF::REV.Review)
-    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.source, RDF::URI(review.review_source))
+    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.source, RDF::URI(review_source))
     insert_statements << RDF::Statement.new(review.review_id, RDF::REV.title, RDF::Literal(review.review_title))
     insert_statements << RDF::Statement.new(review.review_id, RDF::DC.abstract, RDF::Literal(review.review_abstract))
     insert_statements << RDF::Statement.new(review.review_id, RDF::REV.text, RDF::Literal(review.review_text))
@@ -298,7 +320,18 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     # optionals
     # need lookup in rdf store before these can be used!
     #insert_statements << RDF::Statement.new(review.review_id, RDF::REV.reviewer, RDF::URI(review.review_reviewer)) if review.review_reviewer
-    #insert_statements << RDF::Statement.new(review.review_id, RDF::DC.audience, RDF::URI(review.review_audience)) if review.review_audience
+    # audience, FIX: better to lookup labels on the fly!
+    if review.review_audience
+      case review.review_audience.downcase
+      when 'voksen'
+        insert_statements << RDF::Statement.new(review.review_id, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
+      when 'barn/ungdom'
+        insert_statements << RDF::Statement.new(review.review_id, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/juvenile"))
+      else
+        #
+      end
+    end
+    
     insertquery = QUERY.insert_data(insert_statements).graph(REVIEWGRAPH)
     #puts "insertquery:\n #{insert_statements.to_s}"
     result = REPO.insert_data(insertquery)
@@ -344,6 +377,12 @@ class Hash
 end
  
 class API < Grape::API
+  helpers do
+    def logger
+      API.logger
+    end
+  end
+
   prefix 'api'
   format :json
   default_format :json
@@ -352,7 +391,7 @@ class API < Grape::API
     desc "returns reviews"
       params do
         optional :uri,    type: String, desc: "URI of review"
-        optional :isbn,   type: String, desc: "ISBN of reviewed book"
+        optional :isbn,   type: String, desc: "ISBN of reviewed book", regexp: /^[0-9Xx-]+$/
         optional :author, type: String, desc: "Book author"
         optional :title,  type: String, desc: "Book title"
       end
@@ -361,6 +400,7 @@ class API < Grape::API
       works = Review.new.find_reviews(params)
       throw :error, :status => 400, :message => "\"#{params[:uri]}\" is not a valid URI" if works == "Invalid URI"
       throw :error, :status => 200, :message => "no reviews found" if works.empty?
+      logger.info "GET: params: #{params} - works: #{works.count}"
       header['Content-Type'] = 'application/json; charset=utf-8'
       { :request => params, :work => works }
     end
@@ -371,9 +411,9 @@ class API < Grape::API
         requires :title,    type: String, desc: "Title of review"
         requires :teaser,   type: String, desc: "Abstract of review"
         requires :text,     type: String, desc: "Text of review"
-        requires :isbn,     type: String, desc: "ISBN of reviewed book"
-        optional :reviewer, type: String, desc: "Name of reviewer"
-        optional :audience, type: String, desc: "Audience of review"
+        requires :isbn,     type: String, desc: "ISBN of reviewed book", regexp: /^[0-9Xx-]+$/
+        optional :audience, type: String, desc: "Audience of review, either 'adult' or 'juvenile'", regexp: /([Vv]oksen|[Bb]arn\/[Uu]ngdom)/
+        #optional :reviewer, type: String, desc: "Name of reviewer"
         #optional :source, type: String, desc: "Source of review"
       end
     post "/" do
@@ -382,6 +422,7 @@ class API < Grape::API
       throw :error, :status => 400, :message => "Sorry, #{params[:isbn]} matches no known book in our base" if work == "Invalid ISBN"
       throw :error, :status => 400, :message => "Sorry, \"#{params[:api_key]}\" is not a valid api key" if work == "Invalid apikey"
       throw :error, :status => 400, :message => "Sorry, unable to generate unique ID of review" if work == "Invalid UID"
+      logger.info "POST: params: #{params} - review: #{work.review}"
       header['Content-Type'] = 'application/json; charset=utf-8' 
       {:request => params, :work => work }
     end
@@ -393,9 +434,8 @@ class API < Grape::API
         optional :title,    type: String, desc: "Title of review"
         optional :teaser,   type: String, desc: "Abstract of review"
         optional :text,     type: String, desc: "Text of review"
-        optional :isbn,     type: String, desc: "ISBN of reviewed book"
-        optional :reviewer, type: String, desc: "Name of reviewer"
-        optional :audience, type: String, desc: "Audience of review"
+        optional :audience, type: String, desc: "Audience of review, either 'adult' or 'juvenile'", regexp: /([Vv]oksen|[Bb]arn\/[Uu]ngdom)/
+        #optional :reviewer, type: String, desc: "Name of reviewer"
         #optional :source, type: String, desc: "Source of review"
       end    
     put "/" do
@@ -408,6 +448,7 @@ class API < Grape::API
       #after = after.first.reviews.first.update(params)
       #throw :error, :status => 400, :message => "Sorry, unable to update review #{params[:uri]} ..." if result =~ /nothing to do/
       header['Content-Type'] = 'application/json; charset=utf-8' 
+      logger.info "PUT: params: #{params} - review: #{after.review}"
       {:request => params, :after => after, :before => before }
     end
 
@@ -424,6 +465,7 @@ class API < Grape::API
       # yes, then delete it!
       result = Review.new.delete(params)
       throw :error, :status => 400, :message => "Sorry, unable to delete review #{params[:uri]} ..." if result =~ /nothing to do/
+      logger.info "DELETE: params: #{params} - result: #{result}"
       header['Content-Type'] = 'application/json; charset=utf-8' 
       {:request => params, :result => result, :review => review }
     end
