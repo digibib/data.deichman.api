@@ -246,9 +246,10 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     result = REPO.insert_data(query)
     
     # also insert hasReview property on work
-    hasreview_statement = RDF::Statement.new(RDF::URI(work.work_id), RDF::FABIO.hasReview, work.reviews.review_id)
-    workquery           = QUERY.insert_data(hasreview_statement).graph(BOOKGRAPH)
-    result              = REPO.insert_data(workquery)
+    hasreview_statement  = []
+    hasreview_statement << RDF::Statement.new(RDF::URI(work.work_id), RDF::FABIO.hasReview, work.reviews.review_id)
+    workquery            = QUERY.insert_data(hasreview_statement).graph(BOOKGRAPH)
+    result               = REPO.insert_data(workquery)
     return work
   end
   
