@@ -246,9 +246,9 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     result = REPO.insert_data(query)
     
     # also insert hasReview property on work
-    hasreview = RDF::Statement.new(RDF::URI(work.work_id), RDF::FABIO.hasReview, work.reviews.review_id)
-    workquery = QUERY.insert_data(insert_statements).graph(BOOKGRAPH)
-    result = REPO.insert_data(workquery)
+    hasreview_statement = RDF::Statement.new(RDF::URI(work.work_id), RDF::FABIO.hasReview, work.reviews.review_id)
+    workquery           = QUERY.insert_data(hasreview_statement).graph(BOOKGRAPH)
+    result              = REPO.insert_data(workquery)
     return work
   end
   
@@ -337,9 +337,9 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     #puts "#{query}"
     result = REPO.delete(query)
     # and delete hasReview reference from work
-    workquery = QUERY.delete([:work, RDF::FABIO.hasReview, uri])
-    workquery.where([:work, RDF.type, RDF::FABIO.Work],[:work, RDF::FABIO.hasReview, uri]).graph(BOOKGRAPH)
-    result = REPO.delete(workquery)
+    hasReview_query = QUERY.delete([:work, RDF::FABIO.hasReview, uri])
+    hasReview_query.where([:work, RDF.type, RDF::FABIO.Work],[:work, RDF::FABIO.hasReview, uri]).graph(BOOKGRAPH)
+    result    = REPO.delete(hasReview_query)
   end
   
 end
