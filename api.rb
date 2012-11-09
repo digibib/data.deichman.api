@@ -40,7 +40,7 @@ class API < Grape::API
   end
   
   # Rescue and log errors gracefully
-  rescue_from :all do |e|
+  rescue_from Grape::Exceptions::ValidationError do |e|
     logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
     logger.error "#{e.message}"
     Rack::Response.new({
@@ -123,7 +123,7 @@ class API < Grape::API
       #after = after.first.reviews.first.update(params)
       #throw :error, :status => 400, :message => "Sorry, unable to update review #{params[:uri]} ..." if result =~ /nothing to do/
       header['Content-Type'] = 'application/json; charset=utf-8' 
-      logger.info "PUT: params: #{params} - review: #{after.review}"
+      logger.info "PUT: params: #{params} - review: #{after.reviews}"
       {:request => params, :after => after, :before => before }
     end
 
