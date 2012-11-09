@@ -383,45 +383,77 @@ class Hash
     Struct.new(name, *keys).new(*values)
   end
 end
- 
+
+
+# trap all exceptions and fail gracefuly with a 500 and a proper message
+class ApiErrorHandler < Grape::Middleware::Base
+  def call!(env)
+    @env = env
+    begin
+      @app.call(@env)
+    rescue Exception => e
+      throw :error, :message => e.message || options[:default_message], :status => 500
+    end
+  end  
+end
+
+
 class API < Grape::API
   helpers do
     def logger
-      logger = Logger.new(File.expand_path("../log/#{ENV['RACK_ENV']}.log", __FILE__))
+      logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
     end
   end
   
   prefix 'api'
   format :json
   default_format :json
-
+  #use ApiErrorHandler
+  
   before do
     # Of course this makes the request.body unavailable afterwards.
     # You can just use a helper method to store it away for later if needed. 
     logger.info "#{env['REMOTE_ADDR']} #{env['HTTP_USER_AGENT']} #{env['REQUEST_METHOD']} #{env['REQUEST_PATH']} -- Request: #{request.body.read}"
   end
   
+  # Rescue and log errors gracefully
+  rescue_from :all do |e|
+    logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
+    logger.error "#{e.message}"
+    Rack::Response.new({
+        'status' => e.status,
+        'message' => e.message,
+        'param' => e.param
+    }.to_json, e.status) 
+  end
+
   resource :reviews do
     desc "returns reviews"
       params do
-        optional :uri,    type: String, desc: "URI of review"
-        optional :isbn,   type: String, desc: "ISBN of reviewed book", regexp: /^[0-9Xx-]+$/
-        optional :author, type: String, desc: "Book author"
-        optional :title,  type: String, desc: "Book title"
+          optional :uri,    type: String, desc: "URI of review"
+          optional :isbn,   type: String, desc: "ISBN of reviewed book", regexp: /^[0-9Xx-]+$/
+          optional :author, type: String, desc: "Book author"
+          optional :title,  type: String, desc: "Book title"
       end
+
     get "/" do
-    content_type 'json'
-      works = Review.new.find_reviews(params)
-      if works == "Invalid URI"
-        logger.error "Invalid URI"
-        error!("\"#{params[:uri]}\" is not a valid URI", 400)
-      elsif works.empty? 
-        logger.info "no reviews found"
-        error!("no reviews found", 200)
+      content_type 'json'
+      if params.include?([:uri,:isbn,:author,:title])
+        works = Review.new.find_reviews(params)
+        if works == "Invalid URI"
+          logger.error "Invalid URI"
+          error!("\"#{params[:uri]}\" is not a valid URI", 400)
+        elsif works.empty? 
+          logger.info "no reviews found"
+          error!("no reviews found", 200)
+        else
+          logger.info "Works: #{works.count}"
+          header['Content-Type'] = 'application/json; charset=utf-8'
+          { :request => params, :work => works }
+        end
       else
-        logger.info "Works: #{works.count}"
-        header['Content-Type'] = 'application/json; charset=utf-8'
-        { :request => params, :work => works }
+        logger.error "invalid or missing params"   
+        error!("Need one param of isbn|uri|author|title", 400)
       end
     end
 
