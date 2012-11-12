@@ -70,7 +70,7 @@ class API < Grape::API
           logger.info "no reviews found"
           error!("no reviews found", 200)
         else
-          logger.info "Works: #{works.count}"
+          logger.info "Works: #{works.count} - Reviews: #{c=0 ; works.each {|w| c += w.reviews.count};c}"
           header['Content-Type'] = 'application/json; charset=utf-8'
           { :request => params, :work => works }
         end
