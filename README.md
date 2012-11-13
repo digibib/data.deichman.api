@@ -1,8 +1,7 @@
 # REST API for Deichman's RDF-store
 
 ## Endpoint
-    http://data.deichman.no/api/v1
-The API is versioned, as specified in the URL. The current version is v1.
+    http://data.deichman.no/api
 
 The return format is JSON.
 
@@ -12,10 +11,10 @@ The API will be expanded as we see fit. Currently only the `/reviews` endpoint i
 The API is open for anyone to use, but a key is required in order to write to the API (i.e perform POST/PUT/DELETE requests). Please get in tocuh if your library wants to publish to our RDF-store.
 
 ### GET /reviews
-Parameters: `isbn`, `uri`, `author`, `title` 
+Parameters: `isbn`, `uri`, `author`, `title`
 
 Other parameters will be ignored if `isbn` or `uri` is present.
-The `uri` must refer to a bookreview. 
+The `uri` must refer to a bookreview.
 
 Examples
 ```
@@ -37,14 +36,14 @@ JSON hash of one or more `work`, and an array of its `reviews`
 
 Example
 ```
-http POST http://data.deichman.no/api/v1/reviews api_key="dummyapikey" isbn=9788243006218 title="Title of review" 
+http POST http://data.deichman.no/api/v1/reviews api_key="dummyapikey" isbn=9788243006218 title="Title of review"
     teaser="A brief text for teaser, infoscreens, etc." text="The entire text of review. Lorem ipsum and the glory of utf-8"
     reviewer="John Doe" audience="Children"
 ```
 
 #### Returns
 
-JSON hash of one or more `work`, its `reviews` and `uri` of review 
+JSON hash of one or more `work`, its `reviews` and `uri` of review
 
 ### PUT /reviews
 
@@ -52,7 +51,7 @@ Updates existing review
 
 #### Parameters
 
-* Required: `api_key`, `uri` 
+* Required: `api_key`, `uri`
 * Optional: `isbn|title|teaser|text|reviewer|audience|source`
 
 #### Returns
