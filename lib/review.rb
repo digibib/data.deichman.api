@@ -253,24 +253,24 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     return work
   end
   
-  def update(params = {})
+  def update(params)
     # update review here
     # first use api_key parameter to fetch source
+    puts "hey: #{params.inspect}" 
     review_source = find_source_by_apikey(params[:api_key])
-    return "Invalid apikey" unless review_source
+    return "Invalid api_key" unless review_source
     
     work   = self.find_reviews(params).first
     review = work.reviews.first 
     # handle modified variables from given params
-    puts "params before:\n #{params}"
+    #puts "params before:\n #{params}"
     unwanted_params = ['uri', 'api_key', 'route_info', 'method', 'path']
     mapped_params   = {
                       'title'    => 'review_title', 
                       'teaser'   => 'review_abstract', 
                       'text'     => 'review_text', 
                       'reviewer' => 'reviewer', 
-                      'audience' => 'review_audience',
-                      'modified' => 'modified'
+                      'audience' => 'review_audience'
                       }
     
     unwanted_params.each {|d| params.delete(d)}
@@ -278,20 +278,24 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     
     #puts "params after:\n #{params}"
     
-    #puts "before update:\n#{work}"
-    # update review from new params
+    puts "before update:\n#{work}"
+    # update review with new params
     params.each{|k,v| review[k] = v}
     #new = params.to_struct "Review"
-    #puts "after update:\n#{work}"
+    puts "after update:\n#{work}"
     
     # SPARQL UPDATE
     deletequery = QUERY.delete([review.review_id, :p, :o]).graph(REVIEWGRAPH)
     deletequery.where([review.review_id, :p, :o])
-      .minus([review.review_id, RDF::DC.created, :o])
-      .minus([review.review_id, RDF::DC.issued, :o])
-    #puts "deletequery:\n #{deletequery}"
+    # MINUS not working properly until virtuoso 6.1.6!
+    #deletequery.minus([review.review_id, RDF::DC.created, :o])
+    #deletequery.minus([review.review_id, RDF::DC.issued, :o])
+    deletequery.filter("?o != <#{RDF::DC.created.to_s}>")
+    deletequery.filter("?o != <#{RDF::DC.issued.to_s}>")
+    
+    puts "deletequery:\n #{deletequery}"
     result = REPO.delete(deletequery)
-    #puts "delete result:\n #{result}"
+    puts "delete result:\n #{result}"
     
     insert_statements = []
     insert_statements << RDF::Statement.new(review.review_id, RDF.type, RDF::REV.Review)
@@ -301,7 +305,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     insert_statements << RDF::Statement.new(review.review_id, RDF::REV.text, RDF::Literal(review.review_text))
     insert_statements << RDF::Statement.new(review.review_id, RDF::DC.subject, RDF::URI(work.work_id))
     insert_statements << RDF::Statement.new(review.review_id, RDF::DEICHMAN.basedOnManifestation, RDF::URI(work.book_id))
-    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.modified, RDF::Literal(review.modified, :datatype => RDF::XSD.dateTime))
+    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.modified, RDF::Literal(Time.now.xmlschema, :datatype => RDF::XSD.dateTime))
     
     # optionals
     # need lookup in rdf store before these can be used!
@@ -319,17 +323,18 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     end
     
     insertquery = QUERY.insert_data(insert_statements).graph(REVIEWGRAPH)
-    #puts "insertquery:\n #{insert_statements.to_s}"
+    puts "insertquery:\n #{insertquery}"
     result = REPO.insert_data(insertquery)
-    #puts "insert result:\n #{result}"    
+    puts "insert result:\n #{result}"    
     work
   end
   
   def delete(params = {})
     # delete review here
     # first use api_key parameter to fetch source
-
     review_source = find_source_by_apikey(params[:api_key])
+    return "Invalid api_key" unless review_source
+        
     source = RDF::URI(review_source)
     uri    = RDF::URI(params[:uri])
     

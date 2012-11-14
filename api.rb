@@ -95,7 +95,7 @@ class API < Grape::API
       content_type 'json'
       work = Review.new.create(params)
       error!("Sorry, #{params[:isbn]} matches no known book in our base", 400) if work == "Invalid ISBN"
-      error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if work == "Invalid apikey"
+      error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if work == "Invalid api_key"
       error!("Sorry, unable to generate unique ID of review", 400) if work == "Invalid UID"
       logger.info "POST: params: #{params} - review: #{work.reviews}"
       header['Content-Type'] = 'application/json; charset=utf-8' 
@@ -115,16 +115,29 @@ class API < Grape::API
       end    
     put "/" do
       content_type 'json'
-      # is it in the base?
-      before = Review.new.find_reviews(params)
-      error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if before.empty?
-      # yes, then update
-      after = Review.new.update(params)
-      #after = after.first.reviews.first.update(params)
-      #throw :error, :status => 400, :message => "Sorry, unable to update review #{params[:uri]} ..." if result =~ /nothing to do/
-      header['Content-Type'] = 'application/json; charset=utf-8' 
-      logger.info "PUT: params: #{params} - review: #{after.reviews}"
-      {:request => params, :after => after, :before => before }
+      valid_params = ['api_key','uri','title','teaser','text','audience']
+      # do we have a valid parameter?
+      if valid_params.any? {|p| params.has_key?(p) }
+        # delete params not listed in valid_params
+        logger.info "params before: #{params}"
+        params.delete_if {|p| !valid_params.include?(p) }
+        logger.info "params after: #{params}"
+        # is it in the base? uses params[:uri]
+        before = Review.new.find_reviews(params)
+        error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if before.empty?
+        # yes, then update
+        after = Review.new.update(params)
+        #after = after.first.reviews.first.update(params)
+        error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if after == "Invalid api_key"
+        #throw :error, :status => 400, :message => "Sorry, unable to update review #{params[:uri]} ..." if result =~ /nothing to do/
+        
+        header['Content-Type'] = 'application/json; charset=utf-8' 
+        logger.info "PUT: params: #{params} - review: #{after.reviews}"
+        {:request => params, :after => after, :before => before }
+      else
+        logger.error "invalid or missing params"   
+        error!("Need at least one param of title|teaser|text|audience", 400)      
+      end
     end
 
     desc "deletes a review"
@@ -139,6 +152,7 @@ class API < Grape::API
       error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if review.empty?
       # yes, then delete it!
       result = Review.new.delete(params)
+      error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if result == "Invalid api_key"
       error!("Sorry, unable to delete review #{params[:uri]} ...", 400) if result =~ /nothing to do/
       logger.info "DELETE: params: #{params} - result: #{result}"
       header['Content-Type'] = 'application/json; charset=utf-8' 
