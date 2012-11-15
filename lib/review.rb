@@ -198,7 +198,8 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
           solutions.first[:work_id],
           solutions.first[:author]
           )
-      work.reviews = Review.new(
+      work.reviews = []
+      review = Review.new(
           review_id,
           params[:title],
           params[:teaser],
@@ -210,32 +211,33 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
           Time.now.xmlschema, # issued
           Time.now.xmlschema  # modified
           )
+      work.reviews << review
     else
       return "Invalid ISBN" # break out if isbn returns no hits
     end    
     
     insert_statements = []
-    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF.type, RDF::REV.Review)
-    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.source, RDF::URI(work.reviews.review_source))
-    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::REV.title, RDF::Literal(work.reviews.review_title))
-    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.abstract, RDF::Literal(work.reviews.review_abstract))
-    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::REV.text, RDF::Literal(work.reviews.review_text))
-    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.subject, RDF::URI(work.work_id))
-    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DEICHMAN.basedOnManifestation, RDF::URI(work.book_id))
-    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.created, RDF::Literal(work.reviews.created, :datatype => RDF::XSD.dateTime))
-    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.issued, RDF::Literal(work.reviews.issued, :datatype => RDF::XSD.dateTime))
-    insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.modified, RDF::Literal(work.reviews.modified, :datatype => RDF::XSD.dateTime))
+    insert_statements << RDF::Statement.new(review.review_id, RDF.type, RDF::REV.Review)
+    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.source, RDF::URI(review.review_source))
+    insert_statements << RDF::Statement.new(review.review_id, RDF::REV.title, RDF::Literal(review.review_title))
+    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.abstract, RDF::Literal(review.review_abstract))
+    insert_statements << RDF::Statement.new(review.review_id, RDF::REV.text, RDF::Literal(review.review_text))
+    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.subject, RDF::URI(work.work_id))
+    insert_statements << RDF::Statement.new(review.review_id, RDF::DEICHMAN.basedOnManifestation, RDF::URI(work.book_id))
+    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.created, RDF::Literal(review.created, :datatype => RDF::XSD.dateTime))
+    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.issued, RDF::Literal(review.issued, :datatype => RDF::XSD.dateTime))
+    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.modified, RDF::Literal(review.modified, :datatype => RDF::XSD.dateTime))
 
     # optionals
     # need lookup in rdf store before these can be used!
     #insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::REV.reviewer, RDF::URI(self.review_reviewer)) if self.review_reviewer
     # audience, FIX: better to lookup labels on the fly!
-    if work.reviews.review_audience
-      case work.reviews.review_audience.downcase
+    if review.review_audience
+      case review.review_audience.downcase
       when 'voksen'
-        insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
+        insert_statements << RDF::Statement.new(review.review_id, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
       when 'barn/ungdom'
-        insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/juvenile"))
+        insert_statements << RDF::Statement.new(review.review_id, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/juvenile"))
       else
         # insert nothing
       end
@@ -247,7 +249,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     
     # also insert hasReview property on work
     hasreview_statement  = []
-    hasreview_statement << RDF::Statement.new(RDF::URI(work.work_id), RDF::FABIO.hasReview, work.reviews.review_id)
+    hasreview_statement << RDF::Statement.new(RDF::URI(work.work_id), RDF::FABIO.hasReview, review.review_id)
     workquery            = QUERY.insert_data(hasreview_statement).graph(BOOKGRAPH)
     result               = REPO.insert_data(workquery)
     return work
@@ -290,8 +292,8 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     # MINUS not working properly until virtuoso 6.1.6!
     #deletequery.minus([review.review_id, RDF::DC.created, :o])
     #deletequery.minus([review.review_id, RDF::DC.issued, :o])
-    deletequery.filter("?o != <#{RDF::DC.created.to_s}>")
-    deletequery.filter("?o != <#{RDF::DC.issued.to_s}>")
+    deletequery.filter("?p != <#{RDF::DC.created.to_s}>")
+    deletequery.filter("?p != <#{RDF::DC.issued.to_s}>")
     
     puts "deletequery:\n #{deletequery}"
     result = REPO.delete(deletequery)

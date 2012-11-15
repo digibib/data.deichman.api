@@ -27,7 +27,7 @@ class API < Grape::API
       logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
     end
   end
-  
+  version 'v1', :using => :header, :vendor => 'deichman.no'
   prefix 'api'
   format :json
   default_format :json
@@ -43,11 +43,11 @@ class API < Grape::API
   rescue_from Grape::Exceptions::ValidationError do |e|
     logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
     logger.error "#{e.message}"
-    Rack::Response.new({
-        'status' => e.status,
-        'message' => e.message,
-        'param' => e.param
-    }.to_json, e.status) 
+    #Rack::Response.new({
+    #    'status' => e.status,
+    #    'message' => e.message,
+    #    'param' => e.param
+    #}.to_json, e.status) 
   end
 
   resource :reviews do
@@ -72,7 +72,7 @@ class API < Grape::API
         else
           logger.info "Works: #{works.count} - Reviews: #{c=0 ; works.each {|w| c += w.reviews.count};c}"
           header['Content-Type'] = 'application/json; charset=utf-8'
-          { :request => params, :work => works }
+          {:work => works }
         end
       else
         logger.error "invalid or missing params"   
@@ -99,7 +99,7 @@ class API < Grape::API
       error!("Sorry, unable to generate unique ID of review", 400) if work == "Invalid UID"
       logger.info "POST: params: #{params} - review: #{work.reviews}"
       header['Content-Type'] = 'application/json; charset=utf-8' 
-      {:request => params, :work => work }
+      {:work => work }
     end
 
     desc "updates a review"
@@ -133,7 +133,7 @@ class API < Grape::API
         
         header['Content-Type'] = 'application/json; charset=utf-8' 
         logger.info "PUT: params: #{params} - review: #{after.reviews}"
-        {:request => params, :after => after, :before => before }
+        {:after => after, :before => before }
       else
         logger.error "invalid or missing params"   
         error!("Need at least one param of title|teaser|text|audience", 400)      
@@ -156,7 +156,7 @@ class API < Grape::API
       error!("Sorry, unable to delete review #{params[:uri]} ...", 400) if result =~ /nothing to do/
       logger.info "DELETE: params: #{params} - result: #{result}"
       header['Content-Type'] = 'application/json; charset=utf-8' 
-      {:request => params, :result => result, :review => review }
+      {:result => result, :review => review }
     end
   end
 end
