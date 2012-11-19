@@ -169,7 +169,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     # create new review here
     # first use api_key parameter to fetch source
     review_source = find_source_by_apikey(params[:api_key])
-    return "Invalid apikey" unless review_source
+    return "Invalid api_key" unless review_source
     
     isbn = params[:isbn].strip.gsub(/[^0-9]/, '')
     
