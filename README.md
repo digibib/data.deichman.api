@@ -10,8 +10,11 @@ The API will be expanded as we see fit. Currently only the `/reviews` endpoint i
 
 The API is open for anyone to use, but a key is required in order to write to the API (i.e perform POST/PUT/DELETE requests). Please get in tocuh if your library wants to publish to our RDF-store.
 
+### Architecture
+![API architecture](https://github.com/digibib/data.deichman.api/raw/master/docs/review_rdf.png)
+
 ### GET /reviews
-Parameters: `isbn`, `uri`, `author`, `title`
+Parameters: `isbn`, `uri`, `author`, `title`, `reviewer`
 
 Other parameters will be ignored if `isbn` or `uri` is present.
 The `uri` must refer to a bookreview.
@@ -22,6 +25,7 @@ http GET http://data.deichman.no/api/v1/reviews isbn=9788243006218
 http GET http://data.deichman.no/api/v1/reviews author="Knut Hamsun" title="Sult"
 http GET http://data.deichman.no/api/v1/reviews author="Nesbø, Jo"
 http GET http://data.deichman.no/api/v1/reviews uri="http://data.deichman.no/bookreviews/deich3456"
+http GET http://data.deichman.no/api/v1/reviews uri="http://data.deichman.no/reviewers/x123456"
 ```
 #### Returns
 

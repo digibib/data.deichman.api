@@ -53,15 +53,17 @@ class API < Grape::API
   resource :reviews do
     desc "returns reviews"
       params do
-          optional :uri,    type: String, desc: "URI of review"
-          optional :isbn,   type: String, desc: "ISBN of reviewed book", regexp: /^[0-9Xx-]+$/
-          optional :author, type: String, desc: "Book author"
-          optional :title,  type: String, desc: "Book title"
+          optional :uri,      type: String, desc: "URI of review"
+          optional :isbn,     type: String, desc: "ISBN of reviewed book", regexp: /^[0-9Xx-]+$/
+          optional :title,    type: String, desc: "Book title"
+          optional :author,   type: String, desc: "Book author"
+          optional :reviewer, type: String, desc: "Review author"
+
       end
 
     get "/" do
       content_type 'json'
-      if [:uri,:isbn,:author,:title].any? {|p| params.has_key?(p) }
+      if [:uri,:isbn,:author,:title,:reviewer].any? {|p| params.has_key?(p) }
         works = Review.new.find_reviews(params)
         if works == "Invalid URI"
           logger.error "Invalid URI"
@@ -72,7 +74,7 @@ class API < Grape::API
         else
           logger.info "Works: #{works.count} - Reviews: #{c=0 ; works.each {|w| c += w.reviews.count};c}"
           header['Content-Type'] = 'application/json; charset=utf-8'
-          {:work => works }
+          {:works => works }
         end
       else
         logger.error "invalid or missing params"   
@@ -88,7 +90,7 @@ class API < Grape::API
         requires :text,     type: String, desc: "Text of review"
         requires :isbn,     type: String, desc: "ISBN of reviewed book", regexp: /^[0-9Xx-]+$/
         optional :audience, type: String, desc: "Audience of review, either 'adult' or 'juvenile'", regexp: /([Vv]oksen|[Bb]arn\/[Uu]ngdom)/
-        #optional :reviewer, type: String, desc: "Name of reviewer"
+        optional :reviewer, type: String, desc: "Name of reviewer"
         #optional :source, type: String, desc: "Source of review"
       end
     post "/" do

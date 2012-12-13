@@ -1,4 +1,4 @@
-data.deichman.no/api/v1
+data.deichman.no/api/reviews
 ============================
 REST API
 
@@ -9,27 +9,26 @@ GET /reviews
 "Henter ut bokanbefalinger"
 ---------------------------------------------------------
 Parametre:
-	en eller flere av: uri, isbn, author, title
-	(author+title ignorert hvis isbn tilstede)
+  en eller flere av: uri, isbn, author, title, reviewer
+  (author+title ignorert hvis isbn tilstede)
   (alt annet enn uri ignorert hvis uri tilstede)
 
 POST /reviews
 "Pusher en ny bokanbefaling"
 ---------------------------------------------------------
 Parametre:
-	påkrevd: api_key, isbn, title, teaser, text
+  påkrevd: api_key, isbn, title, teaser, text
   valgfri: audience, reviewer, source
 
 PUT /reviews
-"Oppdaterer  eksisterende anbefaling"
+"Oppdaterer eksisterende anbefaling"
 ---------------------------------------------------------
 Parametre:
-	påkrevd: api_key, id/uri, 
+  påkrevd: api_key, uri, 
   valgfri: en eller flere av isbn|title|teaser|text|reviewer|audience|source
-
 
 DELETE /reviews
 "Sletter en anbefaling"
 ---------------------------------------------------------
 Parametre:
-	påkrevd: api_key, id/uri
+  påkrevd: api_key, uri

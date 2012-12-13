@@ -1,12 +1,14 @@
 #encoding: utf-8
+require 'rdf/n3'
+# Structs are simple classes with fixed sequence of instance variables
+Work = Struct.new(:title, :isbn, :book_id, :work_id, :author, :cover_url, :reviews)
+Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience, :created, :issued, :modified) do
 
-Work = Struct.new(:book_title, :isbn, :book_id, :work_id, :author, :cover_url, :reviews)
-Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :review_source, :reviewer, :review_audience, :created, :issued, :modified) do
-
+  # main method to find reviews, GET /api/review
+  # params: uri, isbn, title/author
   def find_reviews(params = {})
-    # find reviews by uri, isbn, title/author
     
-    selects = [:uri, :book_id, :work_id, :book_title, :cover_url, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer, :review_publisher, :review_audience]
+    selects = [:uri, :book_id, :work_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :cover_url, :review_source, :reviewer, :review_publisher, :review_audience]
     
     if params.has_key?(:uri)
       begin 
@@ -14,6 +16,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
         uri = URI::parse(params[:uri])
         uri = RDF::URI(uri)
         isbn = :isbn
+        #solutions = find_reviews_by_uri(params[:uri], selects)
       rescue URI::InvalidURIError
         return "Invalid URI"
       end
@@ -38,6 +41,8 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
       [uri, RDF::DC.created, :created, :context => REVIEWGRAPH],
       [uri, RDF::DC.issued, :issued, :context => REVIEWGRAPH],
       [uri, RDF::DC.modified, :modified, :context => REVIEWGRAPH],
+      [uri, RDF::REV.title, :review_title, :context => REVIEWGRAPH],
+      [uri, RDF::DC.abstract, :review_abstract, :context => REVIEWGRAPH],
       [:book_id, RDF::BIBO.isbn, isbn, :context => BOOKGRAPH],
       [:book_id, RDF::DC.title, :book_title, :context => BOOKGRAPH],
       [:book_id, RDF::DC.creator, :author_id, :context => BOOKGRAPH],
@@ -45,12 +50,11 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
       [:author_id, RDF::FOAF.name, :author, :context => BOOKGRAPH]    # should we really require foaf:name on book author?
       )
     # optional attributes
+    # NB! these optionals adds extra ~2 sec to query
     query.optional([:book_id, RDF::FOAF.depiction, :cover_url, :context => BOOKGRAPH])
-    query.optional([uri, RDF::DC.modified, :modified, :context => REVIEWGRAPH])
-    query.optional([uri, RDF::REV.title, :review_title, :context => REVIEWGRAPH])
-    query.optional([uri, RDF::DC.abstract, :review_abstract, :context => REVIEWGRAPH])
     
-    #query.optional([uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH])
+    #query.optional([uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH]) # moved to separate query due to some very long blobs
+
     query.optional([uri, RDF::DC.source, :review_source_id, :context => REVIEWGRAPH],
       [:review_source_id, RDF::RDFS.label, :review_source, :context => BOOKGRAPH])
     query.optional([uri, RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
@@ -73,7 +77,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     end
     query.limit(50)
 
-    #puts query
+    puts query
     solutions = REPO.select(query)
     
     works = []
@@ -126,6 +130,10 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     works
   end  
   
+  def find_reviews_by_uri(params, selects)
+
+  end
+  
   def find_source_by_apikey(api_key)
     # fetch source by api key in protected graph
     # each source needs three statements: 
@@ -144,16 +152,16 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     source = solutions.first[:source]
   end
   
-  def autoincrement_source(review_source = nil)
+  def autoincrement_source(source = nil)
     # This method uses Virtuoso's internal sequence function to generate unique ID from api_key mapped to source
     # sql:sequence_next("GRAPH_IDENTIFIER") => returns next sequence from GRAPH_IDENTIFIER
     # sql:sequence_set("GRAPH_IDENTIFIER", new_sequence_number, ignorelower_boolean) => sets sequence number
     # get unique sequential id by CONSTRUCTing an id based on source URI
-    if review_source
+    if source
       query = <<-EOQ
   PREFIX rev: <http://purl.org/stuff/rev#>
   CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(str(?source), "http://data.deichman.no/sources/", ""), "/id_", str(bif:sequence_next ('#{review_source}', 1, ?source)) ) )` a rev:Review } 
-  WHERE { <#{review_source}> a rdfs:Resource ; rdfs:label ?label . ?source a rdfs:Resource ; rdfs:label ?label } ORDER BY(?source) LIMIT 1 
+  WHERE { <#{source}> a rdfs:Resource ; rdfs:label ?label . ?source a rdfs:Resource ; rdfs:label ?label } ORDER BY(?source) LIMIT 1 
   EOQ
       # nb: to reset count use sequence_set instead, with an iri f.ex. like this:
       # `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(str(?source), "http://data.deichman.no/sources/", ""), "/id_", str(bif:sequence_next ('#{self.review_source}', 0, 0)) ) )`
@@ -168,12 +176,12 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
   def create(params)
     # create new review here
     # first use api_key parameter to fetch source
-    review_source = find_source_by_apikey(params[:api_key])
-    return "Invalid api_key" unless review_source
+    source = find_source_by_apikey(params[:api_key])
+    return "Invalid api_key" unless source
     
+    # find work based on isbn
     isbn = params[:isbn].strip.gsub(/[^0-9]/, '')
-    
-    # lookup book based on isbn
+
     query = QUERY.select(:book_id, :book_title, :work_id, :author)
     query.from(BOOKGRAPH)
     query.where(
@@ -189,8 +197,8 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
 
     # populate review attributes
     unless solutions.empty?
-      review_id = autoincrement_source(review_source)
-      return "Invalid UID" unless review_id
+      uri = autoincrement_source(source)
+      return "Invalid URI" unless uri
       work = Work.new(
           solutions.first[:book_title],
           isbn,
@@ -200,11 +208,11 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
           )
       work.reviews = []
       review = Review.new(
-          review_id,
+          uri,
           params[:title],
           params[:teaser],
           params[:text],
-          review_source,
+          source,
           params[:reviewer] ? params[:reviewer] : nil,
           params[:audience] ? params[:audience] : nil,
           Time.now.xmlschema, # created
@@ -217,27 +225,27 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     end    
     
     insert_statements = []
-    insert_statements << RDF::Statement.new(review.review_id, RDF.type, RDF::REV.Review)
-    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.source, RDF::URI(review.review_source))
-    insert_statements << RDF::Statement.new(review.review_id, RDF::REV.title, RDF::Literal(review.review_title))
-    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.abstract, RDF::Literal(review.review_abstract))
-    insert_statements << RDF::Statement.new(review.review_id, RDF::REV.text, RDF::Literal(review.review_text))
-    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.subject, RDF::URI(work.work_id))
-    insert_statements << RDF::Statement.new(review.review_id, RDF::DEICHMAN.basedOnManifestation, RDF::URI(work.book_id))
-    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.created, RDF::Literal(review.created, :datatype => RDF::XSD.dateTime))
-    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.issued, RDF::Literal(review.issued, :datatype => RDF::XSD.dateTime))
-    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.modified, RDF::Literal(review.modified, :datatype => RDF::XSD.dateTime))
+    insert_statements << RDF::Statement.new(review.uri, RDF.type, RDF::REV.Review)
+    insert_statements << RDF::Statement.new(review.uri, RDF::DC.source, RDF::URI(review.source))
+    insert_statements << RDF::Statement.new(review.uri, RDF::REV.title, RDF::Literal(review.title))
+    insert_statements << RDF::Statement.new(review.uri, RDF::DC.abstract, RDF::Literal(review.teaser))
+    insert_statements << RDF::Statement.new(review.uri, RDF::REV.text, RDF::Literal(review.text))
+    insert_statements << RDF::Statement.new(review.uri, RDF::DC.subject, RDF::URI(work.work_id))
+    insert_statements << RDF::Statement.new(review.uri, RDF::DEICHMAN.basedOnManifestation, RDF::URI(work.book_id))
+    insert_statements << RDF::Statement.new(review.uri, RDF::DC.created, RDF::Literal(review.created, :datatype => RDF::XSD.dateTime))
+    insert_statements << RDF::Statement.new(review.uri, RDF::DC.issued, RDF::Literal(review.issued, :datatype => RDF::XSD.dateTime))
+    insert_statements << RDF::Statement.new(review.uri, RDF::DC.modified, RDF::Literal(review.modified, :datatype => RDF::XSD.dateTime))
 
     # optionals
     # need lookup in rdf store before these can be used!
     #insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::REV.reviewer, RDF::URI(self.review_reviewer)) if self.review_reviewer
     # audience, FIX: better to lookup labels on the fly!
-    if review.review_audience
-      case review.review_audience.downcase
+    if review.audience
+      case review.audience.downcase
       when 'voksen'
-        insert_statements << RDF::Statement.new(review.review_id, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
+        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
       when 'barn/ungdom'
-        insert_statements << RDF::Statement.new(review.review_id, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/juvenile"))
+        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/juvenile"))
       else
         # insert nothing
       end
@@ -249,7 +257,7 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     
     # also insert hasReview property on work
     hasreview_statement  = []
-    hasreview_statement << RDF::Statement.new(RDF::URI(work.work_id), RDF::FABIO.hasReview, review.review_id)
+    hasreview_statement << RDF::Statement.new(RDF::URI(work.work_id), RDF::FABIO.hasReview, review.uri)
     workquery            = QUERY.insert_data(hasreview_statement).graph(BOOKGRAPH)
     result               = REPO.insert_data(workquery)
     return work
@@ -259,24 +267,23 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     # update review here
     # first use api_key parameter to fetch source
     puts "hey: #{params.inspect}" 
-    review_source = find_source_by_apikey(params[:api_key])
-    return "Invalid api_key" unless review_source
+    source = find_source_by_apikey(params[:api_key])
+    return "Invalid api_key" unless source
     
     work   = self.find_reviews(params).first
     review = work.reviews.first 
     # handle modified variables from given params
     #puts "params before:\n #{params}"
     unwanted_params = ['uri', 'api_key', 'route_info', 'method', 'path']
-    mapped_params   = {
-                      'title'    => 'review_title', 
-                      'teaser'   => 'review_abstract', 
-                      'text'     => 'review_text', 
-                      'reviewer' => 'reviewer', 
-                      'audience' => 'review_audience'
-                      }
-    
+#    mapped_params   = {
+#                      'title'    => 'review_title', 
+#                      'teaser'   => 'review_abstract', 
+#                      'text'     => 'review_text', 
+#                      'reviewer' => 'reviewer', 
+#                      'audience' => 'review_audience'
+#                      }
     unwanted_params.each {|d| params.delete(d)}
-    params.keys.each     {|k| params[ mapped_params[k] ] = params.delete(k) if mapped_params[k] }
+#    params.keys.each     {|k| params[ mapped_params[k] ] = params.delete(k) if mapped_params[k] }
     
     #puts "params after:\n #{params}"
     
@@ -287,8 +294,8 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     puts "after update:\n#{work}"
     
     # SPARQL UPDATE
-    deletequery = QUERY.delete([review.review_id, :p, :o]).graph(REVIEWGRAPH)
-    deletequery.where([review.review_id, :p, :o])
+    deletequery = QUERY.delete([review.uri, :p, :o]).graph(REVIEWGRAPH)
+    deletequery.where([review.uri, :p, :o])
     # MINUS not working properly until virtuoso 6.1.6!
     #deletequery.minus([review.review_id, RDF::DC.created, :o])
     #deletequery.minus([review.review_id, RDF::DC.issued, :o])
@@ -300,25 +307,25 @@ Review = Struct.new(:review_id, :review_title, :review_abstract, :review_text, :
     puts "delete result:\n #{result}"
     
     insert_statements = []
-    insert_statements << RDF::Statement.new(review.review_id, RDF.type, RDF::REV.Review)
-    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.source, RDF::URI(review_source))
-    insert_statements << RDF::Statement.new(review.review_id, RDF::REV.title, RDF::Literal(review.review_title))
-    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.abstract, RDF::Literal(review.review_abstract))
-    insert_statements << RDF::Statement.new(review.review_id, RDF::REV.text, RDF::Literal(review.review_text))
-    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.subject, RDF::URI(work.work_id))
-    insert_statements << RDF::Statement.new(review.review_id, RDF::DEICHMAN.basedOnManifestation, RDF::URI(work.book_id))
-    insert_statements << RDF::Statement.new(review.review_id, RDF::DC.modified, RDF::Literal(Time.now.xmlschema, :datatype => RDF::XSD.dateTime))
+    insert_statements << RDF::Statement.new(review.uri, RDF.type, RDF::REV.Review)
+    insert_statements << RDF::Statement.new(review.uri, RDF::DC.source, RDF::URI(source))
+    insert_statements << RDF::Statement.new(review.uri, RDF::REV.title, RDF::Literal(review.title))
+    insert_statements << RDF::Statement.new(review.uri, RDF::DC.abstract, RDF::Literal(review.abstract))
+    insert_statements << RDF::Statement.new(review.uri, RDF::REV.text, RDF::Literal(review.text))
+    insert_statements << RDF::Statement.new(review.uri, RDF::DC.subject, RDF::URI(work.work_id))
+    insert_statements << RDF::Statement.new(review.uri, RDF::DEICHMAN.basedOnManifestation, RDF::URI(work.book_id))
+    insert_statements << RDF::Statement.new(review.uri, RDF::DC.modified, RDF::Literal(Time.now.xmlschema, :datatype => RDF::XSD.dateTime))
     
     # optionals
     # need lookup in rdf store before these can be used!
     #insert_statements << RDF::Statement.new(review.review_id, RDF::REV.reviewer, RDF::URI(review.review_reviewer)) if review.review_reviewer
     # audience, FIX: better to lookup labels on the fly!
-    if review.review_audience
-      case review.review_audience.downcase
-      when 'voksen'
-        insert_statements << RDF::Statement.new(review.review_id, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
-      when 'barn/ungdom'
-        insert_statements << RDF::Statement.new(review.review_id, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/juvenile"))
+    if review.audience
+      case review.audience.downcase
+      when 'voksen' || 'adult'
+        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
+      when 'barn' || 'ungdom' || 'juvenile'
+        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/juvenile"))
       else
         #
       end
