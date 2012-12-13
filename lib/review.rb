@@ -16,7 +16,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
         uri = URI::parse(params[:uri])
         uri = RDF::URI(uri)
         isbn = :isbn
-        #solutions = find_reviews_by_uri(params[:uri], selects)
+        #solutions = find_review_by_uri(params[:uri], selects)
       rescue URI::InvalidURIError
         return "Invalid URI"
       end
@@ -75,6 +75,8 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
         query.filter("regex(?book_title, \"#{title}\", \"i\")")
       end
     end
+    # optimize query in virtuoso
+    query.define('sql:select-option "ORDER"')
     query.limit(50)
 
     puts query
@@ -130,7 +132,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     works
   end  
   
-  def find_reviews_by_uri(params, selects)
+  def find_review_by_uri(params, selects)
 
   end
   

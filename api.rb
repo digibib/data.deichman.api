@@ -39,7 +39,7 @@ class API < Grape::API
     logger.info "#{env['REMOTE_ADDR']} #{env['HTTP_USER_AGENT']} #{env['REQUEST_METHOD']} #{env['REQUEST_PATH']} -- Request: #{request.body.read}"
   end
   
-  # Rescue and log errors gracefully
+  # Rescue and log validation errors gracefully
   rescue_from Grape::Exceptions::ValidationError do |e|
     logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
     logger.error "#{e.message}"
@@ -78,7 +78,7 @@ class API < Grape::API
         end
       else
         logger.error "invalid or missing params"   
-        error!("Need one param of isbn|uri|author|title", 400)
+        error!("Need one param of isbn|uri|author|title|reviewer", 400)
       end
     end
 
@@ -89,7 +89,7 @@ class API < Grape::API
         requires :teaser,   type: String, desc: "Abstract of review"
         requires :text,     type: String, desc: "Text of review"
         requires :isbn,     type: String, desc: "ISBN of reviewed book", regexp: /^[0-9Xx-]+$/
-        optional :audience, type: String, desc: "Audience of review, either 'adult' or 'juvenile'", regexp: /([Vv]oksen|[Bb]arn\/[Uu]ngdom)/
+        optional :audience, type: String, desc: "Audience of review, either 'adult' or 'juvenile'", regexp: /([Vv]oksen|[Aa]dult|[Bb]arn|[Uu]ngdom|[Jj]uvenile)/
         optional :reviewer, type: String, desc: "Name of reviewer"
         #optional :source, type: String, desc: "Source of review"
       end
@@ -111,7 +111,7 @@ class API < Grape::API
         optional :title,    type: String, desc: "Title of review"
         optional :teaser,   type: String, desc: "Abstract of review"
         optional :text,     type: String, desc: "Text of review"
-        optional :audience, type: String, desc: "Audience of review, either 'adult' or 'juvenile'", regexp: /([Vv]oksen|[Bb]arn\/[Uu]ngdom)/
+        optional :audience, type: String, desc: "Audience of review, either 'adult' or 'juvenile'", regexp: /([Vv]oksen|[Aa]dult|[Bb]arn|[Uu]ngdom|[Jj]uvenile)/
         #optional :reviewer, type: String, desc: "Name of reviewer"
         #optional :source, type: String, desc: "Source of review"
       end    

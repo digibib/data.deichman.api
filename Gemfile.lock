@@ -45,7 +45,7 @@ GEM
       addressable (>= 2.2.6)
     rdf-n3 (0.3.8)
       rdf (>= 0.3.11)
-    rdf-virtuoso (0.1.0)
+    rdf-virtuoso (0.1.1)
       api_smith (~> 1.2.0)
       httparty (~> 0.8.2)
       rdf (~> 0.3.7)
@@ -66,6 +66,6 @@ DEPENDENCIES
   rack-test
   rdf
   rdf-n3
-  rdf-virtuoso
+  rdf-virtuoso (~> 0.1.1)
   shotgun
   thin
