@@ -5,89 +5,37 @@ Work = Struct.new(:title, :isbn, :book_id, :work_id, :author, :cover_url, :revie
 Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience, :created, :issued, :modified) do
 
   # main method to find reviews, GET /api/review
-  # params: uri, isbn, title/author
+  # params: uri, isbn, title, author, reviewer, work
   def find_reviews(params = {})
-    
-    selects = [:uri, :book_id, :work_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :cover_url, :review_source, :reviewer, :review_publisher, :review_audience]
+    selects     = [:uri, :book_id, :work_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :cover_url, :review_source, :reviewer_name, :reviewer_nick, :review_audience]
     
     if params.has_key?(:uri)
       begin 
         selects.delete(:uri)
         uri = URI::parse(params[:uri])
         uri = RDF::URI(uri)
-        isbn = :isbn
-        #solutions = find_review_by_uri(params[:uri], selects)
+        solutions = review_query(selects, :uri => uri)
       rescue URI::InvalidURIError
         return "Invalid URI"
       end
     elsif params.has_key?(:isbn)
-      #selects.delete(:isbn)
-      uri           = :uri
       isbn          = "#{params[:isbn].strip.gsub(/[^0-9]/, '')}"
-#    elsif params.has_key?(:reviewer)
-#      reviewer      = "#{params[:reviewer].strip.gsub(/[^0-9]/, '')}"
-#      isbn          = :isbn
-#      uri           = :uri
+      solutions = review_query(selects, :isbn => isbn)
+    elsif params.has_key?(:work)
+      begin 
+        selects.delete(:work_id)
+        uri = URI::parse(params[:work])
+        uri = RDF::URI(uri)
+        solutions = review_query(selects, :work => uri)
+      rescue URI::InvalidURIError
+        return "Invalid URI"
+      end    
+    elsif params.has_key?(:reviewer)
+      solutions = review_query(selects, :reviewer => params[:reviewer])
     else
-      author_search = params[:author] ? params[:author].gsub(/[[:punct:]]/, '').split(" ") : nil
-      title_search  = params[:title] ? params[:title].gsub(/[[:punct:]]/, '').split(" ") : nil
-      uri           = :uri
-      isbn          = :isbn
+      solutions = review_query(selects, :author => params[:author], :title => params[:title])
     end
 
-    # query RDF store for work and reviews
-    query = QUERY.select(*selects)
-    query.group_digest(:author, ', ', 1000, 1)
-    query.group_digest(:isbn, ', ', 1000, 1) if isbn == :isbn
-    query.distinct.where(
-      [uri, RDF.type, RDF::REV.Review, :context => REVIEWGRAPH],
-      #[uri, RDF::DEICHMAN.basedOnManifestation, :book_id, :context => REVIEWGRAPH],
-      [uri, RDF::DC.created, :created, :context => REVIEWGRAPH],
-      [uri, RDF::DC.issued, :issued, :context => REVIEWGRAPH],
-      [uri, RDF::DC.modified, :modified, :context => REVIEWGRAPH],
-      [uri, RDF::REV.title, :review_title, :context => REVIEWGRAPH],
-      [uri, RDF::DC.abstract, :review_abstract, :context => REVIEWGRAPH],
-      [:book_id, RDF::REV.hasReview, uri, :context => BOOKGRAPH],
-      [:book_id, RDF.type, RDF::FABIO.Manifestation, :context => BOOKGRAPH],
-      [:work_id, RDF::FABIO.hasManifestation, :book_id, :context => BOOKGRAPH],
-      [:book_id, RDF::BIBO.isbn, isbn, :context => BOOKGRAPH],
-      [:book_id, RDF::DC.title, :book_title, :context => BOOKGRAPH],
-      [:book_id, RDF::DC.creator, :author_id, :context => BOOKGRAPH],
-      [:author_id, RDF::FOAF.name, :author, :context => BOOKGRAPH]    # should we really require foaf:name on book author?
-      )
-    # optional attributes
-    # NB! these optionals adds extra ~2 sec to query
-    query.optional([:book_id, RDF::FOAF.depiction, :cover_url, :context => BOOKGRAPH])
-    
-    #query.optional([uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH]) # moved to separate query due to some very long blobs
-
-    query.optional([uri, RDF::DC.source, :review_source_id, :context => REVIEWGRAPH],
-      [:review_source_id, RDF::RDFS.label, :review_source, :context => BOOKGRAPH])
-    query.optional([uri, RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
-      [:reviewer_id, RDF::FOAF.name, :reviewer, :context => REVIEWGRAPH])
-    query.optional([uri, RDF::DC.audience, :review_audience_id, :context => REVIEWGRAPH],
-      [:review_audience_id, RDF::RDFS.label, :review_audience, :context => BOOKGRAPH])                   
-    query.optional([uri, RDF::DC.publisher, :publisher_id, :context => REVIEWGRAPH],
-      [:publisher_id, RDF::FOAF.name, :review_publisher, :context => REVIEWGRAPH])
-
-    if author_search
-      author_search.each do |author|
-        query.filter("regex(?author, \"#{author}\", \"i\")")
-      end
-    end
-
-    if title_search
-      title_search.each do |title|
-        query.filter("regex(?book_title, \"#{title}\", \"i\")")
-      end
-    end
-    # optimize query in virtuoso, drastically improves performance on optionals
-    query.define('sql:select-option "ORDER"')
-    query.limit(50)
-
-    puts query
-    solutions = REPO.select(query)
-    
     works = []
     unless solutions.empty?
         solutions.each do |solution|
@@ -138,8 +86,78 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     works
   end  
   
-  def find_review_by_uri(params, selects)
+  def review_query(selects, params={})
+    # allowed params merged with params given in api
+    api = {:uri => :uri, :isbn => :isbn, :title => :title, :author => :author, :reviewer => :reviewer, :work => :work_id}
+    api.merge!(params)
+    # do we have freetext searches on author/title?
+    author_search   = params[:author] ? params[:author].gsub(/[[:punct:]]/, '').split(" ") : nil
+    title_search    = params[:title] ? params[:title].gsub(/[[:punct:]]/, '').split(" ") : nil
 
+    # query RDF store for work and reviews
+    query = QUERY.select(*selects)
+    query.group_digest(:author, ', ', 1000, 1)
+    query.group_digest(:isbn, ', ', 1000, 1) if api[:isbn] == :isbn
+    query.distinct.where(
+      [api[:uri], RDF.type, RDF::REV.Review, :context => REVIEWGRAPH],
+      [api[:uri], RDF::DC.created, :created, :context => REVIEWGRAPH],
+      [api[:uri], RDF::DC.issued, :issued, :context => REVIEWGRAPH],
+      [api[:uri], RDF::DC.modified, :modified, :context => REVIEWGRAPH],
+      [api[:uri], RDF::REV.title, :review_title, :context => REVIEWGRAPH],
+      [api[:uri], RDF::DC.abstract, :review_abstract, :context => REVIEWGRAPH],
+      [:book_id, RDF::REV.hasReview, api[:uri], :context => BOOKGRAPH],
+      [:book_id, RDF.type, RDF::FABIO.Manifestation, :context => BOOKGRAPH],
+      [:book_id, RDF::BIBO.isbn, api[:isbn], :context => BOOKGRAPH],
+      [api[:work], RDF::FABIO.hasManifestation, :book_id, :context => BOOKGRAPH], 
+      [api[:work], RDF::DC.title, :book_title, :context => BOOKGRAPH], # filtered by regex later
+      [api[:work], RDF::DC.creator, :author_id, :context => BOOKGRAPH],
+      [:author_id, RDF::FOAF.name, :author, :context => BOOKGRAPH]    # filtered by regex later
+      )
+    # optional attributes
+    # NB! these optionals adds extra ~2 sec to query
+    query.optional([:book_id, RDF::FOAF.depiction, :cover_url, :context => BOOKGRAPH])
+    # review source
+    query.optional([api[:uri], RDF::DC.source, :review_source_id, :context => REVIEWGRAPH],
+      [:review_source_id, RDF::FOAF.name, :review_source, :context => APIGRAPH])
+    # reviewer by foaf name
+    query.optional([api[:uri], RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
+      [:reviewer_id, RDF::FOAF.name, :reviewer_name, :context => APIGRAPH])
+    # reviewer given by accountname
+    query.optional(
+      [api[:uri], RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
+      [:reviewer_id, RDF::FOAF.account, :useraccount, :context => APIGRAPH],
+      [:useraccount, RDF::FOAF.accountName, :reviewer_nick, :context => APIGRAPH]
+      )      
+    # review audience
+    query.optional([api[:uri], RDF::DC.audience, :review_audience_id, :context => REVIEWGRAPH],
+      [:review_audience_id, RDF::RDFS.label, :review_audience, :context => BOOKGRAPH])                   
+    # reviewer workplace
+    #query.optional(
+    #  [api[:uri], RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
+    #  [:workplace_id, RDF::FOAF.member, :reviewer_id, :context => APIGRAPH],
+    #  [:workplace_id, RDF::FOAF.name, :review_publisher, :context => APIGRAPH])
+
+    if author_search
+      author_search.each do |author|
+        query.filter("regex(?author, \"#{author}\", \"i\")")
+      end
+    end
+
+    if title_search
+      title_search.each do |title|
+        query.filter("regex(?book_title, \"#{title}\", \"i\")")
+      end
+    end
+    
+    query.filter("regex(?reviewer_name, \"#{api[:reviewer]}\", \"i\")") if params[:reviewer]
+    query.filter("regex(?reviewer_nick, \"#{api[:reviewer]}\", \"i\")") if params[:reviewer]
+    
+    # optimize query in virtuoso, drastically improves performance on optionals
+    query.define('sql:select-option "ORDER"')
+    query.limit(50)
+
+    puts query
+    solutions = REPO.select(query)
   end
   
   def find_source_by_apikey(api_key)

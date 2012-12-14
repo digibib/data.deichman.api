@@ -63,7 +63,7 @@ class API < Grape::API
 
     get "/" do
       content_type 'json'
-      if [:uri,:isbn,:author,:title,:reviewer].any? {|p| params.has_key?(p) }
+      if [:uri,:isbn,:author,:title,:reviewer,:work].any? {|p| params.has_key?(p) }
         works = Review.new.find_reviews(params)
         if works == "Invalid URI"
           logger.error "Invalid URI"
