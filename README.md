@@ -11,7 +11,7 @@ The API will be expanded as we see fit. Currently only the `/reviews` endpoint i
 The API is open for anyone to use, but a key is required in order to write to the API (i.e perform POST/PUT/DELETE requests). Please get in tocuh if your library wants to publish to our RDF-store.
 
 ### Architecture
-![API architecture](https://github.com/digibib/data.deichman.api/raw/master/docs/review_rdf.svg)
+![API architecture](https://github.com/digibib/data.deichman.api/raw/master/doc/review_rdf.svg)
 
 ### GET /reviews
 Parameters: `isbn`, `uri`, `author`, `title`, `reviewer`
