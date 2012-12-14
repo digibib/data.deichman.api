@@ -44,7 +44,8 @@
 	dct:title "Sn\u00F8mannen";
 	bibo:isbn "9788203193538";
 	bibo:numPages "438";
-	foaf:depiction <http://www.bokkilden.no/SamboWeb/servlet/VisBildeServlet?produktId=4417489>.
+	foaf:depiction <http://www.bokkilden.no/SamboWeb/servlet/VisBildeServlet?produktId=4417489>;
+  rev:hasReview <http://data.deichman.no/bookreviews/test/id_123456>.
 
 ### 
 # Author
@@ -81,7 +82,7 @@
   dct:created "2012-12-06T11:40:00+02:00"^^xsd:dateTime;
   dct:issued "2012-12-07T11:40:00+02:00"^^xsd:dateTime;
   dct:modified "2012-12-08T11:40:00+02:00"^^xsd:dateTime;
-  dct:subject <http://data.deichman.no/work/x18370200_snoemannen>;
+  dct:subject "9788203193538";
   dct:audience <http://data.deichman.no/audiences/juvenile>;
   dct:source <http://data.deichman.no/sources/lesehulen>;
   rev:reviewer <http://data.deichman.no/reviewers/x123456>.
@@ -91,11 +92,10 @@
 # PROTECTED GRAPH <http://data.deichman.no/apigraph>
 ###
 
-<http://data.deichman.no/sources/lesehulen> a rdfs:Resource, foaf:Group;
-  rdfs:label "Lesehulen for barn"@no;
+<http://data.deichman.no/sources/lesehulen> a foaf:Document;
+  foaf:name "Lesehulen for barn";
   foaf:homepage <http://lesehulen.no>;
-  deich:apikey "test";  
-  foaf:member <http://data.deichman.no/reviewers/x123456>.
+  deich:apikey "test".
   
 ### 
 # Workplace
@@ -115,7 +115,6 @@
 <http://data.deichman.no/reviewers/x123456> a foaf:Person;
   foaf:workplaceHomepage <http://deichman.no>;
   foaf:name "Test Testesen";
-  foaf:nick "test";
   foaf:account <http://data.deichman.no/accounts/x123456>.
 
 ### 
@@ -125,5 +124,6 @@
 
 <http://data.deichman.no/accounts/x123456> a sioc:UserAccount, foaf:OnlineAccount;
   foaf:accountName "test";
-  acc:password "test";
+  foaf:accountServiceHomepage <http://data.deichman.no/sources/lesehulen>;
+  acc:password "secret";
   acc:lastActivity "2012-12-08T11:40:00+02:00"^^xsd:dateTime.

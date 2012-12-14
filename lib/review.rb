@@ -24,6 +24,10 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
       #selects.delete(:isbn)
       uri           = :uri
       isbn          = "#{params[:isbn].strip.gsub(/[^0-9]/, '')}"
+#    elsif params.has_key?(:reviewer)
+#      reviewer      = "#{params[:reviewer].strip.gsub(/[^0-9]/, '')}"
+#      isbn          = :isbn
+#      uri           = :uri
     else
       author_search = params[:author] ? params[:author].gsub(/[[:punct:]]/, '').split(" ") : nil
       title_search  = params[:title] ? params[:title].gsub(/[[:punct:]]/, '').split(" ") : nil
@@ -37,16 +41,18 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     query.group_digest(:isbn, ', ', 1000, 1) if isbn == :isbn
     query.distinct.where(
       [uri, RDF.type, RDF::REV.Review, :context => REVIEWGRAPH],
-      [uri, RDF::DEICHMAN.basedOnManifestation, :book_id, :context => REVIEWGRAPH],
+      #[uri, RDF::DEICHMAN.basedOnManifestation, :book_id, :context => REVIEWGRAPH],
       [uri, RDF::DC.created, :created, :context => REVIEWGRAPH],
       [uri, RDF::DC.issued, :issued, :context => REVIEWGRAPH],
       [uri, RDF::DC.modified, :modified, :context => REVIEWGRAPH],
       [uri, RDF::REV.title, :review_title, :context => REVIEWGRAPH],
       [uri, RDF::DC.abstract, :review_abstract, :context => REVIEWGRAPH],
+      [:book_id, RDF::REV.hasReview, uri, :context => BOOKGRAPH],
+      [:book_id, RDF.type, RDF::FABIO.Manifestation, :context => BOOKGRAPH],
+      [:work_id, RDF::FABIO.hasManifestation, :book_id, :context => BOOKGRAPH],
       [:book_id, RDF::BIBO.isbn, isbn, :context => BOOKGRAPH],
       [:book_id, RDF::DC.title, :book_title, :context => BOOKGRAPH],
       [:book_id, RDF::DC.creator, :author_id, :context => BOOKGRAPH],
-      [:work_id, RDF::FABIO.hasManifestation, :book_id, :context => BOOKGRAPH],
       [:author_id, RDF::FOAF.name, :author, :context => BOOKGRAPH]    # should we really require foaf:name on book author?
       )
     # optional attributes
@@ -75,7 +81,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
         query.filter("regex(?book_title, \"#{title}\", \"i\")")
       end
     end
-    # optimize query in virtuoso
+    # optimize query in virtuoso, drastically improves performance on optionals
     query.define('sql:select-option "ORDER"')
     query.limit(50)
 
@@ -161,9 +167,9 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     # get unique sequential id by CONSTRUCTing an id based on source URI
     if source
       query = <<-EOQ
-  PREFIX rev: <http://purl.org/stuff/rev#>
-  CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(str(?source), "http://data.deichman.no/sources/", ""), "/id_", str(bif:sequence_next ('#{review_source}', 1, ?source)) ) )` a rev:Review } 
-  WHERE { <#{source}> a rdfs:Resource ; rdfs:label ?label . ?source a rdfs:Resource ; rdfs:label ?label } ORDER BY(?source) LIMIT 1 
+      PREFIX rev: <http://purl.org/stuff/rev#>
+      CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(str(?source), "http://data.deichman.no/sources/", ""), "/id_", str(bif:sequence_next ('#{review_source}', 1, ?source)) ) )` a rev:Review } 
+      WHERE { <#{source}> a rdfs:Resource ; rdfs:label ?label . ?source a rdfs:Resource ; rdfs:label ?label } ORDER BY(?source) LIMIT 1 
   EOQ
       # nb: to reset count use sequence_set instead, with an iri f.ex. like this:
       # `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(str(?source), "http://data.deichman.no/sources/", ""), "/id_", str(bif:sequence_next ('#{self.review_source}', 0, 0)) ) )`

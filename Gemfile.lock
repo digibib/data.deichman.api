@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/intridea/grape.git
-  revision: 3b7c92c0228eff0880a1ca92a3ba26420b1abcc5
+  revision: f16c555cf761300b1e0a97c5b231e1256c9a2c83
   specs:
     grape (0.2.3)
       activesupport
@@ -25,6 +25,7 @@ GEM
       net-http-persistent
     backports (2.6.5)
     daemons (1.1.9)
+    descendants_tracker (0.0.1)
     eventmachine (1.0.0)
     hashie (1.2.0)
     httparty (0.8.3)
@@ -55,8 +56,9 @@ GEM
       daemons (>= 1.0.9)
       eventmachine (>= 0.12.6)
       rack (>= 1.0.0)
-    virtus (0.5.2)
+    virtus (0.5.3)
       backports (~> 2.6.1)
+      descendants_tracker (~> 0.0.1)
 
 PLATFORMS
   ruby
