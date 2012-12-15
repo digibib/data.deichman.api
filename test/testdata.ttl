@@ -1,12 +1,12 @@
-@prefix dbo: <http://dbpedia.org/dbo/>.
+@prefix dbo: <http://dbpedia.org/ontology/>.
 @prefix deich: <http://data.deichman.no/>.
-@prefix bibo: <http://purl.org/dbo/bibo/>.
+@prefix bibo: <http://purl.org/ontology/bibo/>.
 @prefix xfoaf: <http://www.foafrealm.org/xfoaf/0.1/>.
-@prefix foaf: <http://xmlxfoaf.com/foaf/0.1/>.
+@prefix foaf: <http://xmlns.com/foaf/0.1/>.
 @prefix dct: <http://purl.org/dc/terms/>.
-@prefix radatana: <http://def.bibsys.no/xmlxfoaf/radatana/1.0#>.
+@prefix radatana: <http://def.bibsys.no/xmlns/radatana/1.0#>.
 @prefix fabio: <http://purl.org/spar/fabio/>.
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-xfoaf#>.
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
 @prefix rev: <http://purl.org/stuff/rev#>.
 @prefix sioc: <http://rdfs.org/sioc/ns#>.
@@ -29,7 +29,7 @@
 # GRAPH <http://data.deichman.no/books>
 ###
 
-<http://data.deichman.no/resource/tnr_1161898> a bibo:Document;
+<http://data.deichman.no/resource/tnr_1161898> a bibo:Document, fabio:Manifestation;
 	deich:literaryFormat <http://dbpedia.org/resource/Novel>;
 	deich:titleURLized "snoemannen";
 	dbo:literaryGenre <http://data.deichman.no/genre/x2045288800>;
@@ -65,7 +65,7 @@
 # GRAPH <http://data.deichman.no/books>
 ###
 
-<http://data.deichman.no/audiences/juvenile> a dct:AgentClass;
+<http://data.deichman.no/audience/juvenile> a dct:AgentClass;
   rdfs:label "Juvenile"@en;
   rdfs:label "Barn/Ungdom"@no.
 

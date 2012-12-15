@@ -58,6 +58,8 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
           review_uri = solution[:uri] ? solution[:uri] : uri
           query = QUERY.select(:review_text).where([review_uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH])
           review_text = REPO.select(query).first[:review_text].to_s
+          # reviewer
+          reviewer = solution[:reviewer_name] ? solution[:reviewer_name].to_s : solution[:reviewer_nick].to_s 
           
           review = Review.new(
                           solution[:uri] ? solution[:uri].to_s : uri,
@@ -66,7 +68,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
                           #solution[:review_text].to_s,
                           review_text,
                           solution[:review_source].to_s,
-                          solution[:reviewer].to_s,
+                          reviewer,
                           solution[:review_audience].to_s,
                           solution[:created].to_s,
                           solution[:issued].to_s,
@@ -122,7 +124,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     # reviewer by foaf name
     query.optional([api[:uri], RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
       [:reviewer_id, RDF::FOAF.name, :reviewer_name, :context => APIGRAPH])
-    # reviewer given by accountname
+    # reviewer by accountname
     query.optional(
       [api[:uri], RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
       [:reviewer_id, RDF::FOAF.account, :useraccount, :context => APIGRAPH],
@@ -130,7 +132,8 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
       )      
     # review audience
     query.optional([api[:uri], RDF::DC.audience, :review_audience_id, :context => REVIEWGRAPH],
-      [:review_audience_id, RDF::RDFS.label, :review_audience, :context => BOOKGRAPH])                   
+      [:review_audience_id, RDF::RDFS.label, :review_audience, :context => BOOKGRAPH]) 
+    query.filter('(lang(?review_audience) = "no" || !bound(?review_audience))') 
     # reviewer workplace
     #query.optional(
     #  [api[:uri], RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
@@ -149,8 +152,8 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
       end
     end
     
-    query.filter("regex(?reviewer_name, \"#{api[:reviewer]}\", \"i\")") if params[:reviewer]
-    query.filter("regex(?reviewer_nick, \"#{api[:reviewer]}\", \"i\")") if params[:reviewer]
+    #query.filter("regex(?reviewer_name, \"#{api[:reviewer]}\", \"i\")") if params[:reviewer]
+    #query.filter("regex(?reviewer_nick, \"#{api[:reviewer]}\", \"i\")") if params[:reviewer]
     
     # optimize query in virtuoso, drastically improves performance on optionals
     query.define('sql:select-option "ORDER"')
@@ -168,14 +171,17 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     #          deichman:apikey "apikey" .    
     query = QUERY.select(:source).from(APIGRAPH)
     query.where(
-      [:source, RDF.type, RDF::RDFS.Resource], 
-      [:source, RDF::RDFS.label, :label],
+      [:source, RDF.type, RDF::FOAF.Document], 
+      [:source, RDF::FOAF.name, :label],
       [:source, RDF::DEICHMAN.apikey, "#{api_key}"])
     query.limit(1)
     #puts query
     solutions = REPO.select(query)
     return nil if solutions.empty?
     source = solutions.first[:source]
+  end
+  
+  def find_reviewer
   end
   
   def autoincrement_source(source = nil)
@@ -186,12 +192,12 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     if source
       query = <<-EOQ
       PREFIX rev: <http://purl.org/stuff/rev#>
-      CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(str(?source), "http://data.deichman.no/sources/", ""), "/id_", str(bif:sequence_next ('#{review_source}', 1, ?source)) ) )` a rev:Review } 
-      WHERE { <#{source}> a rdfs:Resource ; rdfs:label ?label . ?source a rdfs:Resource ; rdfs:label ?label } ORDER BY(?source) LIMIT 1 
+      CONSTRUCT { `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(str(?source), "http://data.deichman.no/sources/", ""), "/id_", str(bif:sequence_next ('#{source}', 1, ?source)) ) )` a rev:Review } 
+      WHERE { <#{source}> a foaf:Document ; foaf:name ?name . ?source a foaf:Document ; foaf:name ?name } ORDER BY(?source) LIMIT 1 
   EOQ
       # nb: to reset count use sequence_set instead, with an iri f.ex. like this:
-      # `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(str(?source), "http://data.deichman.no/sources/", ""), "/id_", str(bif:sequence_next ('#{self.review_source}', 0, 0)) ) )`
-      #puts "#{query}"
+      # `iri(bif:CONCAT("http://data.deichman.no/bookreviews/", bif:REPLACE(str(?source), "http://data.deichman.no/sources/", ""), "/id_", str(bif:sequence_next ('#{source}', 0, 0)) ) )`
+      puts "#{query}"
       solutions = REPO.construct(query)
       
       return nil if solutions.empty?
@@ -256,8 +262,8 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     insert_statements << RDF::Statement.new(review.uri, RDF::REV.title, RDF::Literal(review.title))
     insert_statements << RDF::Statement.new(review.uri, RDF::DC.abstract, RDF::Literal(review.teaser))
     insert_statements << RDF::Statement.new(review.uri, RDF::REV.text, RDF::Literal(review.text))
-    insert_statements << RDF::Statement.new(review.uri, RDF::DC.subject, RDF::URI(work.work_id))
-    insert_statements << RDF::Statement.new(review.uri, RDF::DEICHMAN.basedOnManifestation, RDF::URI(work.book_id))
+    insert_statements << RDF::Statement.new(review.uri, RDF::DC.subject, RDF::URI(work.isbn))
+    #insert_statements << RDF::Statement.new(review.uri, RDF::DEICHMAN.basedOnManifestation, RDF::URI(work.book_id))
     insert_statements << RDF::Statement.new(review.uri, RDF::DC.created, RDF::Literal(review.created, :datatype => RDF::XSD.dateTime))
     insert_statements << RDF::Statement.new(review.uri, RDF::DC.issued, RDF::Literal(review.issued, :datatype => RDF::XSD.dateTime))
     insert_statements << RDF::Statement.new(review.uri, RDF::DC.modified, RDF::Literal(review.modified, :datatype => RDF::XSD.dateTime))
@@ -268,9 +274,9 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     # audience, FIX: better to lookup labels on the fly!
     if review.audience
       case review.audience.downcase
-      when 'voksen'
+      when 'voksen' || 'adult'
         insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
-      when 'barn/ungdom'
+      when 'barn' || 'ungdom' || 'juvenile'
         insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/juvenile"))
       else
         # insert nothing
@@ -281,11 +287,12 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     #puts "#{query}"
     result = REPO.insert_data(query)
     
-    # also insert hasReview property on work
-    hasreview_statement  = []
-    hasreview_statement << RDF::Statement.new(RDF::URI(work.work_id), RDF::FABIO.hasReview, review.uri)
-    workquery            = QUERY.insert_data(hasreview_statement).graph(BOOKGRAPH)
-    result               = REPO.insert_data(workquery)
+    # also insert hasReview property on work and book
+    hasreview_statements  = []
+    hasreview_statements << RDF::Statement.new(RDF::URI(work.work_id), RDF::REV.hasReview, review.uri)
+    hasreview_statements << RDF::Statement.new(RDF::URI(work.book_id), RDF::REV.hasReview, review.uri)
+    query                 = QUERY.insert_data(hasreview_statements).graph(BOOKGRAPH)
+    result                = REPO.insert_data(query)
     return work
   end
   
@@ -336,7 +343,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     insert_statements << RDF::Statement.new(review.uri, RDF.type, RDF::REV.Review)
     insert_statements << RDF::Statement.new(review.uri, RDF::DC.source, RDF::URI(source))
     insert_statements << RDF::Statement.new(review.uri, RDF::REV.title, RDF::Literal(review.title))
-    insert_statements << RDF::Statement.new(review.uri, RDF::DC.abstract, RDF::Literal(review.abstract))
+    insert_statements << RDF::Statement.new(review.uri, RDF::DC.abstract, RDF::Literal(review.teaser))
     insert_statements << RDF::Statement.new(review.uri, RDF::REV.text, RDF::Literal(review.text))
     insert_statements << RDF::Statement.new(review.uri, RDF::DC.subject, RDF::URI(work.work_id))
     insert_statements << RDF::Statement.new(review.uri, RDF::DEICHMAN.basedOnManifestation, RDF::URI(work.book_id))
@@ -378,9 +385,9 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     #puts "#{query}"
     result = REPO.delete(query)
     # and delete hasReview reference from work
-    hasReview_query = QUERY.delete([:work, RDF::FABIO.hasReview, uri])
-    hasReview_query.where([:work, RDF.type, RDF::FABIO.Work],[:work, RDF::FABIO.hasReview, uri]).graph(BOOKGRAPH)
-    result    = REPO.delete(hasReview_query)
+    query = QUERY.delete([:work, RDF::REV.hasReview, uri])
+    query.where([:work, RDF::REV.hasReview, uri]).graph(BOOKGRAPH)
+    result    = REPO.delete(query)
   end
   
 end
