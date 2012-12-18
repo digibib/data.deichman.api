@@ -10,7 +10,7 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
 @prefix rev: <http://purl.org/stuff/rev#>.
 @prefix sioc: <http://rdfs.org/sioc/ns#>.
-@prefix acc: <http://purl.org/NET/acc/0.1/>.
+@prefix acc: <http://purl.org/NET/acc#>.
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
 
 ### 
@@ -62,7 +62,7 @@
 
 ### 
 # Audience
-# GRAPH <http://data.deichman.no/books>
+# GRAPH <http://data.deichman.no/reviews>
 ###
 
 <http://data.deichman.no/audience/juvenile> a dct:AgentClass;
@@ -122,7 +122,7 @@
 # PROTECTED GRAPH <http://data.deichman.no/apigraph>
 ###
 
-<http://data.deichman.no/accounts/x123456> a sioc:UserAccount, foaf:OnlineAccount;
+<http://data.deichman.no/accounts/x123456> a sioc:UserAccount;
   foaf:accountName "test";
   foaf:accountServiceHomepage <http://data.deichman.no/sources/lesehulen>;
   acc:password "secret";

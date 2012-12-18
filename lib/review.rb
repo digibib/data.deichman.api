@@ -7,7 +7,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
   # main method to find reviews, GET /api/review
   # params: uri, isbn, title, author, reviewer, work
   def find_reviews(params = {})
-    selects     = [:uri, :book_id, :work_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :cover_url, :review_source, :reviewer_name, :reviewer_nick, :review_audience]
+    selects     = [:uri, :book_id, :work_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :cover_url, :review_source, :review_audience, :reviewer_name, :reviewer_nick]
     
     if params.has_key?(:uri)
       begin 
@@ -116,7 +116,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
       [:author_id, RDF::FOAF.name, :author, :context => BOOKGRAPH]    # filtered by regex later
       )
     # optional attributes
-    # NB! these optionals adds extra ~2 sec to query
+    # NB! all these optionals adds extra ~2 sec to query
     query.optional([:book_id, RDF::FOAF.depiction, :cover_url, :context => BOOKGRAPH])
     # review source
     query.optional([api[:uri], RDF::DC.source, :review_source_id, :context => REVIEWGRAPH],
@@ -132,7 +132,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
       )      
     # review audience
     query.optional([api[:uri], RDF::DC.audience, :review_audience_id, :context => REVIEWGRAPH],
-      [:review_audience_id, RDF::RDFS.label, :review_audience, :context => BOOKGRAPH]) 
+      [:review_audience_id, RDF::RDFS.label, :review_audience, :context => REVIEWGRAPH]) 
     query.filter('(lang(?review_audience) = "no" || !bound(?review_audience))') 
     # reviewer workplace
     #query.optional(
@@ -152,8 +152,8 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
       end
     end
     
-    #query.filter("regex(?reviewer_name, \"#{api[:reviewer]}\", \"i\")") if params[:reviewer]
-    #query.filter("regex(?reviewer_nick, \"#{api[:reviewer]}\", \"i\")") if params[:reviewer]
+    query.filter("regex(?reviewer_name, \"#{api[:reviewer]}\", \"i\")") if params[:reviewer]
+    query.filter("regex(?reviewer_nick, \"#{api[:reviewer]}\", \"i\")") if params[:reviewer]
     
     # optimize query in virtuoso, drastically improves performance on optionals
     query.define('sql:select-option "ORDER"')

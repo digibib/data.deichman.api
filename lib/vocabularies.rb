@@ -23,5 +23,5 @@ module RDF
   class CTAG < RDF::Vocabulary("http://commontag.org/ns#");end 
   class RADATANA < RDF::Vocabulary("http://def.bibsys.no/xmlns/radatana/1.0#");end 
   class SIOC < RDF::Vocabulary("http://rdfs.org/sioc/ns#");end 
-  class ACC < RDF::Vocabulary("http://purl.org/NET/acc/0.1/");end 
+  class ACC < RDF::Vocabulary("http://purl.org/NET/acc#");end 
 end
