@@ -134,11 +134,11 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     query.optional([api[:uri], RDF::DC.audience, :review_audience_id, :context => REVIEWGRAPH],
       [:review_audience_id, RDF::RDFS.label, :review_audience, :context => REVIEWGRAPH]) 
     query.filter('(lang(?review_audience) = "no" || !bound(?review_audience))') 
-    # reviewer workplace
+    # reviewer workplace -- not yet implemented
     #query.optional(
     #  [api[:uri], RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
     #  [:workplace_id, RDF::FOAF.member, :reviewer_id, :context => APIGRAPH],
-    #  [:workplace_id, RDF::FOAF.name, :review_publisher, :context => APIGRAPH])
+    #  [:workplace_id, RDF::FOAF.name, :reviewer_workplace, :context => APIGRAPH])
 
     if author_search
       author_search.each do |author|
@@ -268,10 +268,22 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     insert_statements << RDF::Statement.new(review.uri, RDF::DC.issued, RDF::Literal(review.issued, :datatype => RDF::XSD.dateTime))
     insert_statements << RDF::Statement.new(review.uri, RDF::DC.modified, RDF::Literal(review.modified, :datatype => RDF::XSD.dateTime))
 
-    # optionals
-    # need lookup in rdf store before these can be used!
-    #insert_statements << RDF::Statement.new(work.reviews.review_id, RDF::REV.reviewer, RDF::URI(self.review_reviewer)) if self.review_reviewer
-    # audience, FIX: better to lookup labels on the fly!
+    # Optionals - Reviewer lookup in APIGRAPH for full name or nick
+    if review.reviewer
+      query = QUERY.select(:reviewer_id).from(APIGRAPH)
+      query.where([:reviewer_id, RDF.type, RDF::FOAF.Person])
+      # reviewer by foaf name
+      query.optional([:reviewer_id, RDF::FOAF.name, "#{params[:reviewer]}"])
+      # reviewer by accountname
+      query.optional([:reviewer_id, RDF::FOAF.account, :useraccount],
+                      [:useraccount, RDF::FOAF.accountName, "#{params[:reviewer]}"])
+      solutions = REPO.select(query)
+      if solutions
+        insert_statements << RDF::Statement.new(review.uri, RDF::REV.reviewer, RDF::URI("#{solutions.first[:reviewer_id]}"))
+      end
+    end    
+   
+    # Optionals - Audience, TODO: better to lookup labels on the fly!
     if review.audience
       case review.audience.downcase
       when 'voksen' || 'adult'
@@ -284,7 +296,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     end
 
     query = QUERY.insert_data(insert_statements).graph(REVIEWGRAPH)
-    #puts "#{query}"
+    puts "#{query}"
     result = REPO.insert_data(query)
     
     # also insert hasReview property on work and book
@@ -348,11 +360,23 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     insert_statements << RDF::Statement.new(review.uri, RDF::DC.subject, RDF::URI(work.work_id))
     insert_statements << RDF::Statement.new(review.uri, RDF::DEICHMAN.basedOnManifestation, RDF::URI(work.book_id))
     insert_statements << RDF::Statement.new(review.uri, RDF::DC.modified, RDF::Literal(Time.now.xmlschema, :datatype => RDF::XSD.dateTime))
-    
-    # optionals
-    # need lookup in rdf store before these can be used!
-    #insert_statements << RDF::Statement.new(review.review_id, RDF::REV.reviewer, RDF::URI(review.review_reviewer)) if review.review_reviewer
-    # audience, FIX: better to lookup labels on the fly!
+
+    # Optionals - Reviewer lookup in APIGRAPH for full name or nick
+    if review.reviewer
+      query = QUERY.select(:reviewer_id).from(APIGRAPH)
+      query.where([:reviewer_id, RDF.type, RDF::FOAF.Person])
+      # reviewer by foaf name
+      query.optional([:reviewer_id, RDF::FOAF.name, "#{params[:reviewer]}"])
+      # reviewer by accountname
+      query.optional([:reviewer_id, RDF::FOAF.account, :useraccount],
+                      [:useraccount, RDF::FOAF.accountName, "#{params[:reviewer]}"])
+      solutions = REPO.select(query)
+      if solutions
+        insert_statements << RDF::Statement.new(review.uri, RDF::REV.reviewer, RDF::URI("#{solutions.first[:reviewer_id]}"))
+      end
+    end 
+        
+    # Optionals - audience, FIX: better to lookup labels on the fly!
     if review.audience
       case review.audience.downcase
       when 'voksen' || 'adult'
