@@ -25,7 +25,7 @@ http GET http://data.deichman.no/api/v1/reviews isbn=9788243006218
 http GET http://data.deichman.no/api/v1/reviews author="Knut Hamsun" title="Sult"
 http GET http://data.deichman.no/api/v1/reviews author="Nesbø, Jo"
 http GET http://data.deichman.no/api/v1/reviews uri="http://data.deichman.no/bookreviews/deich3456"
-http GET http://data.deichman.no/api/v1/reviews reviewer="http://data.deichman.no/reviewers/x123456"
+http GET http://data.deichman.no/api/v1/reviews reviewer="Test Reviewer"
 http GET http://data.deichman.no/api/v1/reviews work="http://data.deichman.no/work/x18370200_snoemannen"
 ```
 #### Returns
