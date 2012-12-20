@@ -245,7 +245,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
       # parts to compose URI base for resource
       parts = []
       parts << "'#{BASE_URI}'"
-      parts << "bif:REPLACE(str(?source), 'http://data.deichman.no/sources/', '/')" if resource == "review"
+      parts << "bif:REPLACE(str(?source), 'http://data.deichman.no/source/', '/')" if resource == "review"
       parts << "'/#{resource}'"
       parts << "'/id_'"
       
