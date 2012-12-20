@@ -18,14 +18,14 @@ POST /reviews
 ---------------------------------------------------------
 Parametre:
   påkrevd: api_key, isbn, title, teaser, text
-  valgfri: audience, reviewer, source
+  valgfri: audience, reviewer
 
 PUT /reviews
 "Oppdaterer eksisterende anbefaling"
 ---------------------------------------------------------
 Parametre:
   påkrevd: api_key, uri, 
-  valgfri: en eller flere av isbn|title|teaser|text|reviewer|audience|source
+  valgfri: en eller flere av isbn|title|teaser|text|reviewer|audience
 
 DELETE /reviews
 "Sletter en anbefaling"
