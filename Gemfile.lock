@@ -1,9 +1,10 @@
 GIT
   remote: https://github.com/intridea/grape.git
-  revision: f16c555cf761300b1e0a97c5b231e1256c9a2c83
+  revision: 241664f33e6f414841cec9dc33facdde9ffcd3b7
   specs:
     grape (0.2.3)
       activesupport
+      builder
       hashie (~> 1.2)
       multi_json (>= 1.3.2)
       multi_xml
@@ -24,6 +25,7 @@ GEM
       httparty
       net-http-persistent
     backports (2.6.5)
+    builder (3.1.4)
     daemons (1.1.9)
     descendants_tracker (0.0.1)
     eventmachine (1.0.0)
@@ -35,6 +37,7 @@ GEM
     multi_json (1.5.0)
     multi_xml (0.5.1)
     net-http-persistent (2.8)
+    nokogiri (1.5.6)
     rack (1.4.1)
     rack-accept (0.4.5)
       rack (>= 0.4)
@@ -50,13 +53,15 @@ GEM
       api_smith (~> 1.2.0)
       httparty (~> 0.8.2)
       rdf (~> 0.3.7)
+    sanitize (2.0.3)
+      nokogiri (>= 1.4.4, < 1.6)
     shotgun (0.9)
       rack (>= 1.0)
     thin (1.5.0)
       daemons (>= 1.0.9)
       eventmachine (>= 0.12.6)
       rack (>= 1.0.0)
-    virtus (0.5.3)
+    virtus (0.5.4)
       backports (~> 2.6.1)
       descendants_tracker (~> 0.0.1)
 
@@ -69,5 +74,6 @@ DEPENDENCIES
   rdf
   rdf-n3
   rdf-virtuoso (~> 0.1.1)
+  sanitize
   shotgun
   thin

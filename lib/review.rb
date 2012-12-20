@@ -1,6 +1,8 @@
 #encoding: utf-8
 require 'rdf/n3'
 require "rdf/virtuoso"
+require "sanitize"
+
 require_relative './string_replace.rb'
 require_relative "./init.rb"
 require_relative "./vocabularies.rb"
@@ -310,8 +312,8 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
       review = Review.new(
           uri,
           params[:title],
-          params[:teaser],
-          params[:text],
+          clean_text(params[:teaser]),
+          clean_text(params[:text]),
           source,
           reviewer_id,
           params[:audience] ? params[:audience] : nil,
@@ -409,6 +411,8 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     #new = params.to_struct "Review"
     # set modified time
     review.modified = Time.now.xmlschema
+    review.teaser   = clean_text(review.teaser)
+    review.text     = clean_text(review.text)
     puts "after update:\n#{work}"
     
     # SPARQL UPDATE
@@ -478,15 +482,21 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     uri    = RDF::URI(params[:uri])
     
     # then delete review, but only if source matches
-    query = QUERY.delete([uri, :p, :o]).where([uri, RDF::DC.source, source], [uri, :p, :o]).graph(REVIEWGRAPH)
-    #puts "#{query}"
+    query  = QUERY.delete([uri, :p, :o]).where([uri, RDF::DC.source, source], [uri, :p, :o]).graph(REVIEWGRAPH)
     result = REPO.delete(query)
     # and delete hasReview reference from work
-    query = QUERY.delete([:work, RDF::REV.hasReview, uri])
+    query  = QUERY.delete([:work, RDF::REV.hasReview, uri])
     query.where([:work, RDF::REV.hasReview, uri]).graph(BOOKGRAPH)
     result    = REPO.delete(query)
   end
-  
+
+  def clean_text(text)
+    # first remove all but whitelisted html elements
+    sanitized = Sanitize.clean(text, :elements => ['p', 'pre', 'small', 'span', 'em', 'strong', 'blockquote', 'cite', 'br'],
+      :attributes => {'span' => ['class']})
+    # then strip newlines, tabs carriage returns and return pretty text
+    result = sanitized.gsub(/\s+/, ' ').squeeze(' ')
+  end  
 end
 
 # patched Struct and Hash classes to allow easy conversion to/from JSON and Hash

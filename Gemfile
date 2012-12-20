@@ -5,6 +5,7 @@ gem "rack-test"
 gem "rdf"
 gem "rdf-n3"
 gem "rdf-virtuoso", '~> 0.1.1'
+gem "sanitize" 
 
 group :development do
   gem 'shotgun'
