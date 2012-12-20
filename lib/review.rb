@@ -14,7 +14,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
   # main method to find reviews, GET /api/review
   # params: uri, isbn, title, author, reviewer, work
   def find_reviews(params = {})
-    selects     = [:uri, :book_id, :work_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :cover_url, :review_source, :review_audience, :reviewer_name, :reviewer_nick]
+    selects     = [:uri, :work_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :cover_url, :review_source, :review_audience, :reviewer_name, :accountName]
     
     if params.has_key?(:uri)
       begin 
@@ -107,6 +107,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     query = QUERY.select(*selects)
     query.group_digest(:author, ', ', 1000, 1)
     query.group_digest(:isbn, ', ', 1000, 1) if api[:isbn] == :isbn
+    query.sample(:book_id)
     query.distinct.where(
       [api[:uri], RDF.type, RDF::REV.Review, :context => REVIEWGRAPH],
       [api[:uri], RDF::DC.created, :created, :context => REVIEWGRAPH],
