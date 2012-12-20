@@ -12,3 +12,4 @@ REVIEWGRAPH = RDF::URI(repository["reviewgraph"])
 BOOKGRAPH   = RDF::URI(repository["bookgraph"])
 APIGRAPH    = RDF::URI(repository["apigraph"])
 QUERY       = RDF::Virtuoso::Query
+BASE_URI    = repository["base_uri"]

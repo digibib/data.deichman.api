@@ -3,9 +3,6 @@ $stdout.sync = true
 
 require "bundler/setup"
 require "grape"
-require "rdf/virtuoso"
-require "./lib/init.rb"
-require "./lib/vocabularies.rb"
 require "./lib/review.rb"
 
 # trap all exceptions and fail gracefuly with a 500 and a proper message
@@ -99,6 +96,8 @@ class API < Grape::API
       error!("Sorry, #{params[:isbn]} matches no known book in our base", 400) if work == "Invalid ISBN"
       error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if work == "Invalid api_key"
       error!("Sorry, unable to generate unique ID of review", 400) if work == "Invalid UID"
+      error!("Sorry, unable to obtain unique ID of reviewer", 400) if work == "Invalid Reviewer ID"
+      
       logger.info "POST: params: #{params} - review: #{work.reviews}"
       header['Content-Type'] = 'application/json; charset=utf-8' 
       {:work => work }
