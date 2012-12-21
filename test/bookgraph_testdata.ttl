@@ -1,0 +1,63 @@
+@prefix dbo: <http://dbpedia.org/ontology/>.
+@prefix deich: <http://data.deichman.no/>.
+@prefix bibo: <http://purl.org/ontology/bibo/>.
+@prefix xfoaf: <http://www.foafrealm.org/xfoaf/0.1/>.
+@prefix foaf: <http://xmlns.com/foaf/0.1/>.
+@prefix dct: <http://purl.org/dc/terms/>.
+@prefix radatana: <http://def.bibsys.no/xmlns/radatana/1.0#>.
+@prefix fabio: <http://purl.org/spar/fabio/>.
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix rev: <http://purl.org/stuff/rev#>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+
+###
+# BOOKGRAPH testdata
+###
+
+### 
+# Work
+# GRAPH <http://data.deichman.no/books>
+###
+
+<http://data.deichman.no/work/x18370200_snoemannen> a fabio:Work;
+	dct:title "Sn\u00F8mannen";
+  dct:creator <http://data.deichman.no/person/x18370200>;
+  fabio:hasManifestation <http://data.deichman.no/resource/tnr_1161898>;
+  rev:hasReview <http://data.deichman.no/test/review/id_123456>.
+
+### 
+# Book
+# GRAPH <http://data.deichman.no/books>
+###
+
+<http://data.deichman.no/resource/tnr_1161898> a bibo:Document, fabio:Manifestation;
+	deich:literaryFormat <http://dbpedia.org/resource/Novel>;
+	deich:titleURLized "snoemannen";
+	dbo:literaryGenre <http://data.deichman.no/genre/x2045288800>;
+	dct:audience <http://data.deichman.no/audience/adult>;
+	dct:creator <http://data.deichman.no/person/x18370200>;
+	dct:format <http://data.deichman.no/format/Book>;
+	dct:identifier "1161898";
+	dct:isPartOf <http://data.deichman.no/series/x2043497800>;
+	dct:issued "2009";
+	dct:language <http://lexvo.org/id/iso639-3/nob>;
+	dct:publisher <http://data.deichman.no/organization/aschehoug>;
+	dct:title "Sn\u00F8mannen";
+	bibo:isbn "9788203193538";
+	bibo:numPages "438";
+	foaf:depiction <http://www.bokkilden.no/SamboWeb/servlet/VisBildeServlet?produktId=4417489>;
+  rev:hasReview <http://data.deichman.no/test/review/id_123456>.
+
+### 
+# Author
+# GRAPH <http://data.deichman.no/books>
+###
+
+<http://data.deichman.no/person/x18370200> a foaf:Person;
+  deich:lifespan "1960-";
+	radatana:catalogueName "Nesb\u00F8, Jo";
+	xfoaf:nationality <http://data.deichman.no/nationality/n>;
+	foaf:firstName "Jo";
+	foaf:lastName "Nesb\u00F8";
+	foaf:name "Jo Nesb\u00F8".
