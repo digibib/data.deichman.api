@@ -51,7 +51,7 @@ class API < Grape::API
     desc "returns reviews"
       params do
           optional :uri,      type: String, desc: "URI of review"
-          optional :isbn,     type: String, desc: "ISBN of reviewed book", regexp: /^[0-9Xx-]+$/
+          optional :isbn,     type: String, desc: "ISBN of reviewed book" #, regexp: /^[0-9Xx-]+$/
           optional :title,    type: String, desc: "Book title"
           optional :author,   type: String, desc: "Book author"
           optional :reviewer, type: String, desc: "Review author"
@@ -85,7 +85,7 @@ class API < Grape::API
         requires :title,    type: String, desc: "Title of review"
         requires :teaser,   type: String, desc: "Abstract of review"
         requires :text,     type: String, desc: "Text of review"
-        requires :isbn,     type: String, desc: "ISBN of reviewed book", regexp: /^[0-9Xx-]+$/
+        requires :isbn,     type: String, desc: "ISBN of reviewed book" #, regexp: /^[0-9Xx-]+$/
         optional :audience, type: String, desc: "Audience of review, either 'adult' or 'juvenile'", regexp: /([Vv]oksen|[Aa]dult|[Bb]arn|[Uu]ngdom|[Jj]uvenile)/
         optional :reviewer, type: String, desc: "Name of reviewer"
         #optional :source, type: String, desc: "Source of review"
