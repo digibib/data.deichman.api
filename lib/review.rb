@@ -360,12 +360,10 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     # Optionals - Audience, TODO: better to lookup labels on the fly!
     if review.audience
       case review.audience.downcase
-      when 'voksen' || 'adult'
-        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
-      when 'barn' || 'ungdom' || 'juvenile'
+      when 'barn' || 'ungdom' || 'barn/ungdom' || 'juvenile'
         insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/juvenile"))
       else
-        # insert nothing
+        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
       end
     end
 
@@ -457,12 +455,10 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     # Optionals - audience, FIX: better to lookup labels on the fly!
     if review.audience
       case review.audience.downcase
-      when 'voksen' || 'adult'
-        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
-      when 'barn' || 'ungdom' || 'juvenile'
+      when 'barn' || 'ungdom' || 'barn/ungdom' || 'juvenile'
         insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/juvenile"))
       else
-        #
+        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
       end
     end
     
@@ -493,7 +489,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
 
   def clean_text(text)
     # first remove all but whitelisted html elements
-    sanitized = Sanitize.clean(text, :elements => ['p', 'pre', 'small', 'span', 'em', 'strong', 'blockquote', 'cite', 'br'],
+    sanitized = Sanitize.clean(text, :elements => %w[p pre small em i strong strike b blockquote q cite code br h1 h2 h3 h4 h5 h6],
       :attributes => {'span' => ['class']})
     # then strip newlines, tabs carriage returns and return pretty text
     result = sanitized.gsub(/\s+/, ' ').squeeze(' ')

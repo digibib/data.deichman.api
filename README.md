@@ -39,6 +39,8 @@ JSON hash of one or more `work`, and an array of its `reviews`
 * Required: `api_key`, `isbn`, `title`, `teaser`, `text`
 * Optional: `reviewer`, `audience`
 
+allowed audience values are `adult`, `juvenile`, `barn`, `ungdom`, `barn/ungdom`
+
 Example
 ```
 http POST http://data.deichman.no/api/reviews api_key="dummyapikey" isbn=9788243006218 title="Title of review"
