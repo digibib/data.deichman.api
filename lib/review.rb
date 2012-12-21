@@ -26,7 +26,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
         return "Invalid URI"
       end
     elsif params.has_key?(:isbn)
-      isbn          = "#{params[:isbn].strip.gsub(/[^0-9]/, '')}"
+      isbn          = sanitize_isbn("#{params[:isbn]}")
       solutions = review_query(selects, :isbn => isbn)
     elsif params.has_key?(:work)
       begin 
@@ -274,7 +274,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     return "Invalid api_key" unless source
     
     # find work based on isbn
-    isbn = params[:isbn].strip.gsub(/[^0-9]/, '')
+    isbn = sanitize_isbn("#{params[:isbn]}")
 
     query = QUERY.select(:book_id, :book_title, :work_id, :author)
     query.from(BOOKGRAPH)
@@ -498,6 +498,10 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     # then strip newlines, tabs carriage returns and return pretty text
     result = sanitized.gsub(/\s+/, ' ').squeeze(' ')
   end  
+  
+  def sanitize_isbn(isbn)
+    isbn.strip.gsub(/[^0-9xX]/, '')
+  end
 end
 
 # patched Struct and Hash classes to allow easy conversion to/from JSON and Hash
