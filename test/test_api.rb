@@ -14,25 +14,7 @@ describe API do
   describe 'reviews' do
     describe 'GET /reviews' do
       before do
-        #create dummy review
-        post "/api/reviews", :api_key  => "dummyapikey", 
-                             :isbn     => "9788203193538",
-                             :title    => "A dummy review of Snømannen",
-                             :teaser   => "Teaser should be short and to the point",
-                             :text     => "Text should be weighted and both personal and attentive to details..."
-        last_response.status.must_equal 201
-        response = JSON.parse(last_response.body)
-        response["work"]["reviews"]["review_title"].must_equal "A dummy review of Snømannen"
-        @uri = response["work"]["reviews"]["review_id"]
-      end
-
-      after do
-        #delete dummy review
-        delete "/api/reviews", :api_key  => "dummyapikey", 
-                               :uri      => "#{@uri}"
-        last_response.status.must_equal 200
-        response = JSON.parse(last_response.body)
-        response["result"].must_match(/done/)
+        @uri = "http://data.deichman.no/test/review/id_123456"
       end
 
       it "returns all reviews of an author" do
@@ -102,7 +84,7 @@ describe API do
 
     describe 'POST /reviews' do
       it "is should create a review" do
-        post "/api/reviews", :api_key  => "dummyapikey", 
+        post "/api/reviews", :api_key  => "dummyapikey",
                              :isbn     => "9788203193538",
                              :title    => "A dummy review of Snømannen",
                              :teaser   => "Teaser should be short and to the point",
@@ -112,10 +94,10 @@ describe API do
         response["work"]["reviews"]["review_title"].must_equal "A dummy review of Snømannen"
         @uri = response["work"]["reviews"]["review_id"]
       end
-        
+
       after do
         #delete the reivew
-        delete "/api/reviews", :api_key  => "dummyapikey", 
+        delete "/api/reviews", :api_key  => "dummyapikey",
                                :uri      => "#{@uri}"
         last_response.status.must_equal 200
         response = JSON.parse(last_response.body)
@@ -126,7 +108,7 @@ describe API do
     describe 'PUT /reviews' do
       before do
         #create review
-        post "/api/reviews", :api_key  => "dummyapikey", 
+        post "/api/reviews", :api_key  => "dummyapikey",
                              :isbn     => "9788203193538",
                              :title    => "A dummy review of Snømannen",
                              :teaser   => "Teaser should be short and to the point",
@@ -139,7 +121,7 @@ describe API do
 
       after do
         #delete the reivew
-        delete "/api/reviews", :api_key  => "dummyapikey", 
+        delete "/api/reviews", :api_key  => "dummyapikey",
                                :uri      => "#{@uri}"
         last_response.status.must_equal 200
         response = JSON.parse(last_response.body)
@@ -149,27 +131,27 @@ describe API do
       it "is should demand api_key" do
         put "/api/reviews", :uri     => "#{@uri}",
                             :title   => "An updated review"
-        last_response.status.must_equal 400        
+        last_response.status.must_equal 400
         last_response.body.must_match (/missing parameter: api_key/)
       end
 
       it "is should demand uri of review" do
-        put "/api/reviews", :api_key => "dummyapikey", 
+        put "/api/reviews", :api_key => "dummyapikey",
                             :title   => "An updated review"
-        last_response.status.must_equal 400                    
+        last_response.status.must_equal 400
         last_response.body.must_match (/missing parameter: uri/)
       end
-            
+
       it "is should update a review" do
         put "/api/reviews", :api_key => "dummyapikey",
                             :uri     => "#{@uri}",
                             :title   => "An updated review"
-        last_response.status.must_equal 200                    
+        last_response.status.must_equal 200
         response = JSON.parse(last_response.body)
         response["before"].first["reviews"].first["review_title"].must_equal "A dummy review of Snømannen"
         response["after"]["reviews"].first["review_title"].must_equal "An updated review"
       end
-      
+
     end
 
     describe 'DELETE /api/reviews' do
