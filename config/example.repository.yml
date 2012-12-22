@@ -5,5 +5,5 @@ password: secret
 auth_method: 'digest'
 reviewgraph: 'http://www.example.com/reviews'
 bookgraph: 'http://www.example.com/books'
-apigraph: 'http://www.example.com/sources/apikeys'
+apigraph: 'http://www.example.com/apigraph'
 base_uri: 'http://data.deichman.no'
