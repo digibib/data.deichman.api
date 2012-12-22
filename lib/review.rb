@@ -160,7 +160,9 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
       end
     end
     
-    query.filter("?reviewer_name = \"#{reviewer}\" || ?reviewer_nick = \"#{reviewer}\"") if params[:reviewer]
+    query.filter("?reviewer_id = \"#{api[:reviewer]}\" || 
+                  ?reviewer_name = \"#{api[:reviewer]}\" || 
+                  ?reviewer_nick = \"#{api[:reviewer]}\"") if params[:reviewer]
     
     # optimize query in virtuoso, drastically improves performance on optionals
     query.define('sql:select-option "ORDER"')
