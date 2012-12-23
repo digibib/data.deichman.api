@@ -1,0 +1,18 @@
+-- GRAPH LEVEL SECURITY VIRTUOSO --
+-- DATA BITS: 1 (read), 2 (write) 3 (read/write) 4 (write Network Resource Fetch)
+
+-- First, create user and grant SPARQL_UPDATE
+DB.DBA.USER_CREATE ('admin', 'secret');
+GRANT SPARQL_UPDATE TO "admin";
+
+-- If some data are supposed to be confidential, 
+-- the whole storage becomes confidential: 
+DB.DBA.RDF_DEFAULT_USER_PERMS_SET ('nobody', 0);
+
+-- Allow anonymous SPARQL on public graphs
+DB.DBA.RDF_GRAPH_USER_PERMS_SET ('http://data.deichman.no/books', 'nobody', 1);
+DB.DBA.RDF_GRAPH_USER_PERMS_SET ('http://data.deichman.no/reviews', 'nobody', 1);
+
+-- Allow read/write on all graphs for SPARQL_UPDATE user
+DB.DBA.RDF_DEFAULT_USER_PERMS_SET ('admin', 3);
+

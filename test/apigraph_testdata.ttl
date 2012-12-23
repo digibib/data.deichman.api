@@ -1,0 +1,54 @@
+@prefix deich: <http://data.deichman.no/>.
+@prefix foaf: <http://xmlns.com/foaf/0.1/>.
+@prefix dct: <http://purl.org/dc/terms/>.
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix sioc: <http://rdfs.org/sioc/ns#>.
+@prefix acc: <http://purl.org/NET/acc#>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+
+###
+# APIGRAPH testdata
+###
+
+### 
+# Source
+# PROTECTED GRAPH <http://data.deichman.no/apigraph>
+###
+
+<http://data.deichman.no/source/test> a foaf:Document;
+  foaf:name "Testkilde for Testing";
+  foaf:homepage <http://eksempel.no>;
+  deich:apikey "test".
+  
+### 
+# Workplace
+# PROTECTED GRAPH <http://data.deichman.no/apigraph>
+###
+
+<http://data.deichman.no/workplace/deichman> a foaf:Organization, foaf:Group;
+  foaf:homepage <http://deichman.no>;
+  foaf:name "Deichmanske bibliotek";
+  foaf:member <http://data.deichman.no/reviewer/id_123456>.
+
+### 
+# Reviewer
+# PROTECTED GRAPH <http://data.deichman.no/apigraph>
+###
+
+<http://data.deichman.no/reviewer/id_123456> a foaf:Person;
+  foaf:workplaceHomepage <http://deichman.no>;
+  foaf:name "Test Testesen";
+  foaf:account <http://data.deichman.no/account/id_123456>.
+
+### 
+# Account
+# PROTECTED GRAPH <http://data.deichman.no/apigraph>
+###
+
+<http://data.deichman.no/account/id_123456> a sioc:UserAccount;
+  foaf:accountName "test";
+  foaf:accountServiceHomepage <http://data.deichman.no/source/test>;
+  acc:password "secret";
+  acc:lastActivity "2012-12-08T11:40:00+02:00"^^xsd:dateTime;
+  acc:status acc:ActivationNeeded.
