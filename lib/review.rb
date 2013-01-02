@@ -335,7 +335,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     insert_statements << RDF::Statement.new(review.uri, RDF::REV.title, RDF::Literal(review.title))
     insert_statements << RDF::Statement.new(review.uri, RDF::DC.abstract, RDF::Literal(review.teaser))
     insert_statements << RDF::Statement.new(review.uri, RDF::REV.text, RDF::Literal(review.text))
-    insert_statements << RDF::Statement.new(review.uri, RDF::DC.subject, RDF::URI(work.isbn))
+    insert_statements << RDF::Statement.new(review.uri, RDF::DC.subject, RDF::Literal(work.isbn))
     #insert_statements << RDF::Statement.new(review.uri, RDF::DEICHMAN.basedOnManifestation, RDF::URI(work.book_id))
     insert_statements << RDF::Statement.new(review.uri, RDF::DC.created, RDF::Literal(review.created, :datatype => RDF::XSD.dateTime))
     insert_statements << RDF::Statement.new(review.uri, RDF::DC.issued, RDF::Literal(review.issued, :datatype => RDF::XSD.dateTime))
@@ -435,7 +435,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     insert_statements << RDF::Statement.new(review.uri, RDF::REV.title, RDF::Literal(review.title))
     insert_statements << RDF::Statement.new(review.uri, RDF::DC.abstract, RDF::Literal(review.teaser))
     insert_statements << RDF::Statement.new(review.uri, RDF::REV.text, RDF::Literal(review.text))
-    insert_statements << RDF::Statement.new(review.uri, RDF::DC.subject, RDF::URI(work.work_id))
+    insert_statements << RDF::Statement.new(review.uri, RDF::DC.subject, RDF::Literal(work.isbn))
     insert_statements << RDF::Statement.new(review.uri, RDF::DEICHMAN.basedOnManifestation, RDF::URI(work.book_id))
     insert_statements << RDF::Statement.new(review.uri, RDF::DC.modified, RDF::Literal(review.modified, :datatype => RDF::XSD.dateTime))
 
