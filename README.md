@@ -14,7 +14,10 @@ The API is open for anyone to use, but a key is required in order to write to th
 ![API architecture](https://github.com/digibib/data.deichman.api/raw/develop/doc/review_rdf.png)
 
 ### GET /reviews
-Parameters: `isbn`, `uri`, `author`, `title`, `reviewer`, `work`
+
+Fetches one or more reviews
+
+#### Parameters: `isbn`, `uri`, `author`, `title`, `reviewer`, `work`
 
 Other parameters will be ignored if `isbn`, `uri`, `reviewer` or `work`  is present.
 The `uri` must refer to a bookreview.
@@ -33,6 +36,7 @@ http GET http://data.deichman.no/api/reviews work="http://data.deichman.no/work/
 JSON hash of one or more `work`, and an array of its `reviews`
 
 ### POST /reviews
+Creates a new review
 
 #### Parameters
 
@@ -68,6 +72,8 @@ Updates existing review
 JSON hash of modified review, `before` and `after`
 
 ### DELETE /reviews
+
+Deletes a review
 
 #### Parameters
 
