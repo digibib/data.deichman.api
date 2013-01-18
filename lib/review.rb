@@ -168,7 +168,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     query.define('sql:select-option "ORDER"')
     query.limit(50)
 
-    puts query
+    #puts query
     solutions = REPO.select(query)
   end
   
@@ -229,7 +229,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     insert_statements << RDF::Statement.new(account, RDF::ACC.status, RDF::ACC.ActivationNeeded)
     insert_statements << RDF::Statement.new(account, RDF::ACC.lastActivity, RDF::Literal(Time.now.xmlschema, :datatype => RDF::XSD.dateTime))
     query = QUERY.insert_data(insert_statements).graph(APIGRAPH)
-    puts "#{query}"
+    puts "#{query}" if ENV['RACK_ENV'] == 'development'
     result = REPO.insert_data(query)
     puts result
     return reviewer_id
@@ -260,7 +260,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
       query << " ) )` a <#{RDF::DEICHMAN.DummyClass}> } "
       query << "WHERE { <#{source}> a <#{RDF::FOAF.Document}> ; <#{RDF::FOAF.name}> ?name . ?source a <#{RDF::FOAF.Document}> ; <#{RDF::FOAF.name}> ?name }"
       query << " ORDER BY(?source) LIMIT 1"
-      puts "#{query}"
+      puts "#{query}" if ENV['RACK_ENV'] == 'development'
       
       solutions = REPO.construct(query)
       
@@ -319,7 +319,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
           clean_text(params[:text]),
           source,
           reviewer_id,
-          params[:audience] ? params[:audience] : nil,
+          params[:audience] ? params[:audience] : "adult",
           Time.now.xmlschema, # created
           Time.now.xmlschema, # issued
           Time.now.xmlschema  # modified
@@ -359,18 +359,21 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
       end
     end    
 =end   
-    # Optionals - Audience, TODO: better to lookup labels on the fly!
+    # Optionals - Audience, Maybe better to lookup labels on the fly?
     if review.audience
       case review.audience.downcase
-      when 'barn' || 'ungdom' || 'barn/ungdom' || 'juvenile'
-        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/juvenile"))
+      when 'barn' || 'children'
+        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/children"))
+      when 'ungdom' || 'youth'
+        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/youth"))
       else
+        # default to adult
         insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
       end
     end
 
     query = QUERY.insert_data(insert_statements).graph(REVIEWGRAPH)
-    puts "#{query}"
+    puts "#{query}" if ENV['RACK_ENV'] == 'development'
     result = REPO.insert_data(query)
     
     # also insert hasReview property on work and book
@@ -385,14 +388,14 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
   def update(params)
     # update review here
     # first use api_key parameter to fetch source
-    puts "hey: #{params.inspect}" 
+    puts "update params: #{params.inspect}" if ENV['RACK_ENV'] == 'development'
     source = find_source_by_apikey(params[:api_key])
     return "Invalid api_key" unless source
     
     work   = self.find_reviews(params).first
     review = work.reviews.first 
     # handle modified variables from given params
-    #puts "params before:\n #{params}"
+    # puts "params before:\n #{params}"
     unwanted_params = ['uri', 'api_key', 'route_info', 'method', 'path']
 #    mapped_params   = {
 #                      'title'    => 'review_title', 
@@ -406,7 +409,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     
     #puts "params after:\n #{params}"
     
-    puts "before update:\n#{work}"
+    puts "before update:\n#{work}" if ENV['RACK_ENV'] == 'development'
     # update review with new params
     params.each{|k,v| review[k] = v}
     #new = params.to_struct "Review"
@@ -414,9 +417,10 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     review.modified = Time.now.xmlschema
     review.teaser   = clean_text(review.teaser)
     review.text     = clean_text(review.text)
-    puts "after update:\n#{work}"
+    puts "after update:\n#{work}" if ENV['RACK_ENV'] == 'development'
     
     # SPARQL UPDATE
+    # DO NOT delete DC.created and DC.issued properties on update
     deletequery = QUERY.delete([review.uri, :p, :o]).graph(REVIEWGRAPH)
     deletequery.where([review.uri, :p, :o])
     # MINUS not working properly until virtuoso 6.1.6!
@@ -425,9 +429,9 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     deletequery.filter("?p != <#{RDF::DC.created.to_s}>")
     deletequery.filter("?p != <#{RDF::DC.issued.to_s}>")
     
-    puts "deletequery:\n #{deletequery}"
+    puts "deletequery:\n #{deletequery}" if ENV['RACK_ENV'] == 'development'
     result = REPO.delete(deletequery)
-    puts "delete result:\n #{result}"
+    puts "delete result:\n #{result}" if ENV['RACK_ENV'] == 'development'
     
     insert_statements = []
     insert_statements << RDF::Statement.new(review.uri, RDF.type, RDF::REV.Review)
@@ -457,17 +461,20 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     # Optionals - audience, FIX: better to lookup labels on the fly!
     if review.audience
       case review.audience.downcase
-      when 'barn' || 'ungdom' || 'barn/ungdom' || 'juvenile'
-        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/juvenile"))
+      when 'barn' || 'children'
+        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/children"))
+      when 'ungdom' || 'youth'
+        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/youth"))
       else
+        # default to adult
         insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
       end
     end
     
     insertquery = QUERY.insert_data(insert_statements).graph(REVIEWGRAPH)
-    puts "insertquery:\n #{insertquery}"
+    puts "insertquery:\n #{insertquery}" if ENV['RACK_ENV'] == 'development'
     result = REPO.insert_data(insertquery)
-    puts "insert result:\n #{result}"    
+    puts "insert result:\n #{result}" if ENV['RACK_ENV'] == 'development'
     work
   end
   

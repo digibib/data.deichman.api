@@ -23,6 +23,7 @@ class API < Grape::API
     def logger
       logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
     end
+    
   end
   version 'v1', :using => :header, :vendor => 'deichman.no'
   prefix 'api'
@@ -134,7 +135,7 @@ class API < Grape::API
         
         header['Content-Type'] = 'application/json; charset=utf-8' 
         logger.info "PUT: params: #{params} - review: #{after.reviews}"
-        {:after => after, :before => before }
+        {:after => after, :before => before.first }
       else
         logger.error "invalid or missing params"   
         error!("Need at least one param of title|teaser|text|audience", 400)      
