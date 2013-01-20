@@ -87,7 +87,7 @@ class API < Grape::API
         requires :teaser,   type: String, desc: "Abstract of review"
         requires :text,     type: String, desc: "Text of review"
         requires :isbn,     type: String, desc: "ISBN of reviewed book" #, regexp: /^[0-9Xx-]+$/
-        optional :audience, type: String, desc: "Audience of review, either 'adult' or 'juvenile'", regexp: /([Vv]oksen|[Aa]dult|[Bb]arn|[Uu]ngdom|[Jj]uvenile)/
+        optional :audience, type: String, desc: "Audience comma-separated, barn|ungdom|voksen|children|youth|adult" #, regexp: /([Vv]oksen|[Aa]dult|[Bb]arn|[Uu]ngdom|[Jj]uvenile)/
         optional :reviewer, type: String, desc: "Name of reviewer"
         #optional :source, type: String, desc: "Source of review"
       end
@@ -111,7 +111,7 @@ class API < Grape::API
         optional :title,    type: String, desc: "Title of review"
         optional :teaser,   type: String, desc: "Abstract of review"
         optional :text,     type: String, desc: "Text of review"
-        optional :audience, type: String, desc: "Audience of review, either 'adult' or 'juvenile'", regexp: /([Vv]oksen|[Aa]dult|[Bb]arn|[Uu]ngdom|[Jj]uvenile)/
+        optional :audience, type: String, desc: "Audience comma-separated, barn|ungdom|voksen|children|youth|adult" #, regexp: /([Vv]oksen|[Aa]dult|[Bb]arn|[Uu]ngdom|[Jj]uvenile)/
         #optional :reviewer, type: String, desc: "Name of reviewer"
         #optional :source, type: String, desc: "Source of review"
       end    

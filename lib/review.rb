@@ -14,7 +14,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
   # main method to find reviews, GET /api/review
   # params: uri, isbn, title, author, reviewer, work
   def find_reviews(params = {})
-    selects     = [:uri, :work_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :review_audience, :reviewer_name, :accountName]
+    selects     = [:uri, :work_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer_name, :accountName]
     
     if params.has_key?(:uri)
       begin 
@@ -107,6 +107,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     query = QUERY.select(*selects)
     query.group_digest(:author, ', ', 1000, 1)
     query.group_digest(:isbn, ', ', 1000, 1) if api[:isbn] == :isbn
+    query.group_digest(:review_audience, ',', 1000, 1)
     query.sample(:book_id, :cover_url)
     query.distinct.where(
       [api[:uri], RDF.type, RDF::REV.Review, :context => REVIEWGRAPH],
@@ -168,7 +169,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     query.define('sql:select-option "ORDER"')
     query.limit(50)
 
-    #puts query
+    puts query
     solutions = REPO.select(query)
   end
   
@@ -360,15 +361,20 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     end    
 =end   
     # Optionals - Audience, Maybe better to lookup labels on the fly?
-    if review.audience
-      case review.audience.downcase
-      when 'barn' || 'children'
-        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/children"))
-      when 'ungdom' || 'youth'
-        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/youth"))
-      else
-        # default to adult
-        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
+    unless review.audience
+      # default to adult if not given
+      insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
+    else
+      audiences = split_param(review.audience)
+      audiences.each do |audience|
+        case audience
+        when 'barn' || 'children'
+          insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/children"))
+        when 'ungdom' || 'youth'
+          insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/youth"))
+        when 'voksen' || 'adult'
+          insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
+        end
       end
     end
 
@@ -459,15 +465,20 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     end 
         
     # Optionals - audience, FIX: better to lookup labels on the fly!
-    if review.audience
-      case review.audience.downcase
-      when 'barn' || 'children'
-        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/children"))
-      when 'ungdom' || 'youth'
-        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/youth"))
-      else
-        # default to adult
-        insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
+    unless review.audience
+      # default to adult if not given
+      insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
+    else
+      audiences = split_param(review.audience)
+      audiences.each do |audience|
+        case audience
+        when 'barn' || 'children'
+          insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/children"))
+        when 'ungdom' || 'youth'
+          insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/youth"))
+        when 'voksen' || 'adult'
+          insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
+        end
       end
     end
     
@@ -496,6 +507,12 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     result    = REPO.delete(query)
   end
 
+  # string methods
+  def split_param(param)
+    # split values in param separated with comma or slash or pipe and return array
+    params = param.downcase.gsub(/\s+/, '').split(/,|\/|\|/)
+  end
+  
   def clean_text(text)
     # first remove all but whitelisted html elements
     sanitized = Sanitize.clean(text, :elements => %w[p pre small em i strong strike b blockquote q cite code br h1 h2 h3 h4 h5 h6],
