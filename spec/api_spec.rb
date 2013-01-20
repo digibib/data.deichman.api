@@ -106,18 +106,20 @@ describe API do
   end
 
   describe 'POST /reviews' do
-    it "should create a review" do
+    it "should create a review with multiple audiences" do
       #create the review
       post "/api/reviews", MultiJson.encode({:api_key  => "test", 
                            :isbn     => "9788203193538",
                            :title    => "A dummy review of Snømannen",
                            :teaser   => "Teaser should be short and to the point",
-                           :text     => "Text should be weighted and both personal and attentive to details..."}),
+                           :text     => "Text should be weighted and both personal and attentive to details...",
+                           :audience => "voksen,barn"}),
                            {'CONTENT_TYPE' => 'application/json'}
       last_response.status.should == 201
       response = JSON.parse(last_response.body)
       review = response["work"]["reviews"].first
       review["title"].should == "A dummy review of Snømannen"
+      review["audience"].should == "voksen,barn"
       uri = review["uri"]
       
       # for some curioius reason not working...
@@ -137,11 +139,11 @@ describe API do
     before(:all) do
 
       #create review
-      post "/api/reviews", {:api_key  => "test", 
+      post "/api/reviews", MultiJson.encode({:api_key  => "test", 
                            :isbn     => "9788203193538",
                            :title    => "A dummy review of Snømannen",
                            :teaser   => "Teaser should be short and to the point",
-                           :text     => "Text should be weighted and both personal and attentive to details..."}.to_json,
+                           :text     => "Text should be weighted and both personal and attentive to details..."}),
                            {'CONTENT_TYPE' => 'application/json'}
       last_response.status.should == 201
       response = JSON.parse(last_response.body)

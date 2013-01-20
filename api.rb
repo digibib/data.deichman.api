@@ -41,11 +41,11 @@ class API < Grape::API
   rescue_from Grape::Exceptions::ValidationError do |e|
     logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
     logger.error "#{e.message}"
-    Rack::Response.new({
+    Rack::Response.new(MultiJson.encode(
         'status' => e.status,
         'message' => e.message,
-        #'param' => e.param
-    }.to_json, e.status) 
+        'param' => e.param),
+         e.status) 
   end
 
   resource :reviews do

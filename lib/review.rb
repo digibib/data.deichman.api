@@ -169,7 +169,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     query.define('sql:select-option "ORDER"')
     query.limit(50)
 
-    puts query
+    #puts query
     solutions = REPO.select(query)
   end
   
