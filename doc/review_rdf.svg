@@ -295,14 +295,14 @@
      guidetolerance="10"
      inkscape:pageopacity="0"
      inkscape:pageshadow="2"
-     inkscape:window-width="1366"
-     inkscape:window-height="716"
+     inkscape:window-width="1920"
+     inkscape:window-height="1028"
      id="namedview203"
      showgrid="false"
-     inkscape:zoom="0.82071257"
-     inkscape:cx="663.25909"
-     inkscape:cy="509.79033"
-     inkscape:window-x="0"
+     inkscape:zoom="1.37187"
+     inkscape:cx="514.55696"
+     inkscape:cy="334.84664"
+     inkscape:window-x="1366"
      inkscape:window-y="26"
      inkscape:window-maximized="1"
      inkscape:current-layer="svg2" />
@@ -662,10 +662,10 @@
        y="-85.408112"
        style="font-size:14px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Droid Sans Mono;-inkscape-font-specification:Droid Sans Mono">dc:source</tspan></text>
   <path
-     style="fill:#cfe2f3;fill-opacity:1;stroke:#000000;stroke-width:1.84960854;stroke-linecap:butt;stroke-linejoin:round"
+     style="fill:#cfe2f3;fill-opacity:1;stroke:#000000;stroke-width:1.84960857;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:10;stroke-dasharray:1.84960857,1.84960857;stroke-dashoffset:0"
      inkscape:connector-curvature="0"
      id="path153-9"
-     d="m 791.15868,471.56549 -172.3144,-98.29997 6.11313,-9.7267 -32.79365,7.63674 8.34107,31.27004 6.11314,-9.72669 172.97003,96.9887 z"
+     d="m 783.86936,480.31268 -172.3144,-98.29997 6.11313,-9.7267 -32.79365,7.63674 8.34107,31.27004 6.11314,-9.72669 172.97003,96.9887 z"
      sodipodi:nodetypes="cccccccc" />
   <text
      xml:space="preserve"
@@ -690,12 +690,12 @@
        id="tspan3309-6-7-9"
        x="762.85272"
        y="532.32281"
-       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Droid Sans Mono;-inkscape-font-specification:Droid Sans Mono">(foaf:Organization,</tspan><tspan
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Droid Sans Mono;-inkscape-font-specification:Droid Sans Mono">(org:Organization,</tspan><tspan
        sodipodi:role="line"
        x="762.85272"
        y="552.32281"
        style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Droid Sans Mono;-inkscape-font-specification:Droid Sans Mono"
-       id="tspan3399-7">foaf:Group)</tspan></text>
+       id="tspan3399-7">foaf:Organization)</tspan></text>
   <text
      xml:space="preserve"
      style="font-size:36px;font-style:normal;font-variant:normal;font-weight:500;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Century Schoolbook L;-inkscape-font-specification:Century Schoolbook L Medium"
@@ -707,12 +707,12 @@
        x="792.68219"
        y="587.19556"
        style="font-size:14px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Droid Sans Mono;-inkscape-font-specification:Droid Sans Mono"
-       id="tspan3424-1">foaf:name</tspan><tspan
+       id="tspan3566">skos:prefLabel</tspan><tspan
        sodipodi:role="line"
        x="792.68219"
        y="604.69556"
        style="font-size:14px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Droid Sans Mono;-inkscape-font-specification:Droid Sans Mono"
-       id="tspan3566">foaf:homepage</tspan></text>
+       id="tspan3213">foaf:homepage</tspan></text>
   <text
      xml:space="preserve"
      style="font-size:36px;font-style:normal;font-variant:normal;font-weight:500;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Century Schoolbook L;-inkscape-font-specification:Century Schoolbook L Medium"
@@ -1112,11 +1112,17 @@
      inkscape:connector-curvature="0"
      id="path35-7"
      d="m 753.75916,214.50025 0,0 c 0,-15.97335 13.25203,-28.92233 29.59928,-28.92233 l 118.39353,0 0,0 c 7.85022,0 15.37891,3.04717 20.92984,8.47117 5.55097,5.42398 8.66944,12.7805 8.66944,20.45116 l 0,141.70608 c 0,15.97338 -13.25203,28.92233 -29.59928,28.92233 l -118.39353,0 c -16.34725,0 -29.59928,-12.94895 -29.59928,-28.92233 z" />
+  <path
+     style="fill:#cfe2f3;fill-opacity:1;stroke:#000000;stroke-width:1.89400005;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:10;stroke-dasharray:none"
+     inkscape:connector-curvature="0"
+     id="path153-9-2"
+     d="m 631.54718,358.80101 211.0779,119.75973 -4.18078,9.65802 36.47409,-7.83086 -18.29274,-30.80125 -4.90983,8.92911 -209.64425,-117.34099 z"
+     sodipodi:nodetypes="cccccccc" />
   <text
      xml:space="preserve"
      style="font-size:14px;font-style:normal;font-variant:normal;font-weight:500;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Century Schoolbook L;-inkscape-font-specification:Century Schoolbook L Medium"
-     x="713.85352"
-     y="41.385548"
+     x="711.09943"
+     y="52.726112"
      id="text3307-1-1-0-9"
      sodipodi:linespacing="125%"
      transform="matrix(0.88561456,0.49304066,-0.42769142,0.89105439,0,0)"
@@ -1124,9 +1130,9 @@
      inkscape:transform-center-y="9.9616814"><tspan
        sodipodi:role="line"
        id="tspan3309-6-1-9-89"
-       x="713.85352"
-       y="41.385548"
-       style="font-size:14px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Droid Sans Mono;-inkscape-font-specification:Droid Sans Mono">foaf:member</tspan></text>
+       x="711.09943"
+       y="52.726112"
+       style="font-size:14px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Droid Sans Mono;-inkscape-font-specification:Droid Sans Mono">foaf:hasMember</tspan></text>
   <g
      id="g5080"
      transform="matrix(1.7448772,-0.95783781,0.41026178,0.60103447,89.095809,617.09006)"
@@ -1357,4 +1363,19 @@
      d="m 0,70.289775 1052.7437,-2.436907 0,0"
      id="path4032"
      inkscape:connector-curvature="0" />
+  <text
+     xml:space="preserve"
+     style="font-size:14px;font-style:normal;font-variant:normal;font-weight:500;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Century Schoolbook L;-inkscape-font-specification:Century Schoolbook L Medium"
+     x="733.17273"
+     y="0.59184748"
+     id="text3307-1-1-0-9-5"
+     sodipodi:linespacing="125%"
+     transform="matrix(0.88561456,0.49304066,-0.42769142,0.89105439,0,0)"
+     inkscape:transform-center-x="-3.4659887"
+     inkscape:transform-center-y="9.9616814"><tspan
+       sodipodi:role="line"
+       id="tspan3309-6-1-9-89-2"
+       x="733.17273"
+       y="0.59184748"
+       style="font-size:14px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Droid Sans Mono;-inkscape-font-specification:Droid Sans Mono">org:memberOf</tspan></text>
 </svg>

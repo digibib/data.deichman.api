@@ -119,20 +119,31 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
       [:book_id, RDF::REV.hasReview, api[:uri], :context => BOOKGRAPH],
       [:book_id, RDF.type, RDF::FABIO.Manifestation, :context => BOOKGRAPH],
       [:book_id, RDF::BIBO.isbn, api[:isbn], :context => BOOKGRAPH],
+      [:book_id, RDF::DC.title, :book_title, :context => BOOKGRAPH], # filtered by regex later
+      # work
       [api[:work], RDF::FABIO.hasManifestation, :book_id, :context => BOOKGRAPH], 
-      [api[:work], RDF::DC.title, :book_title, :context => BOOKGRAPH], # filtered by regex later
       [api[:work], RDF::DC.creator, :author_id, :context => BOOKGRAPH],
-      [:author_id, RDF::FOAF.name, :author, :context => BOOKGRAPH]    # filtered by regex later
+      [:author_id, RDF::FOAF.name, :author, :context => BOOKGRAPH],    # filtered by regex later
+      # source
+      [api[:uri], RDF::DC.source, :review_source_id, :context => REVIEWGRAPH],
+      [:review_source_id, RDF::FOAF.name, :review_source, :context => APIGRAPH],
+      # reviewer
+      [api[:uri], RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
+      [:reviewer_id, RDF::FOAF.name, :reviewer_name, :context => APIGRAPH],
+      # audience
+      [api[:uri], RDF::DC.audience, :review_audience_id, :context => REVIEWGRAPH],
+      [:review_audience_id, RDF::RDFS.label, :review_audience, :context => REVIEWGRAPH]
       )
+    query.filter('(lang(?review_audience) = "no")') 
     # optional attributes
     # NB! all these optionals adds extra ~2 sec to query
     query.optional([:book_id, RDF::FOAF.depiction, :cover_url, :context => BOOKGRAPH])
     # review source
-    query.optional([api[:uri], RDF::DC.source, :review_source_id, :context => REVIEWGRAPH],
-      [:review_source_id, RDF::FOAF.name, :review_source, :context => APIGRAPH])
+    #query.optional([api[:uri], RDF::DC.source, :review_source_id, :context => REVIEWGRAPH],
+    #  [:review_source_id, RDF::FOAF.name, :review_source, :context => APIGRAPH])
     # reviewer by foaf name
-    query.optional([api[:uri], RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
-      [:reviewer_id, RDF::FOAF.name, :reviewer_name, :context => APIGRAPH])
+    #query.optional([api[:uri], RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
+    #  [:reviewer_id, RDF::FOAF.name, :reviewer_name, :context => APIGRAPH])
     # reviewer by accountname
     query.optional(
       [api[:uri], RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
@@ -140,14 +151,14 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
       [:useraccount, RDF::FOAF.accountName, :accountName, :context => APIGRAPH]
       )      
     # review audience
-    query.optional([api[:uri], RDF::DC.audience, :review_audience_id, :context => REVIEWGRAPH],
-      [:review_audience_id, RDF::RDFS.label, :review_audience, :context => REVIEWGRAPH]) 
-    query.filter('(lang(?review_audience) = "no" || !bound(?review_audience))') 
+    #query.optional([api[:uri], RDF::DC.audience, :review_audience_id, :context => REVIEWGRAPH],
+    #  [:review_audience_id, RDF::RDFS.label, :review_audience, :context => REVIEWGRAPH]) 
+    
     # reviewer workplace -- not yet implemented
-    #query.optional(
-    #  [api[:uri], RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
-    #  [:workplace_id, RDF::FOAF.member, :reviewer_id, :context => APIGRAPH],
-    #  [:workplace_id, RDF::FOAF.name, :reviewer_workplace, :context => APIGRAPH])
+    query.optional(
+      [api[:uri], RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
+      [:reviewer_id, RDF::ORG.memberOf, :workplace_id, :context => APIGRAPH],
+      [:workplace_id, RDF::SKOS.prefLabel, :reviewer_workplace, :context => APIGRAPH])
 
     if author_search
       author_search.each do |author|
@@ -161,6 +172,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
       end
     end
     
+    # do filter on reviewer id|name|nick
     query.filter("?reviewer_id = \"#{api[:reviewer]}\" || 
                   ?reviewer_name = \"#{api[:reviewer]}\" || 
                   ?reviewer_nick = \"#{api[:reviewer]}\"") if params[:reviewer]
@@ -169,7 +181,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     query.define('sql:select-option "ORDER"')
     query.limit(50)
 
-    #puts query
+    puts query
     solutions = REPO.select(query)
   end
   
