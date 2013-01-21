@@ -3,19 +3,23 @@ require 'rdf/n3'
 require "rdf/virtuoso"
 require "sanitize"
 
+# Structs are simple classes with fixed sequence of instance variables
+Work = Struct.new(:title, :isbn, :book_id, :work_id, :author, :cover_url, :reviews)
+Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :workplace, :audience, :created, :issued, :modified)
+
 require_relative './string_replace.rb'
 require_relative "./init.rb"
 require_relative "./vocabularies.rb"
+require_relative "./reviewer.rb"
+require_relative "./source.rb"
 
-# Structs are simple classes with fixed sequence of instance variables
-Work = Struct.new(:title, :isbn, :book_id, :work_id, :author, :cover_url, :reviews)
-Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience, :created, :issued, :modified) do
-
+class Review
   # main method to find reviews, GET /api/review
   # params: uri, isbn, title, author, reviewer, work
   def find_reviews(params = {})
-    selects     = [:uri, :work_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer_name, :accountName]
+    selects     = [:uri, :work_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer_name, :accountName, :reviewer_workplace]
     
+    # this clause composes query attributes modified by params from API
     if params.has_key?(:uri)
       begin 
         selects.delete(:uri)
@@ -38,7 +42,12 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
         return "Invalid URI"
       end    
     elsif params.has_key?(:reviewer)
-      solutions = review_query(selects, :reviewer => params[:reviewer])
+      reviewer  = find_reviewer(params[:reviewer])
+      if reviewer
+        solutions = review_query(selects, :reviewer => reviewer[:reviewer_id])
+      else
+        return "Invalid Reviewer"
+      end
     else
       solutions = review_query(selects, :author => params[:author], :title => params[:title])
     end
@@ -76,6 +85,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
                           review_text,
                           solution[:review_source].to_s,
                           reviewer,
+                          solution[:reviewer_workplace].to_s,
                           solution[:review_audience].to_s,
                           solution[:created].to_s,
                           solution[:issued].to_s,
@@ -128,8 +138,8 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
       [api[:uri], RDF::DC.source, :review_source_id, :context => REVIEWGRAPH],
       [:review_source_id, RDF::FOAF.name, :review_source, :context => APIGRAPH],
       # reviewer
-      [api[:uri], RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
-      [:reviewer_id, RDF::FOAF.name, :reviewer_name, :context => APIGRAPH],
+      [api[:uri], RDF::REV.reviewer, api[:reviewer], :context => REVIEWGRAPH],
+      [api[:reviewer], RDF::FOAF.name, :reviewer_name, :context => APIGRAPH],
       # audience
       [api[:uri], RDF::DC.audience, :review_audience_id, :context => REVIEWGRAPH],
       [:review_audience_id, RDF::RDFS.label, :review_audience, :context => REVIEWGRAPH]
@@ -138,26 +148,13 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     # optional attributes
     # NB! all these optionals adds extra ~2 sec to query
     query.optional([:book_id, RDF::FOAF.depiction, :cover_url, :context => BOOKGRAPH])
-    # review source
-    #query.optional([api[:uri], RDF::DC.source, :review_source_id, :context => REVIEWGRAPH],
-    #  [:review_source_id, RDF::FOAF.name, :review_source, :context => APIGRAPH])
-    # reviewer by foaf name
-    #query.optional([api[:uri], RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
-    #  [:reviewer_id, RDF::FOAF.name, :reviewer_name, :context => APIGRAPH])
-    # reviewer by accountname
     query.optional(
-      [api[:uri], RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
-      [:reviewer_id, RDF::FOAF.account, :useraccount, :context => APIGRAPH],
+      [api[:reviewer], RDF::FOAF.account, :useraccount, :context => APIGRAPH],
       [:useraccount, RDF::FOAF.accountName, :accountName, :context => APIGRAPH]
       )      
-    # review audience
-    #query.optional([api[:uri], RDF::DC.audience, :review_audience_id, :context => REVIEWGRAPH],
-    #  [:review_audience_id, RDF::RDFS.label, :review_audience, :context => REVIEWGRAPH]) 
-    
-    # reviewer workplace -- not yet implemented
+    # reviewer workplace
     query.optional(
-      [api[:uri], RDF::REV.reviewer, :reviewer_id, :context => REVIEWGRAPH],
-      [:reviewer_id, RDF::ORG.memberOf, :workplace_id, :context => APIGRAPH],
+      [api[:reviewer], RDF::ORG.memberOf, :workplace_id, :context => APIGRAPH],
       [:workplace_id, RDF::SKOS.prefLabel, :reviewer_workplace, :context => APIGRAPH])
 
     if author_search
@@ -172,116 +169,14 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
       end
     end
     
-    # do filter on reviewer id|name|nick
-    query.filter("?reviewer_id = \"#{api[:reviewer]}\" || 
-                  ?reviewer_name = \"#{api[:reviewer]}\" || 
-                  ?reviewer_nick = \"#{api[:reviewer]}\"") if params[:reviewer]
-    
     # optimize query in virtuoso, drastically improves performance on optionals
     query.define('sql:select-option "ORDER"')
     query.limit(50)
 
-    puts query
-    solutions = REPO.select(query)
-  end
-  
-  def find_source_by_apikey(api_key)
-    # fetch source by api key in protected graph
-    # each source needs three statements: 
-    # <source> a rdfs:Resource ;
-    #          rdfs:label "Label" ;
-    #          deichman:apikey "apikey" .    
-    query = QUERY.select(:source).from(APIGRAPH)
-    query.where(
-      [:source, RDF.type, RDF::FOAF.Document], 
-      [:source, RDF::FOAF.name, :label],
-      [:source, RDF::DEICHMAN.apikey, "#{api_key}"])
-    query.limit(1)
-    #puts query
-    solutions = REPO.select(query)
-    return nil if solutions.empty?
-    source = solutions.first[:source]
-  end
-  
-  def find_reviewer(reviewer)
-    # looks in apigraph for reviewer by either reviewer's foaf:name or reviewer account's foaf:accountName
-    query = QUERY.select(:reviewer_id).from(APIGRAPH)
-    query.where([:reviewer_id, RDF.type, RDF::FOAF.Person])
-    # reviewer by foaf name
-    query.optional([:reviewer_id, RDF::FOAF.name, :reviewer_name])
-    # reviewer by accountname
-    query.optional([:reviewer_id, RDF::FOAF.account, :useraccount],
-                    [:useraccount, RDF::FOAF.accountName, :accountName])
-    query.filter("?reviewer_name = \"#{reviewer}\" || ?reviewer_nick = \"#{reviewer}\"")
-    #puts query                    
-    solutions = REPO.select(query)
-    #puts solutions.inspect
-    return nil if solutions.empty?
-    reviewer_id = solutions.first[:reviewer_id]
-  end
-
-  def create_reviewer(source, reviewer)
-    # create a new reviewer id, Reviewer and Account
-    reviewer_id = autoincrement_resource(source, resource = "reviewer")
-    return nil unless reviewer_id # break out if unable to generate ID
-    account_id = autoincrement_resource(source, resource = "account")
-    return nil unless account_id # break out if unable to generate ID
-    account      = RDF::URI(account_id)
-    account_name = "#{reviewer.urlize}"
-    
-    insert_statements = []
-    # create Reviewer (foaf:Person)
-    insert_statements << RDF::Statement.new(reviewer_id, RDF.type, RDF::FOAF.Person)
-    insert_statements << RDF::Statement.new(reviewer_id, RDF::FOAF.name, "#{reviewer}")
-    insert_statements << RDF::Statement.new(reviewer_id, RDF::FOAF.account, account)
-    # create Account (sioc:UserAccount) with dummy password and status: ActivationNeeded
-    insert_statements << RDF::Statement.new(account, RDF.type, RDF::SIOC.UserAccount)
-    insert_statements << RDF::Statement.new(account, RDF::FOAF.accountName, "#{account_name}")
-    insert_statements << RDF::Statement.new(account, RDF::FOAF.accountServiceHomepage, RDF::URI("#{source}"))
-    insert_statements << RDF::Statement.new(account, RDF::ACC.password, "#{account_name}123")
-    insert_statements << RDF::Statement.new(account, RDF::ACC.status, RDF::ACC.ActivationNeeded)
-    insert_statements << RDF::Statement.new(account, RDF::ACC.lastActivity, RDF::Literal(Time.now.xmlschema, :datatype => RDF::XSD.dateTime))
-    query = QUERY.insert_data(insert_statements).graph(APIGRAPH)
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
-    result = REPO.insert_data(query)
-    puts result
-    return reviewer_id
-  end  
-  
-  def autoincrement_resource(source, resource = "review")
-    # This method uses Virtuoso's internal sequence function to generate unique IDs on resources from api_key mapped to source
-    # sql:sequence_next("GRAPH_IDENTIFIER") => returns next sequence from GRAPH_IDENTIFIER
-    # sql:sequence_set("GRAPH_IDENTIFIER", new_sequence_number, ignoreiflowerthancurrent_boolean) => sets sequence number
-    # get unique sequential id by CONSTRUCTing an id based on source URI
-    # defaults to "review" if no resource name given
-    # nb: to reset count use sequence_set instead, with a CONSTRUCT iri f.ex. like this:
-    # `iri(bif:CONCAT("http://data.deichman.no/deichman/reviews/id_", str(bif:sequence_set ('#{GRAPH_IDENTIFIER}', 0, 0)) ) )`
-    if source
-      # parts to compose URI base for resource
-      parts = []
-      parts << "'#{BASE_URI}'"
-      parts << "bif:REPLACE(str(?source), 'http://data.deichman.no/source/', '/')" if resource == "review"
-      parts << "'/#{resource}'"
-      parts << "'/id_'"
-      
-      # choose sequence origin, either from review source or from resource
-      resource == "review" ? parts << "str(bif:sequence_next ('#{source}'))" : parts << "str(bif:sequence_next ('#{resource}'))"
-      
-      # CONSTRUCT query  
-      query = "CONSTRUCT { `iri( bif:CONCAT( "
-      query << parts.join(', ').to_s
-      query << " ) )` a <#{RDF::DEICHMAN.DummyClass}> } "
-      query << "WHERE { <#{source}> a <#{RDF::FOAF.Document}> ; <#{RDF::FOAF.name}> ?name . ?source a <#{RDF::FOAF.Document}> ; <#{RDF::FOAF.name}> ?name }"
-      query << " ORDER BY(?source) LIMIT 1"
-      puts "#{query}" if ENV['RACK_ENV'] == 'development'
-      
-      solutions = REPO.construct(query)
-      
-      return nil if solutions.empty?
-      resource_id = solutions.first[:s]
-    end
+    solutions = REPO.select(query)
   end
-    
+  
   def create(params)
     # create new review here
     # first use api_key parameter to fetch source
@@ -312,10 +207,10 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
       
       if params[:reviewer]
         # lookup reviewer by nick or full name
-        reviewer_id = find_reviewer(params[:reviewer])
+        reviewer = find_reviewer(params[:reviewer])
         # create new if not found
-        reviewer_id = create_reviewer(source, params[:reviewer]) unless reviewer_id
-        return "Invalid Reviewer ID" unless reviewer_id # break out if unable to generate ID
+        reviewer = create_reviewer(source, params[:reviewer]) unless reviewer
+        return "Invalid Reviewer ID" unless reviewer # break out if unable to generate ID
       end
       work = Work.new(
           solutions.first[:book_title],
@@ -331,7 +226,8 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
           clean_text(params[:teaser]),
           clean_text(params[:text]),
           source,
-          reviewer_id,
+          reviewer[:reviewer_id],
+          reviewer[:reviewer_workplace],
           params[:audience] ? params[:audience] : "adult",
           Time.now.xmlschema, # created
           Time.now.xmlschema, # issued
@@ -355,23 +251,8 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     insert_statements << RDF::Statement.new(review.uri, RDF::DC.modified, RDF::Literal(review.modified, :datatype => RDF::XSD.dateTime))
 
     # insert reviewer if found or created
-    insert_statements << RDF::Statement.new(review.uri, RDF::REV.reviewer, RDF::URI("#{reviewer_id}")) if reviewer_id
-=begin    
-    # Optionals - Reviewer lookup in APIGRAPH for full name or nick
-    if review.reviewer
-      query = QUERY.select(:reviewer_id).from(APIGRAPH)
-      query.where([:reviewer_id, RDF.type, RDF::FOAF.Person])
-      # reviewer by foaf name
-      query.optional([:reviewer_id, RDF::FOAF.name, "#{params[:reviewer]}"])
-      # reviewer by accountname
-      query.optional([:reviewer_id, RDF::FOAF.account, :useraccount],
-                      [:useraccount, RDF::FOAF.accountName, "#{params[:reviewer]}"])
-      solutions = REPO.select(query)
-      if solutions
-        insert_statements << RDF::Statement.new(review.uri, RDF::REV.reviewer, RDF::URI("#{solutions.first[:reviewer_id]}"))
-      end
-    end    
-=end   
+    insert_statements << RDF::Statement.new(review.uri, RDF::REV.reviewer, RDF::URI("#{reviewer[:reviewer_id]}")) if reviewer[:reviewer_id]
+  
     # Optionals - Audience, Maybe better to lookup labels on the fly?
     unless review.audience
       # default to adult if not given
@@ -415,15 +296,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
     # handle modified variables from given params
     # puts "params before:\n #{params}"
     unwanted_params = ['uri', 'api_key', 'route_info', 'method', 'path']
-#    mapped_params   = {
-#                      'title'    => 'review_title', 
-#                      'teaser'   => 'review_abstract', 
-#                      'text'     => 'review_text', 
-#                      'reviewer' => 'reviewer', 
-#                      'audience' => 'review_audience'
-#                      }
     unwanted_params.each {|d| params.delete(d)}
-#    params.keys.each     {|k| params[ mapped_params[k] ] = params.delete(k) if mapped_params[k] }
     
     #puts "params after:\n #{params}"
     
@@ -476,7 +349,7 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :audience,
       end
     end 
         
-    # Optionals - audience, FIX: better to lookup labels on the fly!
+    # Optionals - audience
     unless review.audience
       # default to adult if not given
       insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))

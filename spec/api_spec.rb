@@ -14,15 +14,15 @@ describe API do
 
       #create dummy review
       post "/api/reviews", MultiJson.encode({
-          :api_key  => "test", 
-          :isbn     => "9788203193538",
-          :title    => "A dummy review of Snømannen",
-          :teaser   => "Teaser should be short and to the point",
-          :text     => "Text should be weighted and both personal and attentive to details...",
-          :reviewer => "Test Testesen"}),
+          :api_key   => "test", 
+          :isbn      => "9788203193538",
+          :title     => "A dummy review of Snømannen",
+          :teaser    => "Teaser should be short and to the point",
+          :text      => "Text should be weighted and both personal and attentive to details...",
+          :reviewer  => "anonymous"}),
           {'CONTENT_TYPE' => 'application/json'}
       #last_response.status.should == 201
-      
+      puts last_response.body
       response = JSON.parse(last_response.body)
       #puts "response: #{response}"
       #response["work"]["author"].should == "Jo Nesbø"
@@ -63,7 +63,9 @@ describe API do
     end
 
     it "returns reviews given an URI" do
-      get "/api/reviews", :uri => "#{@uri}"
+      get "/api/reviews", :uri => @uri
+      puts last_request.inspect
+      puts last_response.body
       response = JSON.parse(last_response.body)
       #puts response
       response["works"].first["reviews"].first["title"].should == "A dummy review of Snømannen"
@@ -103,8 +105,24 @@ describe API do
       response2 = JSON.parse(last_response.body)
       response1["works"].count.should == response2["works"].count
     end
+    
+    it "is returns reviewer and workplace" do
+      get "/api/reviews", :uri => "#{@uri}"
+      response = JSON.parse(last_response.body)
+      review = response["works"].first["reviews"].first
+      review["reviewer"].should == "Test Testesen"
+      review["workplace"].should == "Dummy Workplace"
+    end
+    
+    it "allows case insensitive lookup on reviewer" do
+      get "/api/reviews", :reviewer => "Test testesen"
+      response = JSON.parse(last_response.body)
+      review = response["works"].first["reviews"].first
+      review["reviewer"].should == "Test Testesen"
+    end
   end
-
+=begin
+  # pointless to check since dummy review is created initially
   describe 'POST /reviews' do
     it "should create a review with multiple audiences" do
       #create the review
@@ -134,7 +152,7 @@ describe API do
       #response["result"].should match(/done/)
     end
   end
-
+=end
   describe 'PUT /reviews' do
     before(:all) do
 
