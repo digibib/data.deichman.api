@@ -44,13 +44,14 @@ Creates a new review
 * Required: `api_key`, `isbn`, `title`, `teaser`, `text`
 * Optional: `reviewer`, `audience`
 
-allowed audience values are `adult`, `juvenile`, `barn`, `ungdom`, `barn/ungdom`
+    allowed audience values are `voksen|adult`, `ungdom|youth`, `children|barn`
+    can be multiple separated by either comma, slash or pipe (,/|)    
 
 Example
 ```
 http POST http://data.deichman.no/api/reviews api_key="dummyapikey" isbn=9788243006218 title="Title of review"
     teaser="A brief text for teaser, infoscreens, etc." text="The entire text of review. Lorem ipsum and the glory of utf-8"
-    reviewer="John Doe" audience="juvenile"
+    reviewer="John Doe" audience="children"
 ```
 
 #### Returns

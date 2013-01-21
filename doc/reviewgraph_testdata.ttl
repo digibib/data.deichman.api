@@ -14,9 +14,15 @@
 # GRAPH <http://data.deichman.no/reviews>
 ###
 
-<http://data.deichman.no/audience/juvenile> a dct:AgentClass;
-  rdfs:label "Juvenile"@en;
-  rdfs:label "Barn/Ungdom"@no.
+<http://data.deichman.no/audience/children> a dct:AgentClass;
+  rdfs:label "Children"@en;
+  rdfs:label "Barn"@no.
+<http://data.deichman.no/audience/youth> a dct:AgentClass;
+  rdfs:label "Youth"@en;
+  rdfs:label "Ungdom"@no.
+  <http://data.deichman.no/audience/adult> a dct:AgentClass;
+  rdfs:label "Adult"@en;
+  rdfs:label "Voksen"@no.
 
 ### 
 # Review

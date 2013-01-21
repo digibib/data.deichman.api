@@ -23,6 +23,7 @@ class API < Grape::API
     def logger
       logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
     end
+    
   end
   version 'v1', :using => :header, :vendor => 'deichman.no'
   prefix 'api'
@@ -40,11 +41,11 @@ class API < Grape::API
   rescue_from Grape::Exceptions::ValidationError do |e|
     logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
     logger.error "#{e.message}"
-    Rack::Response.new({
+    Rack::Response.new(MultiJson.encode(
         'status' => e.status,
         'message' => e.message,
-        #'param' => e.param
-    }.to_json, e.status) 
+        'param' => e.param),
+         e.status) 
   end
 
   resource :reviews do
@@ -65,6 +66,9 @@ class API < Grape::API
         if works == "Invalid URI"
           logger.error "Invalid URI"
           error!("\"#{params[:uri]}\" is not a valid URI", 400)
+        elsif works == "Invalid Reviewer"
+          logger.error "Invalid Reviewer"
+          error!("\"#{params[:reviewer]}\" not found", 400)
         elsif works.empty? 
           logger.info "no reviews found"
           error!("no reviews found", 200)
@@ -86,7 +90,7 @@ class API < Grape::API
         requires :teaser,   type: String, desc: "Abstract of review"
         requires :text,     type: String, desc: "Text of review"
         requires :isbn,     type: String, desc: "ISBN of reviewed book" #, regexp: /^[0-9Xx-]+$/
-        optional :audience, type: String, desc: "Audience of review, either 'adult' or 'juvenile'", regexp: /([Vv]oksen|[Aa]dult|[Bb]arn|[Uu]ngdom|[Jj]uvenile)/
+        optional :audience, type: String, desc: "Audience comma-separated, barn|ungdom|voksen|children|youth|adult" #, regexp: /([Vv]oksen|[Aa]dult|[Bb]arn|[Uu]ngdom|[Jj]uvenile)/
         optional :reviewer, type: String, desc: "Name of reviewer"
         #optional :source, type: String, desc: "Source of review"
       end
@@ -110,7 +114,7 @@ class API < Grape::API
         optional :title,    type: String, desc: "Title of review"
         optional :teaser,   type: String, desc: "Abstract of review"
         optional :text,     type: String, desc: "Text of review"
-        optional :audience, type: String, desc: "Audience of review, either 'adult' or 'juvenile'", regexp: /([Vv]oksen|[Aa]dult|[Bb]arn|[Uu]ngdom|[Jj]uvenile)/
+        optional :audience, type: String, desc: "Audience comma-separated, barn|ungdom|voksen|children|youth|adult" #, regexp: /([Vv]oksen|[Aa]dult|[Bb]arn|[Uu]ngdom|[Jj]uvenile)/
         #optional :reviewer, type: String, desc: "Name of reviewer"
         #optional :source, type: String, desc: "Source of review"
       end    
@@ -134,7 +138,7 @@ class API < Grape::API
         
         header['Content-Type'] = 'application/json; charset=utf-8' 
         logger.info "PUT: params: #{params} - review: #{after.reviews}"
-        {:after => after, :before => before }
+        {:after => after, :before => before.first }
       else
         logger.error "invalid or missing params"   
         error!("Need at least one param of title|teaser|text|audience", 400)      
