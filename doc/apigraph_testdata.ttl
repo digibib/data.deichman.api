@@ -13,7 +13,7 @@
 
 ### 
 # Source
-# PROTECTED GRAPH <http://data.deichman.no/apigraph>
+# PROTECTED GRAPH <http://data.deichman.no/sources>
 ###
 
 <http://data.deichman.no/source/test> a foaf:Document;
@@ -23,31 +23,32 @@
   
 ### 
 # Workplace
-# PROTECTED GRAPH <http://data.deichman.no/apigraph>
+# PROTECTED GRAPH <http://data.deichman.no/sources>
 ###
 
-<http://data.deichman.no/workplace/deichman> a foaf:Organization, foaf:Group;
-  foaf:homepage <http://deichman.no>;
-  foaf:name "Deichmanske bibliotek";
-  foaf:member <http://data.deichman.no/reviewer/id_123456>.
+<http://data.deichman.no/workplace/dummyworkplace> a foaf:Organization, org:Organization;
+  foaf:homepage <http://example.org>;
+  skos:prefLabel "Eksempelbibliotek";
+  foaf:hasMember <http://data.deichman.no/reviewer/id_0>.
 
 ### 
 # Reviewer
-# PROTECTED GRAPH <http://data.deichman.no/apigraph>
+# PROTECTED GRAPH <http://data.deichman.no/sources>
 ###
 
-<http://data.deichman.no/reviewer/id_123456> a foaf:Person;
-  foaf:workplaceHomepage <http://deichman.no>;
-  foaf:name "Test Testesen";
-  foaf:account <http://data.deichman.no/account/id_123456>.
+<http://data.deichman.no/reviewer/id_0> a foaf:Person;
+  foaf:workplaceHomepage <http://example.org>;
+  org:memberOf <http://data.deichman.no/workplace/dummyworkplace>;
+  foaf:name "Anonymous";
+  foaf:account <http://data.deichman.no/account/id_0>.
 
 ### 
 # Account
-# PROTECTED GRAPH <http://data.deichman.no/apigraph>
+# PROTECTED GRAPH <http://data.deichman.no/sources>
 ###
 
-<http://data.deichman.no/account/id_123456> a sioc:UserAccount;
-  foaf:accountName "test";
+<http://data.deichman.no/account/id_0> a sioc:UserAccount;
+  foaf:accountName "anonymous";
   foaf:accountServiceHomepage <http://data.deichman.no/source/test>;
   acc:password "secret";
   acc:lastActivity "2012-12-08T11:40:00+02:00"^^xsd:dateTime;

@@ -14,10 +14,15 @@ The API is open for anyone to use, but a key is required in order to write to th
 ![API architecture](https://github.com/digibib/data.deichman.api/raw/develop/doc/review_rdf.png)
 
 ### GET /reviews
-Parameters: `isbn`, `uri`, `author`, `title`, `reviewer`, `work`
+
+Fetches one or more reviews
+
+#### Allowed parameters: `isbn`, `uri`, `author`, `title`, `reviewer`, `work`, `workplace`, `order_by`, `order`, `limit`, `offset`
 
 Other parameters will be ignored if `isbn`, `uri`, `reviewer` or `work`  is present.
 The `uri` must refer to a bookreview.
+`offset` and `limit` must be integers.
+`order` must be `desc` or `asc`.
 
 Examples
 ```
@@ -27,25 +32,29 @@ http GET http://data.deichman.no/api/reviews author="Nesbø, Jo"
 http GET http://data.deichman.no/api/reviews uri="http://data.deichman.no/bookreviews/deich3456"
 http GET http://data.deichman.no/api/reviews reviewer="Test Reviewer"
 http GET http://data.deichman.no/api/reviews work="http://data.deichman.no/work/x18370200_snoemannen"
+http GET http://data.deichman.no/api/reviews limit=20 offset=20 order_by=reviewer order=desc
+
 ```
 #### Returns
 
 JSON hash of one or more `work`, and an array of its `reviews`
 
 ### POST /reviews
+Creates a new review
 
 #### Parameters
 
 * Required: `api_key`, `isbn`, `title`, `teaser`, `text`
 * Optional: `reviewer`, `audience`
 
-allowed audience values are `adult`, `juvenile`, `barn`, `ungdom`, `barn/ungdom`
+    allowed audience values are `voksen|adult`, `ungdom|youth`, `children|barn`
+    can be multiple separated by either comma, slash or pipe (,/|)    
 
 Example
 ```
 http POST http://data.deichman.no/api/reviews api_key="dummyapikey" isbn=9788243006218 title="Title of review"
     teaser="A brief text for teaser, infoscreens, etc." text="The entire text of review. Lorem ipsum and the glory of utf-8"
-    reviewer="John Doe" audience="juvenile"
+    reviewer="John Doe" audience="children"
 ```
 
 #### Returns
@@ -68,6 +77,8 @@ Updates existing review
 JSON hash of modified review, `before` and `after`
 
 ### DELETE /reviews
+
+Deletes a review
 
 #### Parameters
 
