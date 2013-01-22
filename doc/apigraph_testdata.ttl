@@ -13,7 +13,7 @@
 
 ### 
 # Source
-# PROTECTED GRAPH <http://data.deichman.no/apigraph>
+# PROTECTED GRAPH <http://data.deichman.no/sources>
 ###
 
 <http://data.deichman.no/source/test> a foaf:Document;
@@ -23,7 +23,7 @@
   
 ### 
 # Workplace
-# PROTECTED GRAPH <http://data.deichman.no/apigraph>
+# PROTECTED GRAPH <http://data.deichman.no/sources>
 ###
 
 <http://data.deichman.no/workplace/dummyworkplace> a foaf:Organization, org:Organization;
@@ -33,7 +33,7 @@
 
 ### 
 # Reviewer
-# PROTECTED GRAPH <http://data.deichman.no/apigraph>
+# PROTECTED GRAPH <http://data.deichman.no/sources>
 ###
 
 <http://data.deichman.no/reviewer/id_0> a foaf:Person;
@@ -44,7 +44,7 @@
 
 ### 
 # Account
-# PROTECTED GRAPH <http://data.deichman.no/apigraph>
+# PROTECTED GRAPH <http://data.deichman.no/sources>
 ###
 
 <http://data.deichman.no/account/id_0> a sioc:UserAccount;

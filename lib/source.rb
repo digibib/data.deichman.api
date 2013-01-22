@@ -2,8 +2,8 @@ class Review
   def find_source_by_apikey(api_key)
     # fetch source by api key in protected graph
     # each source needs three statements: 
-    # <source> a rdfs:Resource ;
-    #          rdfs:label "Label" ;
+    # <source> a foaf:Document ;
+    #          foaf:name "Label" ;
     #          deichman:apikey "apikey" .    
     query = QUERY.select(:source).from(APIGRAPH)
     query.where(
@@ -11,7 +11,7 @@ class Review
       [:source, RDF::FOAF.name, :label],
       [:source, RDF::DEICHMAN.apikey, "#{api_key}"])
     query.limit(1)
-    #puts "#{query}" if ENV['RACK_ENV'] == 'development'
+    puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
     return nil if solutions.empty?
     source = solutions.first[:source]

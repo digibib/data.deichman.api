@@ -295,14 +295,14 @@
      guidetolerance="10"
      inkscape:pageopacity="0"
      inkscape:pageshadow="2"
-     inkscape:window-width="1920"
-     inkscape:window-height="1028"
+     inkscape:window-width="1366"
+     inkscape:window-height="716"
      id="namedview203"
      showgrid="false"
-     inkscape:zoom="1.37187"
+     inkscape:zoom="1.04"
      inkscape:cx="514.55696"
-     inkscape:cy="334.84664"
-     inkscape:window-x="1366"
+     inkscape:cy="337.90349"
+     inkscape:window-x="0"
      inkscape:window-y="26"
      inkscape:window-maximized="1"
      inkscape:current-layer="svg2" />
@@ -1357,7 +1357,7 @@
        id="tspan3309-6-1-3-1-4-2-9-5"
        x="689.18597"
        y="52.977356"
-       style="font-size:8px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;fill:#000000;fill-opacity:1;font-family:Droid Sans Mono;-inkscape-font-specification:Droid Sans Mono">&lt;http://data.deichman.no/apigraph&gt;</tspan></text>
+       style="font-size:8px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;fill:#000000;fill-opacity:1;font-family:Droid Sans Mono;-inkscape-font-specification:Droid Sans Mono">&lt;http://data.deichman.no/sources&gt;</tspan></text>
   <path
      style="opacity:0.7;fill:none;stroke:#000000;stroke-width:3;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:9.00000015, 3.00000005;stroke-dashoffset:0"
      d="m 0,70.289775 1052.7437,-2.436907 0,0"

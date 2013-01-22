@@ -1,6 +1,6 @@
 source :rubygems
 gem "thin"
-gem "grape"#, :git => 'https://github.com/intridea/grape.git'
+gem "grape", '0.2.4' #:git => 'https://github.com/intridea/grape.git'
 gem "rdf"
 gem "rdf-n3"
 gem "rdf-virtuoso", '~> 0.1.1'
