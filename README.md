@@ -17,10 +17,12 @@ The API is open for anyone to use, but a key is required in order to write to th
 
 Fetches one or more reviews
 
-#### Parameters: `isbn`, `uri`, `author`, `title`, `reviewer`, `work`
+#### Allowed parameters: `isbn`, `uri`, `author`, `title`, `reviewer`, `work`, `workplace`, `order_by`, `order`, `limit`, `offset`
 
 Other parameters will be ignored if `isbn`, `uri`, `reviewer` or `work`  is present.
 The `uri` must refer to a bookreview.
+`offset` and `limit` must be integers.
+`order` must be `desc` or `asc`.
 
 Examples
 ```
@@ -30,6 +32,8 @@ http GET http://data.deichman.no/api/reviews author="Nesbø, Jo"
 http GET http://data.deichman.no/api/reviews uri="http://data.deichman.no/bookreviews/deich3456"
 http GET http://data.deichman.no/api/reviews reviewer="Test Reviewer"
 http GET http://data.deichman.no/api/reviews work="http://data.deichman.no/work/x18370200_snoemannen"
+http GET http://data.deichman.no/api/reviews limit=20 offset=20 order_by=reviewer order=desc
+
 ```
 #### Returns
 

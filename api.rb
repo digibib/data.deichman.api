@@ -53,18 +53,23 @@ class API < Grape::API
   resource :reviews do
     desc "returns reviews"
       params do
-          optional :uri,      type: String, desc: "URI of review"
-          optional :isbn,     type: String, desc: "ISBN of reviewed book" #, regexp: /^[0-9Xx-]+$/
-          optional :title,    type: String, desc: "Book title"
-          optional :author,   type: String, desc: "Book author"
-          optional :reviewer, type: String, desc: "Review author"
-          optional :work,     type: String, desc: "Work ID" 
+          optional :uri,       type: String, desc: "URI of review"
+          optional :isbn,      type: String, desc: "ISBN of reviewed book" #, regexp: /^[0-9Xx-]+$/
+          optional :title,     type: String, desc: "Book title"
+          optional :author,    type: String, desc: "Book author"
+          optional :reviewer,  type: String, desc: "Review author"
+          optional :work,      type: String, desc: "Work ID"
+          optional :workplace, type: String, desc: "Reviewer's workplace"
+          optional :limit,     type: Integer, desc: "Limit result"
+          optional :offset,    type: Integer, desc: "Offset, for pagination" 
+          optional :order_by,  type: String, desc: "Order of results" 
+          optional :order,     type: String, desc: "Ascending or Descending order" 
       end
 
     get "/" do
       content_type 'json'
       #header['Content-Type'] = 'application/json; charset=utf-8'
-      if [:uri,:isbn,:author,:title,:reviewer,:work].any? {|p| params.has_key?(p) }
+      #if [:uri,:isbn,:author,:title,:reviewer,:work,:limit,:offset,:order_by].any? {|p| params.has_key?(p) }
         works = Review.new.find_reviews(params)
         if works == "Invalid URI"
           logger.error "Invalid URI"
@@ -79,10 +84,10 @@ class API < Grape::API
           logger.info "Works: #{works.count} - Reviews: #{c=0 ; works.each {|w| c += w.reviews.count};c}"
           {:works => works }
         end
-      else
-        logger.error "invalid or missing params"   
-        error!("Need one param of isbn|uri|author|title|reviewer", 400)
-      end
+      #else
+      #  logger.error "invalid or missing params"   
+      #  error!("Need one param of isbn|uri|author|title|reviewer", 400)
+      #end
     end
 
     desc "creates a review"

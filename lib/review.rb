@@ -49,7 +49,7 @@ class Review
         return "Invalid Reviewer"
       end
     else
-      solutions = review_query(selects, :author => params[:author], :title => params[:title])
+      solutions = review_query(selects, params)
     end
 
     works = []
@@ -171,8 +171,17 @@ class Review
     
     # optimize query in virtuoso, drastically improves performance on optionals
     query.define('sql:select-option "ORDER"')
-    query.limit(50)
-
+    # limit, offset and order by params
+    params[:limit] ? query.limit(params[:limit]) : query.limit(10)
+    query.offset(params[:offset]) if params[:offset]
+    if /(author|title|reviewer|workplace|issued|modified|created)/.match(params[:order_by].to_s)
+      if /(desc|asc)/.match(params[:order].to_s)  
+        query.order_by("#{params[:order].upcase}(?#{params[:order_by]})")
+      else
+        query.order_by(params[:order_by].to_sym)
+      end
+    end
+    
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
   end
