@@ -1,9 +1,7 @@
-require "rake/testtask"
+#!/usr/bin/env rake
+require "rspec/core/rake_task"
 
-task :default => [:test]
+RSpec::Core::RakeTask.new
 
-Rake::TestTask.new do |test|
-  test.libs << "test"
-  test.test_files = Dir[ "test/test_*.rb" ]
-  test.verbose = true
-end
+task :default => :spec
+task :test => :spec

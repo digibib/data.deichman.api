@@ -3,6 +3,7 @@ $stdout.sync = true
 
 require "bundler/setup"
 require "grape"
+require "json"
 require "./lib/review.rb"
 
 # trap all exceptions and fail gracefuly with a 500 and a proper message
@@ -27,6 +28,7 @@ class API < Grape::API
   end
   version 'v1', :using => :header, :vendor => 'deichman.no'
   prefix 'api'
+  rescue_from :all, :backtrace => true
   format :json
   default_format :json
   #use ApiErrorHandler
