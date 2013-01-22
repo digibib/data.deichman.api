@@ -46,9 +46,9 @@ class Review
     insert_statements << RDF::Statement.new(account, RDF::ACC.status, RDF::ACC.ActivationNeeded)
     insert_statements << RDF::Statement.new(account, RDF::ACC.lastActivity, RDF::Literal(Time.now.xmlschema, :datatype => RDF::XSD.dateTime))
     query = QUERY.insert_data(insert_statements).graph(APIGRAPH)
-    puts "#{query}" if ENV['RACK_ENV'] == 'development'
+    puts "create reviewer query: #{query}" if ENV['RACK_ENV'] == 'development'
     result = REPO.insert_data(query)
-    puts result
-    return reviewer_id
+    puts "create reviewer result: #{result}" if ENV['RACK_ENV'] == 'development'
+    reviewer = {:reviewer_id => reviewer_id, :reviewer_name => "#{reviewer}", :accountName => "#{account_name}", :reviewer_workplace => nil}
   end  
 end
