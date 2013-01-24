@@ -4,7 +4,7 @@ require "rdf/virtuoso"
 require "sanitize"
 
 # Structs are simple classes with fixed sequence of instance variables
-Work = Struct.new(:title, :isbn, :book_id, :work_id, :author, :cover_url, :reviews)
+Work = Struct.new(:title, :isbn, :book_id, :work_id, :author_id, :author, :cover_url, :reviews)
 Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :workplace, :audience, :created, :issued, :modified)
 
 require_relative './string_replace.rb'
@@ -17,7 +17,7 @@ class Review
   # main method to find reviews, GET /api/review
   # params: uri, isbn, title, author, reviewer, work
   def find_reviews(params = {})
-    selects     = [:uri, :work_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer_name, :accountName, :reviewer_workplace]
+    selects     = [:uri, :work_id, :book_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer_name, :accountName, :workplace]
     
     # this clause composes query attributes modified by params from API
     if params.has_key?(:uri)
@@ -30,7 +30,7 @@ class Review
         return "Invalid URI"
       end
     elsif params.has_key?(:isbn)
-      isbn          = sanitize_isbn("#{params[:isbn]}")
+      isbn      = sanitize_isbn("#{params[:isbn]}")
       solutions = review_query(selects, :isbn => isbn)
     elsif params.has_key?(:work)
       begin 
@@ -42,57 +42,68 @@ class Review
         return "Invalid URI"
       end    
     elsif params.has_key?(:reviewer)
-      reviewer  = find_reviewer(params[:reviewer])
+      reviewer = find_reviewer(:reviewer => params[:reviewer])
       if reviewer
         solutions = review_query(selects, :reviewer => reviewer[:reviewer_id])
       else
         return "Invalid Reviewer"
       end
+    elsif params.has_key?(:workplace)
+      reviewer = find_reviewer(:workplace => params[:workplace])
+      if reviewer
+        solutions = review_query(selects, :workplace => reviewer[:workplace])
+      else
+        return "Invalid Workplace"
+      end      
     else
+      # do a general lookup
       solutions = review_query(selects, params)
     end
 
     works = []
     unless solutions.empty?
-        solutions.each do |solution|
-          # use already defined Work if present
-          work = works.find {|w| w[:work_id] == solution[:work_id].to_s}
-          # or make a new Work object
-          unless work
-            work = Work.new(
-                            solution[:book_title].to_s,
-                            solution[:isbn] ? solution[:isbn].to_s : isbn,
-                            solution[:book_id].to_s,
-                            solution[:work_id].to_s,
-                            solution[:author].to_s,
-                            solution[:cover_url].to_s
-                            )
-            work.reviews = []
-          end
-          # and fill with reviews
-          # append text of reviews here to avvoid "Temporary row length exceeded error" in Virtuoso on sorting long texts
-          review_uri = solution[:uri] ? solution[:uri] : uri
-          query = QUERY.select(:review_text).where([review_uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH])
-          review_text = REPO.select(query).first[:review_text].to_s
-          # reviewer
-          reviewer = solution[:reviewer_name] ? solution[:reviewer_name].to_s : solution[:reviewer_nick].to_s 
-          
-          review = Review.new(
-                          solution[:uri] ? solution[:uri].to_s : uri,
-                          solution[:review_title].to_s,
-                          solution[:review_abstract].to_s,
-                          #solution[:review_text].to_s,
-                          review_text,
-                          solution[:review_source].to_s,
-                          reviewer,
-                          solution[:reviewer_workplace].to_s,
-                          solution[:review_audience].to_s,
-                          solution[:created].to_s,
-                          solution[:issued].to_s,
-                          solution[:modified].to_s
+      solutions.each do |solution|
+        # use already defined Work if present
+        work = works.find {|w| w[:work_id] == solution[:work_id].to_s}
+        # or make a new Work object
+        unless work
+          # populate work object (Struct)
+          work = Work.new(
+                          solution[:book_title].to_s,
+                          solution[:isbn] ? solution[:isbn].to_s.split(', ') : [isbn],
+                          solution[:book_id],
+                          solution[:work_id].to_s,
+                          solution[:author_id].to_s.split(', '),
+                          solution[:author].to_s,
+                          solution[:cover_url].to_s
                           )
-          work.reviews << review
-
+          work.reviews = []
+        end
+        # and fill with reviews
+        # append text of reviews here to avvoid "Temporary row length exceeded error" in Virtuoso on sorting long texts
+        review_uri = solution[:uri] ? solution[:uri] : uri
+        query = QUERY.select(:review_text).where([review_uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH])
+        review_text = REPO.select(query).first[:review_text].to_s
+        # reviewer
+        reviewer = solution[:reviewer_name] ? solution[:reviewer_name].to_s : solution[:reviewer_nick].to_s 
+        
+        # populate review object (Struct)
+        review = Review.new(
+                        solution[:uri] ? solution[:uri].to_s : uri,
+                        solution[:review_title].to_s,
+                        solution[:review_abstract].to_s,
+                        review_text,
+                        solution[:review_source].to_s,
+                        reviewer,
+                        solution[:workplace].to_s,
+                        solution[:review_audience].to_s,
+                        solution[:created].to_s,
+                        solution[:issued].to_s,
+                        solution[:modified].to_s
+                        )
+        # insert review object into work
+        work.reviews << review
+         
         # append to or replace work in works array
         unless works.any? {|w| w[:work_id] == solution[:work_id].to_s}
           works << work
@@ -107,7 +118,7 @@ class Review
   
   def review_query(selects, params={})
     # allowed params merged with params given in api
-    api = {:uri => :uri, :isbn => :isbn, :title => :title, :author => :author, :reviewer => :reviewer, :work => :work_id}
+    api = {:uri => :uri, :isbn => :isbn, :title => :title, :author => :author, :reviewer => :reviewer, :work => :work_id, :workplace => :workplace}
     api.merge!(params)
     # do we have freetext searches on author/title?
     author_search   = params[:author] ? params[:author].gsub(/[[:punct:]]/, '').split(" ") : nil
@@ -116,9 +127,10 @@ class Review
     # query RDF store for work and reviews
     query = QUERY.select(*selects)
     query.group_digest(:author, ', ', 1000, 1)
+    query.group_digest(:author_id, ', ', 1000, 1)
     query.group_digest(:isbn, ', ', 1000, 1) if api[:isbn] == :isbn
     query.group_digest(:review_audience, ',', 1000, 1)
-    query.sample(:book_id, :cover_url)
+    query.sample(:cover_url)
     query.distinct.where(
       [api[:uri], RDF.type, RDF::REV.Review, :context => REVIEWGRAPH],
       [api[:uri], RDF::DC.created, :created, :context => REVIEWGRAPH],
@@ -144,6 +156,15 @@ class Review
       [api[:uri], RDF::DC.audience, :review_audience_id, :context => REVIEWGRAPH],
       [:review_audience_id, RDF::RDFS.label, :review_audience, :context => REVIEWGRAPH]
       )
+      # workplace
+    if params[:workplace]
+      query.where([api[:reviewer], RDF::ORG.memberOf, :workplace_id, :context => APIGRAPH],
+      [:workplace_id, RDF::SKOS.prefLabel, api[:workplace], :context => APIGRAPH],
+      [:workplace_id, RDF::SKOS.prefLabel, :workplace, :context => APIGRAPH])
+    else
+      query.optional([api[:reviewer], RDF::ORG.memberOf, :workplace_id, :context => APIGRAPH],
+      [:workplace_id, RDF::SKOS.prefLabel, :workplace, :context => APIGRAPH])
+    end
     query.filter('(lang(?review_audience) = "no")') 
     # optional attributes
     # NB! all these optionals adds extra ~2 sec to query
@@ -152,10 +173,6 @@ class Review
       [api[:reviewer], RDF::FOAF.account, :useraccount, :context => APIGRAPH],
       [:useraccount, RDF::FOAF.accountName, :accountName, :context => APIGRAPH]
       )      
-    # reviewer workplace
-    query.optional(
-      [api[:reviewer], RDF::ORG.memberOf, :workplace_id, :context => APIGRAPH],
-      [:workplace_id, RDF::SKOS.prefLabel, :reviewer_workplace, :context => APIGRAPH])
 
     if author_search
       author_search.each do |author|
@@ -216,9 +233,9 @@ class Review
       
       if params[:reviewer]
         # lookup reviewer by nick or full name
-        reviewer = find_reviewer(params[:reviewer])
-        # create new if not found
-        reviewer = create_reviewer(source, params[:reviewer]) unless reviewer
+        reviewer = find_reviewer(:reviewer => params[:reviewer])
+        # create new reviewer if not found in base
+        reviewer = create_reviewer(source, params[:reviewer]) unless reviewer[:reviewer]
         return "Invalid Reviewer ID" unless reviewer # break out if unable to generate ID
       end
       work = Work.new(
@@ -226,6 +243,7 @@ class Review
           isbn,
           solutions.first[:book_id],
           solutions.first[:work_id],
+          solutions.first[:author_id],
           solutions.first[:author]
           )
       work.reviews = []
@@ -236,7 +254,7 @@ class Review
           clean_text(params[:text]),
           source,
           reviewer[:reviewer_id],
-          reviewer[:reviewer_workplace],
+          reviewer[:workplace],
           params[:audience] ? params[:audience] : "adult",
           Time.now.xmlschema, # created
           Time.now.xmlschema, # issued

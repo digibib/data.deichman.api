@@ -76,7 +76,10 @@ class API < Grape::API
           error!("\"#{params[:uri]}\" is not a valid URI", 400)
         elsif works == "Invalid Reviewer"
           logger.error "Invalid Reviewer"
-          error!("\"#{params[:reviewer]}\" not found", 400)
+          error!("reviewer \"#{params[:reviewer]}\" not found", 400)
+        elsif works == "Invalid Workplace"
+          logger.error "Invalid Workplace"
+          error!("workplace \"#{params[:workplace]}\" not found", 400)          
         elsif works.empty? 
           logger.info "no reviews found"
           error!("no reviews found", 200)
