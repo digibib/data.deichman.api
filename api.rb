@@ -57,6 +57,7 @@ class API < Grape::API
           optional :isbn,      type: String, desc: "ISBN of reviewed book" #, regexp: /^[0-9Xx-]+$/
           optional :title,     type: String, desc: "Book title"
           optional :author,    type: String, desc: "Book author"
+          optional :author_id, type: String, desc: "ID of Book author"
           optional :reviewer,  type: String, desc: "Review author"
           optional :work,      type: String, desc: "Work ID"
           optional :workplace, type: String, desc: "Reviewer's workplace"
@@ -68,29 +69,23 @@ class API < Grape::API
 
     get "/" do
       content_type 'json'
-      #header['Content-Type'] = 'application/json; charset=utf-8'
-      #if [:uri,:isbn,:author,:title,:reviewer,:work,:limit,:offset,:order_by].any? {|p| params.has_key?(p) }
-        works = Review.new.find_reviews(params)
-        if works == "Invalid URI"
-          logger.error "Invalid URI"
-          error!("\"#{params[:uri]}\" is not a valid URI", 400)
-        elsif works == "Invalid Reviewer"
-          logger.error "Invalid Reviewer"
-          error!("reviewer \"#{params[:reviewer]}\" not found", 400)
-        elsif works == "Invalid Workplace"
-          logger.error "Invalid Workplace"
-          error!("workplace \"#{params[:workplace]}\" not found", 400)          
-        elsif works.empty? 
-          logger.info "no reviews found"
-          error!("no reviews found", 200)
-        else
-          logger.info "Works: #{works.count} - Reviews: #{c=0 ; works.each {|w| c += w.reviews.count};c}"
-          {:works => works }
-        end
-      #else
-      #  logger.error "invalid or missing params"   
-      #  error!("Need one param of isbn|uri|author|title|reviewer", 400)
-      #end
+      works = Review.new.find_reviews(params)
+      if works == "Invalid URI"
+        logger.error "Invalid URI"
+        error!("\"#{params[:uri]}\" is not a valid URI", 400)
+      elsif works == "Invalid Reviewer"
+        logger.error "Invalid Reviewer"
+        error!("reviewer \"#{params[:reviewer]}\" not found", 400)
+      elsif works == "Invalid Workplace"
+        logger.error "Invalid Workplace"
+        error!("workplace \"#{params[:workplace]}\" not found", 400)          
+      elsif works.empty? 
+        logger.info "no reviews found"
+        error!("no reviews found", 200)
+      else
+        logger.info "Works: #{works.count} - Reviews: #{c=0 ; works.each {|w| c += w.reviews.count};c}"
+        {:works => works }
+      end
     end
 
     desc "creates a review"
@@ -99,14 +94,12 @@ class API < Grape::API
         requires :title,    type: String, desc: "Title of review"
         requires :teaser,   type: String, desc: "Abstract of review"
         requires :text,     type: String, desc: "Text of review"
-        requires :isbn,     type: String, desc: "ISBN of reviewed book" #, regexp: /^[0-9Xx-]+$/
-        optional :audience, type: String, desc: "Audience comma-separated, barn|ungdom|voksen|children|youth|adult" #, regexp: /([Vv]oksen|[Aa]dult|[Bb]arn|[Uu]ngdom|[Jj]uvenile)/
+        requires :isbn,     type: String, desc: "ISBN of reviewed book" 
+        optional :audience, type: String, desc: "Audience comma-separated, barn|ungdom|voksen|children|youth|adult"
         optional :reviewer, type: String, desc: "Name of reviewer"
-        #optional :source, type: String, desc: "Source of review"
       end
     post "/" do
       content_type 'json'
-      #header['Content-Type'] = 'application/json; charset=utf-8' 
       work = Review.new.create(params)
       error!("Sorry, #{params[:isbn]} matches no known book in our base", 400) if work == "Invalid ISBN"
       error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if work == "Invalid api_key"
@@ -124,7 +117,7 @@ class API < Grape::API
         optional :title,    type: String, desc: "Title of review"
         optional :teaser,   type: String, desc: "Abstract of review"
         optional :text,     type: String, desc: "Text of review"
-        optional :audience, type: String, desc: "Audience comma-separated, barn|ungdom|voksen|children|youth|adult" #, regexp: /([Vv]oksen|[Aa]dult|[Bb]arn|[Uu]ngdom|[Jj]uvenile)/
+        optional :audience, type: String, desc: "Audience comma-separated, barn|ungdom|voksen|children|youth|adult"
         #optional :reviewer, type: String, desc: "Name of reviewer"
         #optional :source, type: String, desc: "Source of review"
       end    

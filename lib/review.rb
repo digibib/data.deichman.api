@@ -40,7 +40,15 @@ class Review
         solutions = review_query(selects, :work => uri)
       rescue URI::InvalidURIError
         return "Invalid URI"
-      end    
+      end
+    elsif params.has_key?(:author_id)
+      begin 
+        uri = URI::parse(params[:author_id])
+        uri = RDF::URI(uri)
+        solutions = review_query(selects, :author_id => uri)
+      rescue URI::InvalidURIError
+        return "Invalid URI"
+      end   
     elsif params.has_key?(:reviewer)
       reviewer = find_reviewer(:reviewer => params[:reviewer])
       if reviewer
@@ -118,7 +126,7 @@ class Review
   
   def review_query(selects, params={})
     # allowed params merged with params given in api
-    api = {:uri => :uri, :isbn => :isbn, :title => :title, :author => :author, :reviewer => :reviewer, :work => :work_id, :workplace => :workplace}
+    api = {:uri => :uri, :isbn => :isbn, :title => :title, :author => :author, :author_id => :author_id, :reviewer => :reviewer, :work => :work_id, :workplace => :workplace}
     api.merge!(params)
     # do we have freetext searches on author/title?
     author_search   = params[:author] ? params[:author].gsub(/[[:punct:]]/, '').split(" ") : nil
@@ -142,10 +150,11 @@ class Review
       [:book_id, RDF.type, RDF::FABIO.Manifestation, :context => BOOKGRAPH],
       [:book_id, RDF::BIBO.isbn, api[:isbn], :context => BOOKGRAPH],
       [:book_id, RDF::DC.title, :book_title, :context => BOOKGRAPH], # filtered by regex later
-      # work
+      # work & author
       [api[:work], RDF::FABIO.hasManifestation, :book_id, :context => BOOKGRAPH], 
-      [api[:work], RDF::DC.creator, :author_id, :context => BOOKGRAPH],
-      [:author_id, RDF::FOAF.name, :author, :context => BOOKGRAPH],    # filtered by regex later
+      [api[:work], RDF::DC.creator, api[:author_id], :context => BOOKGRAPH],
+      [api[:work], RDF::DC.creator, :author_id, :context => BOOKGRAPH],     # to get author_id in response
+      [api[:author_id], RDF::FOAF.name, :author, :context => BOOKGRAPH],    # filtered by regex later
       # source
       [api[:uri], RDF::DC.source, :review_source_id, :context => REVIEWGRAPH],
       [:review_source_id, RDF::FOAF.name, :review_source, :context => APIGRAPH],
@@ -159,7 +168,7 @@ class Review
       # workplace
     if params[:workplace]
       query.where([api[:reviewer], RDF::ORG.memberOf, :workplace_id, :context => APIGRAPH],
-      [:workplace_id, RDF::SKOS.prefLabel, api[:workplace], :context => APIGRAPH],
+      [:workplace_id, RDF::SKOS.prefLabel, api[:workplace], :context => APIGRAPH], # to get workplace in response
       [:workplace_id, RDF::SKOS.prefLabel, :workplace, :context => APIGRAPH])
     else
       query.optional([api[:reviewer], RDF::ORG.memberOf, :workplace_id, :context => APIGRAPH],

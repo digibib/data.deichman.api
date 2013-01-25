@@ -17,12 +17,13 @@ The API is open for anyone to use, but a key is required in order to write to th
 
 Fetches one or more reviews
 
-#### Allowed parameters: `isbn`, `uri`, `author`, `title`, `reviewer`, `work`, `workplace`, `order_by`, `order`, `limit`, `offset`
+#### Allowed parameters: `isbn`, `uri`, `author`, `author_id`, `title`, `reviewer`, `work`, `workplace`, `order_by`, `order`, `limit`, `offset`
 
-Other parameters will be ignored if `isbn`, `uri`, `reviewer` or `work`  is present.
-The `uri` must refer to a bookreview.
-`offset` and `limit` must be integers.
-`order` must be `desc` or `asc`.
+* Other parameters will be ignored if `isbn`, `uri`, `reviewer` or `work`  is present.
+* The `uri` must refer to a bookreview.
+* `offset` and `limit` must be integers.
+* `order_by` allows values `author`, `title`, `reviewer`, `workplace`, `|issued`, `modified`, `created` 
+* `order` must be `desc` or `asc`.
 
 Examples
 ```

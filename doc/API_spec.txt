@@ -9,9 +9,10 @@ GET /reviews
 "Henter ut bokanbefalinger"
 ---------------------------------------------------------
 Parametre:
-  en eller flere av: uri, isbn, author, title, reviewer
+  en eller flere av: uri, isbn, author, author_id, work, title, reviewer, limit, offset, order, order_by
   (author+title ignorert hvis isbn tilstede)
   (alt annet enn uri ignorert hvis uri tilstede)
+  (hvis ingen kjente parametre, returner siste 50)
 
 POST /reviews
 "Pusher en ny bokanbefaling"
