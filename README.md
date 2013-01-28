@@ -10,6 +10,8 @@ The API will be expanded as we see fit. Currently only the `/reviews` endpoint i
 
 The API is open for anyone to use, but a key is required in order to write to the API (i.e perform POST/PUT/DELETE requests). Please get in tocuh if your library wants to publish to our RDF-store.
 
+## The Reviews Endpoint 
+
 ### Architecture
 ![API architecture](https://github.com/digibib/data.deichman.api/raw/develop/doc/review_rdf.png)
 
@@ -48,7 +50,7 @@ Creates a new review
 * Required: `api_key`, `isbn`, `title`, `teaser`, `text`
 * Optional: `reviewer`, `audience`
 
-    allowed audience values are `voksen|adult`, `ungdom|youth`, `children|barn`
+    allowed audience values are `voksen`, `adult`, `ungdom`, `youth`, `children` or `barn`
     can be multiple separated by either comma, slash or pipe (,/|)    
 
 Example
@@ -60,7 +62,7 @@ http POST http://data.deichman.no/api/reviews api_key="dummyapikey" isbn=9788243
 
 #### Returns
 
-* JSON hash of one or more `work`, its `reviews` and `uri` of review
+* JSON hash of the reviewed `work`, its `reviews` and `uri` of review
 * if new reviewer:      reviewer ID (created unique in database as Reviewer and UserAccount
 * if existing reviewer: reviewer name
 
