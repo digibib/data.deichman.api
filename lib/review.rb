@@ -221,15 +221,18 @@ class Review
     # find work based on isbn
     isbn = sanitize_isbn("#{params[:isbn]}")
 
-    query = QUERY.select(:book_id, :book_title, :work_id, :author)
+    # quick lookup, don't need reviewer or source
+    query = QUERY.select(:book_id, :book_title, :work_id)
+    query.group_digest(:author_id, ', ', 1000, 1)
+    query.group_digest(:author, ', ', 1000, 1)
     query.from(BOOKGRAPH)
     query.where(
       [:book_id, RDF::BIBO.isbn, "#{isbn}"],
       [:book_id, RDF.type, RDF::BIBO.Document],
       [:book_id, RDF::DC.title, :book_title],
-      [:book_id, RDF::DC.creator, :creator],
-      [:creator, RDF::FOAF.name, :author],
-      [:work_id, RDF::FABIO.hasManifestation, :book_id]
+      [:author_id, RDF::FOAF.name, :author],
+      [:work_id, RDF::FABIO.hasManifestation, :book_id],
+      [:work_id, RDF::DC.creator, :author_id]
       )
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
@@ -254,7 +257,7 @@ class Review
           isbn,
           solutions.first[:book_id],
           solutions.first[:work_id],
-          solutions.first[:author_id],
+          solutions.first[:author_id].to_s.split(', '),
           solutions.first[:author]
           )
       work.reviews = []
