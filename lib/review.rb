@@ -231,7 +231,7 @@ class Review
       [:creator, RDF::FOAF.name, :author],
       [:work_id, RDF::FABIO.hasManifestation, :book_id]
       )
-    #puts "#{query}"
+    puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
 
     # populate review attributes
@@ -425,7 +425,7 @@ class Review
     # and delete hasReview reference from work
     query  = QUERY.delete([:work, RDF::REV.hasReview, uri])
     query.where([:work, RDF::REV.hasReview, uri]).graph(BOOKGRAPH)
-    result    = REPO.delete(query)
+    result = REPO.delete(query)
   end
 
   # string methods

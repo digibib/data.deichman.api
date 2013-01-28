@@ -6,6 +6,7 @@
 @prefix sioc: <http://rdfs.org/sioc/ns#>.
 @prefix acc: <http://purl.org/NET/acc#>.
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+@prefix org: <http://www.w3.org/ns/org#>.
 
 ###
 # APIGRAPH testdata
