@@ -243,9 +243,11 @@ class Review
       if params[:reviewer]
         # lookup reviewer by nick or full name
         reviewer = find_reviewer(:reviewer => params[:reviewer])
-        # create new reviewer if not found in base
-        reviewer = create_reviewer(source, params[:reviewer]) unless reviewer[:reviewer]
-        return "Invalid Reviewer ID" unless reviewer # break out if unable to generate ID
+        if reviewer.empty?
+          # create new reviewer if not found in base
+          reviewer = create_reviewer(source, params[:reviewer])
+          return "Invalid Reviewer ID" unless reviewer # break out if unable to generate ID
+        end
       end
       work = Work.new(
           solutions.first[:book_title],

@@ -31,7 +31,7 @@ class API < Grape::API
   rescue_from :all, :backtrace => true
   format :json
   default_format :json
-  use ApiErrorHandler
+  #use ApiErrorHandler
   
   before do
     # Of course this makes the request.body unavailable afterwards.

@@ -20,8 +20,8 @@ class Review
                   
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
-    puts solutions.inspect if ENV['RACK_ENV'] == 'development'
     return nil if solutions.empty?
+    puts solutions.inspect if ENV['RACK_ENV'] == 'development'
     reviewer = solutions.first
   end
 
@@ -49,6 +49,7 @@ class Review
     query = QUERY.insert_data(insert_statements).graph(APIGRAPH)
     puts "create reviewer query: #{query}" if ENV['RACK_ENV'] == 'development'
     result = REPO.insert_data(query)
+    return nil if result.empty?
     puts "create reviewer result: #{result}" if ENV['RACK_ENV'] == 'development'
     reviewer = {:reviewer_id => reviewer_id, :reviewer_name => "#{reviewer}", :accountName => "#{account_name}", :workplace => nil}
   end  
