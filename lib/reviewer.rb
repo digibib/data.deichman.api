@@ -19,7 +19,7 @@ class Review
                   
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
-    #puts solutions.inspect
+    puts solutions.inspect if ENV['RACK_ENV'] == 'development'
     return nil if solutions.empty?
     reviewer = solutions.first
   end
