@@ -31,7 +31,7 @@ class API < Grape::API
   rescue_from :all, :backtrace => true
   format :json
   default_format :json
-  #use ApiErrorHandler
+  use ApiErrorHandler
   
   before do
     # Of course this makes the request.body unavailable afterwards.
@@ -68,6 +68,7 @@ class API < Grape::API
       end
 
     get "/" do
+      header['Content-Type'] = 'application/json; charset=utf-8'
       content_type 'json'
       works = Review.new.find_reviews(params)
       if works == "Invalid URI"
@@ -99,6 +100,7 @@ class API < Grape::API
         optional :reviewer, type: String, desc: "Name of reviewer"
       end
     post "/" do
+      header['Content-Type'] = 'application/json; charset=utf-8'
       content_type 'json'
       work = Review.new.create(params)
       error!("Sorry, #{params[:isbn]} matches no known book in our base", 400) if work == "Invalid ISBN"
@@ -154,7 +156,7 @@ class API < Grape::API
       end    
     delete "/" do
       content_type 'json'
-      #header['Content-Type'] = 'application/json; charset=utf-8' 
+      header['Content-Type'] = 'application/json; charset=utf-8' 
       # is it in the base?
       review = Review.new.find_reviews(params)
       error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if review.empty?
