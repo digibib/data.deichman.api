@@ -53,7 +53,7 @@ class API < Grape::API
   resource :reviews do
     desc "returns reviews"
       params do
-          optional :uri,       type: String, desc: "URI of review"
+          optional :uri,       desc: "URI of review, accepts array"
           optional :isbn,      type: String, desc: "ISBN of reviewed book" #, regexp: /^[0-9Xx-]+$/
           optional :title,     type: String, desc: "Book title"
           optional :author,    type: String, desc: "Book author"
@@ -68,7 +68,7 @@ class API < Grape::API
       end
 
     get "/" do
-      header['Content-Type'] = 'application/json; charset=utf-8'
+      #header['Content-Type'] = 'application/json; charset=utf-8'
       content_type 'json'
       works = Review.new.find_reviews(params)
       if works == "Invalid URI"
@@ -80,7 +80,7 @@ class API < Grape::API
       elsif works == "Invalid Workplace"
         logger.error "Invalid Workplace"
         error!("workplace \"#{params[:workplace]}\" not found", 400)          
-      elsif works.empty? 
+      elsif works.nil? || works.empty?
         logger.info "no reviews found"
         error!("no reviews found", 200)
       else
@@ -100,7 +100,7 @@ class API < Grape::API
         optional :reviewer, type: String, desc: "Name of reviewer"
       end
     post "/" do
-      header['Content-Type'] = 'application/json; charset=utf-8'
+      #header['Content-Type'] = 'application/json; charset=utf-8'
       content_type 'json'
       work = Review.new.create(params)
       error!("Sorry, #{params[:isbn]} matches no known book in our base", 400) if work == "Invalid ISBN"
@@ -125,7 +125,7 @@ class API < Grape::API
       end    
     put "/" do
       content_type 'json'
-      header['Content-Type'] = 'application/json; charset=utf-8'
+      #header['Content-Type'] = 'application/json; charset=utf-8'
       valid_params = ['api_key','uri','title','teaser','text','audience']
       # do we have a valid parameter?
       if valid_params.any? {|p| params.has_key?(p) }
@@ -155,8 +155,8 @@ class API < Grape::API
         requires :uri,     type: String, desc: "URI of review"
       end    
     delete "/" do
+      header['Content-Type'] = 'application/json; charset=utf-8'
       content_type 'json'
-      header['Content-Type'] = 'application/json; charset=utf-8' 
       # is it in the base?
       review = Review.new.find_reviews(params)
       error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if review.empty?

@@ -18,26 +18,46 @@ class Review
   # params: uri, isbn, title, author, reviewer, work
   def find_reviews(params = {})
     selects     = [:uri, :work_id, :book_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer_name, :accountName, :workplace]
-    
+
     # this clause composes query attributes modified by params from API
     if params.has_key?(:uri)
-      begin 
+      # if uri param is Array, iterate URIs and output separate works
+      if params[:uri].is_a?(Array)
         selects.delete(:uri)
-        uri = URI::parse(params[:uri])
-        uri = RDF::URI(uri)
-        solutions = review_query(selects, :uri => uri)
-      rescue URI::InvalidURIError
-        return "Invalid URI"
+        solutions = []
+        params[:uri].each do |u|
+          begin
+            uri = URI::parse(u)
+            uri = RDF::URI(uri)
+            solution = review_query(selects, :uri => uri)
+            solutions << solution unless solution.empty?
+          rescue URI::InvalidURIError
+            return "Invalid URI"
+          end
+        end
+        solutions.empty? ? works = nil : works = populate_works(solutions, :uri => uri, :cluster => false)
+      else
+        begin
+          selects.delete(:uri)
+          uri = URI::parse(params[:uri])
+          uri = RDF::URI(uri)
+          solutions = review_query(selects, :uri => uri)
+          solutions.empty? ? works = nil : works = populate_works(solutions, :uri => uri, :cluster => true) 
+        rescue URI::InvalidURIError
+          return "Invalid URI"
+        end
       end
     elsif params.has_key?(:isbn)
       isbn      = sanitize_isbn("#{params[:isbn]}")
       solutions = review_query(selects, :isbn => isbn)
+      solutions.empty? ? works = nil : works = populate_works(solutions, :isbn => isbn, :cluster => true)
     elsif params.has_key?(:work)
       begin 
         selects.delete(:work_id)
         uri = URI::parse(params[:work])
         uri = RDF::URI(uri)
         solutions = review_query(selects, :work => uri)
+        solutions.empty? ? works = nil : works = populate_works(solutions, :work => uri, :cluster => true)
       rescue URI::InvalidURIError
         return "Invalid URI"
       end
@@ -46,6 +66,7 @@ class Review
         uri = URI::parse(params[:author_id])
         uri = RDF::URI(uri)
         solutions = review_query(selects, :author_id => uri)
+        solutions.empty? ? works = nil : works = populate_works(solutions, :author_id => uri, :cluster => true)
       rescue URI::InvalidURIError
         return "Invalid URI"
       end   
@@ -53,6 +74,7 @@ class Review
       reviewer = find_reviewer(:reviewer => params[:reviewer])
       if reviewer
         solutions = review_query(selects, :reviewer => reviewer[:reviewer_id])
+        solutions.empty? ? works = nil : works = populate_works(solutions, :reviewer => reviewer[:reviewer_id], :cluster => true)
       else
         return "Invalid Reviewer"
       end
@@ -60,69 +82,73 @@ class Review
       reviewer = find_reviewer(:workplace => params[:workplace])
       if reviewer
         solutions = review_query(selects, :workplace => reviewer[:workplace])
+        solutions.empty? ? works = nil : works = populate_works(solutions, :workplace => reviewer[:workplace], :cluster => true)
       else
         return "Invalid Workplace"
       end      
     else
       # do a general lookup
       solutions = review_query(selects, params)
+      solutions.empty? ? works = nil : works = populate_works(solutions, {:params => params, :cluster => true})
     end
-
+    return works
+  end  
+  
+  def populate_works(solutions, params={})
     works = []
-    unless solutions.empty?
-      solutions.each do |solution|
-        # use already defined Work if present
-        work = works.find {|w| w[:work_id] == solution[:work_id].to_s}
-        # or make a new Work object
-        unless work
-          # populate work object (Struct)
-          work = Work.new(
-                          solution[:book_title].to_s,
-                          solution[:isbn] ? solution[:isbn].to_s.split(', ') : [isbn],
-                          solution[:book_id],
-                          solution[:work_id].to_s,
-                          solution[:author_id].to_s.split(', '),
-                          solution[:author].to_s,
-                          solution[:cover_url].to_s
-                          )
-          work.reviews = []
-        end
-        # and fill with reviews
-        # append text of reviews here to avvoid "Temporary row length exceeded error" in Virtuoso on sorting long texts
-        review_uri = solution[:uri] ? solution[:uri] : uri
-        query = QUERY.select(:review_text).where([review_uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH])
-        review_text = REPO.select(query).first[:review_text].to_s
-        # reviewer
-        reviewer = solution[:reviewer_name] ? solution[:reviewer_name].to_s : solution[:reviewer_nick].to_s 
-        
-        # populate review object (Struct)
-        review = Review.new(
-                        solution[:uri] ? solution[:uri].to_s : uri,
-                        solution[:review_title].to_s,
-                        solution[:review_abstract].to_s,
-                        review_text,
-                        solution[:review_source].to_s,
-                        reviewer,
-                        solution[:workplace].to_s,
-                        solution[:review_audience].to_s,
-                        solution[:created].to_s,
-                        solution[:issued].to_s,
-                        solution[:modified].to_s
+    puts params
+    solutions.each do |solution|
+      # use already defined Work if present and :cluster options given
+      work = works.find {|w| w[:work_id] == solution[:work_id].to_s} if params[:cluster]
+      # or make a new Work object
+      unless work
+        # populate work object (Struct)
+        work = Work.new(
+                        solution[:book_title].to_s,
+                        solution[:isbn] ? solution[:isbn].to_s.split(', ') : [params[:isbn]],
+                        solution[:book_id],
+                        solution[:work_id].to_s,
+                        solution[:author_id].to_s.split(', '),
+                        solution[:author].to_s,
+                        solution[:cover_url].to_s
                         )
-        # insert review object into work
-        work.reviews << review
-         
-        # append to or replace work in works array
-        unless works.any? {|w| w[:work_id] == solution[:work_id].to_s}
-          works << work
-        else
-          works.map! {|w| (w[:work_id] == solution[:work_id].to_s) ? work : w }
-        end
-
+        work.reviews = []
+      end
+      # and fill with reviews
+      # append text of reviews here to avvoid "Temporary row length exceeded error" in Virtuoso on sorting long texts
+      review_uri = solution[:uri] ? solution[:uri] : params[:uri]
+      query = QUERY.select(:review_text).where([review_uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH])
+      review_text = REPO.select(query).first[:review_text].to_s
+      # reviewer
+      reviewer = solution[:reviewer_name] ? solution[:reviewer_name].to_s : solution[:reviewer_nick].to_s 
+      
+      # populate review object (Struct)
+      review = Review.new(
+                      solution[:uri] ? solution[:uri].to_s : uri,
+                      solution[:review_title].to_s,
+                      solution[:review_abstract].to_s,
+                      review_text,
+                      solution[:review_source].to_s,
+                      reviewer,
+                      solution[:workplace].to_s,
+                      solution[:review_audience].to_s,
+                      solution[:created].to_s,
+                      solution[:issued].to_s,
+                      solution[:modified].to_s
+                      )
+      # insert review object into work
+      work.reviews << review
+       
+      # append to works array unless :cluster not set to true and work matching previous work
+      unless params[:cluster] && works.any? {|w| w[:work_id] == solution[:work_id].to_s}
+        works << work
+      # if :cluster not set and work not matching previous works
+      else 
+        works.map! {|w| (w[:work_id] == solution[:work_id].to_s) ? work : w }
       end
     end
     works
-  end  
+  end
   
   def review_query(selects, params={})
     # allowed params merged with params given in api
@@ -251,6 +277,8 @@ class Review
           reviewer = create_reviewer(source, params[:reviewer])
           return "Invalid Reviewer ID" unless reviewer # break out if unable to generate ID
         end
+      else 
+        reviewer = {}
       end
       work = Work.new(
           solutions.first[:book_title],
