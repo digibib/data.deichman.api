@@ -21,21 +21,27 @@ class Review
 
     # this clause composes query attributes modified by params from API
     if params.has_key?(:uri)
-      # if uri param is Array, iterate URIs and output separate works
+      # if uri param is Array, iterate URIs and merge solutions into separate works
       if params[:uri].is_a?(Array)
+        works = []
+        solutions = RDF::Query::Solutions.new
         selects.delete(:uri)
-        solutions = []
         params[:uri].each do |u|
           begin
             uri = URI::parse(u)
             uri = RDF::URI(uri)
-            solution = review_query(selects, :uri => uri)
-            solutions << solution unless solution.empty?
+            res = review_query(selects, :uri => uri)
+            unless res.empty?
+              # need to append uri to solution for later use
+              solution = res.first.merge(RDF::Query::Solution.new(:uri => uri))
+              # then merge into solutions
+              solutions << solution 
+            end
           rescue URI::InvalidURIError
             return "Invalid URI"
           end
         end
-        solutions.empty? ? works = nil : works = populate_works(solutions, :uri => uri, :cluster => false)
+        solutions.empty? ? works = nil : works = populate_works(solutions, :uri => uri, :cluster => false) 
       else
         begin
           selects.delete(:uri)
@@ -95,8 +101,8 @@ class Review
   end  
   
   def populate_works(solutions, params={})
+    # this method populates Work and Review object, with optional clustering parameter
     works = []
-    puts params
     solutions.each do |solution|
       # use already defined Work if present and :cluster options given
       work = works.find {|w| w[:work_id] == solution[:work_id].to_s} if params[:cluster]
@@ -124,7 +130,7 @@ class Review
       
       # populate review object (Struct)
       review = Review.new(
-                      solution[:uri] ? solution[:uri].to_s : uri,
+                      solution[:uri] ? solution[:uri].to_s : review_uri,
                       solution[:review_title].to_s,
                       solution[:review_abstract].to_s,
                       review_text,
@@ -151,6 +157,7 @@ class Review
   end
   
   def review_query(selects, params={})
+    # this method queries RDF store with chosen selects and optional params from API
     # allowed params merged with params given in api
     api = {:uri => :uri, :isbn => :isbn, :title => :title, :author => :author, :author_id => :author_id, :reviewer => :reviewer, :work => :work_id, :workplace => :workplace}
     api.merge!(params)
@@ -239,7 +246,7 @@ class Review
   end
   
   def create(params)
-    # create new review here
+    # this method creates a new Review object and inserts it into RDF store 
     # first use api_key parameter to fetch source
     source = find_source_by_apikey(params[:api_key])
     return "Invalid api_key" unless source
@@ -354,7 +361,7 @@ class Review
   end
   
   def update(params)
-    # update review here
+    # this method updates review and inserts into RDF store
     # first use api_key parameter to fetch source
     puts "update params: #{params.inspect}" if ENV['RACK_ENV'] == 'development'
     source = find_source_by_apikey(params[:api_key])
@@ -444,7 +451,7 @@ class Review
   end
   
   def delete(params = {})
-    # delete review here
+    # this method deletes review from RDF store
     # first use api_key parameter to fetch source
     review_source = find_source_by_apikey(params[:api_key])
     return "Invalid api_key" unless review_source
@@ -468,6 +475,7 @@ class Review
   end
   
   def clean_text(text)
+    # this method cleans html tags and other presentation awkwardnesses
     # first remove all but whitelisted html elements
     sanitized = Sanitize.clean(text, :elements => %w[p pre small em i strong strike b blockquote q cite code br h1 h2 h3 h4 h5 h6],
       :attributes => {'span' => ['class']})
@@ -483,6 +491,7 @@ end
 # patched Struct and Hash classes to allow easy conversion to/from JSON and Hash
 class Struct
   def to_map
+    # this method returns Hash map of Struct
     map = Hash.new
     self.members.each { |m| map[m] = self[m] }
     # strip out empty struct values
@@ -496,6 +505,7 @@ end
 
 class Hash
   def to_struct(name)
+    #This method returns struct object "name" from hash object
     Struct.new(name, *keys).new(*values)
   end
 end
