@@ -1,3 +1,5 @@
+#encoding: utf-8
+require "sanitize"
 # RemoveAccents version 1.0.3 (c) 2008-2009 Solutions Informatiques Techniconseils inc.
 # 
 # This module adds 2 methods to the string class. 
@@ -69,5 +71,58 @@ class String
     str.downcase! if downcase
     str.gsub!(/\ /,'_') if convert_spaces
     str.gsub(regexp, '')
+  end
+
+  # split values in param separated with comma or slash or pipe and return array
+  def split_param(param)
+    params = param.downcase.gsub(/\s+/, '').split(/,|\/|\|/)
+  end
+
+  # this method cleans html tags and other presentation awkwardnesses  
+  def clean_text(text)
+    # first remove all but whitelisted html elements
+    sanitized = Sanitize.clean(text, :elements => %w[p pre small em i strong strike b blockquote q cite code br h1 h2 h3 h4 h5 h6],
+      :attributes => {'span' => ['class']})
+    # then strip newlines, tabs carriage returns and return pretty text
+    result = sanitized.gsub(/\s+/, ' ').squeeze(' ')
+  end  
+  
+  # removes any char not accepted in ISBN
+  def sanitize_isbn(isbn)
+    isbn.strip.gsub(/[^0-9xX]/, '')
+  end
+
+  def to_class
+    Object.const_get(self)
+  end
+end
+
+# patched Struct and Hash classes to allow easy conversion to/from JSON and Hash
+class Struct
+  def to_map
+    # this method returns Hash map of Struct
+    map = Hash.new
+    self.members.each { |m| map[m] = self[m] }
+    # strip out empty struct values
+    map.reject! {|k,v| v.strip.empty? if v.is_a?(String) && v.respond_to?('empty?')}
+    map
+  end
+  def to_json(*a)
+    to_map.to_json(*a)
+  end
+end
+
+class Hash
+  # transforms hash to struct
+  def to_struct(name)
+    # This method returns struct object "name" from hash object
+    unless defined?(name)
+      Struct.new(name, *keys).new(*values)
+    else
+      # constantize to struct class and populate
+      struct = name.to_class.new
+      struct.members.each {|n| struct[n] = self[n] }
+      struct  
+    end 
   end
 end

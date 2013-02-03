@@ -1,20 +1,44 @@
-class Review
-  def find_source_by_apikey(api_key)
+#encoding: utf-8
+Source = Struct.new(:uri, :name, :homepage, :api_key)
+class Source
+  def all
+    query = QUERY.select(:uri, :name, :homepage, :api_key).from(APIGRAPH)
+    query.where(
+      [:uri, RDF.type, RDF::FOAF.Document], 
+      [:uri, RDF::FOAF.name, :name],
+      [:uri, RDF::DEICHMAN.apikey, :api_key])
+    query.optional([:uri, RDF::FOAF.homepage, :homepage])
+    puts "#{query}" if ENV['RACK_ENV'] == 'development'
+    solutions = REPO.select(query)
+    return nil if solutions.empty?
+    sources = []
+    solutions.each do |s|
+      sources << s.to_hash.to_struct("Source")
+    end
+    sources
+  end
+  
+  def find_by_apikey(api_key)
     # fetch source by api key in protected graph
     # each source needs three statements: 
     # <source> a foaf:Document ;
     #          foaf:name "Label" ;
     #          deichman:apikey "apikey" .    
-    query = QUERY.select(:source).from(APIGRAPH)
+    query = QUERY.select(:uri, :name, :homepage).from(APIGRAPH)
     query.where(
-      [:source, RDF.type, RDF::FOAF.Document], 
-      [:source, RDF::FOAF.name, :label],
-      [:source, RDF::DEICHMAN.apikey, "#{api_key}"])
+      [:uri, RDF.type, RDF::FOAF.Document], 
+      [:uri, RDF::FOAF.name, :name],
+      [:uri, RDF::DEICHMAN.apikey, "#{api_key}"])
+    query.optional([:uri, RDF::FOAF.homepage, :homepage])
     query.limit(1)
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
     return nil if solutions.empty?
-    source = solutions.first[:source]
+    
+    # populate Source Struct    
+    self.members.each {|name| self[name] = solutions.first[name] }  
+    self.api_key = api_key
+    self
   end
 
   def autoincrement_resource(source, resource = "review")
@@ -26,6 +50,8 @@ class Review
     # nb: to reset count use sequence_set instead, with a CONSTRUCT iri f.ex. like this:
     # `iri(bif:CONCAT("http://data.deichman.no/deichman/reviews/id_", str(bif:sequence_set ('#{GRAPH_IDENTIFIER}', 0, 0)) ) )`
     if source
+      # convert to string if RDF::URI
+      source.is_a?(RDF::URI) ? source = source.to_s : source
       # parts to compose URI base for resource
       parts = []
       parts << "'#{BASE_URI}'"

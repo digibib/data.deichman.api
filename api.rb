@@ -1,10 +1,10 @@
 #encoding: utf-8
 $stdout.sync = true
-
+require "rubygems"
 require "bundler/setup"
 require "grape"
 require "json"
-require "./lib/review.rb"
+require_relative "./config/init.rb"
 
 # trap all exceptions and fail gracefuly with a 500 and a proper message
 class ApiErrorHandler < Grape::Middleware::Base
@@ -137,12 +137,8 @@ class API < Grape::API
         params.delete_if {|p| !valid_params.include?(p) }
         logger.info "params after: #{params}"
         # is it in the base? uses params[:uri]
-        #before = Review.new.find_reviews(params)
         work = Review.new.update(params)
         error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if work == "Review not found"
-        # yes, then update
-        #after = Review.new.update(params)
-        #after = after.first.reviews.first.update(params)
         error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if work == "Invalid api_key"
         #throw :error, :status => 400, :message => "Sorry, unable to update review #{params[:uri]} ..." if result =~ /nothing to do/
         logger.info "PUT: params: #{params} - review: #{work['reviews']}"
@@ -172,4 +168,55 @@ class API < Grape::API
       {:result => result, :review => review }
     end
   end
+  
+  resource :works do
+    desc "returns works, not implemented"
+      params do
+          requires :uri,       desc: "URI of review, accepts array"
+          optional :isbn,      type: String, desc: "ISBN"
+          optional :title,     type: String, desc: "Book title"
+          optional :author,    type: String, desc: "Book author"
+          optional :author_id, type: String, desc: "ID of Book author"
+          optional :limit,     type: Integer, desc: "Limit result"
+          optional :offset,    type: Integer, desc: "Offset, for pagination" 
+          optional :order_by,  type: String, desc: "Order of results" 
+          optional :order,     type: String, desc: "Ascending or Descending order" 
+      end
+
+    get "/" do
+    end
+  end
+  
+  resource :users do
+    desc "returns users"
+      params do
+          optional :uri,       desc: "URI of review, accepts array"
+          optional :workplace, type: String, desc: "Reviewer's workplace"
+          optional :limit,     type: Integer, desc: "Limit result"
+          optional :offset,    type: Integer, desc: "Offset, for pagination" 
+          optional :order_by,  type: String, desc: "Order of results" 
+          optional :order,     type: String, desc: "Ascending or Descending order" 
+      end
+
+    get "/" do
+      content_type 'json'
+      user = Review.new.find_reviews(params)
+      if works == "Invalid URI"
+        logger.error "Invalid URI"
+        error!("\"#{params[:uri]}\" is not a valid URI", 400)
+      elsif works == "Invalid Reviewer"
+        logger.error "Invalid Reviewer"
+        error!("reviewer \"#{params[:reviewer]}\" not found", 400)
+      elsif works == "Invalid Workplace"
+        logger.error "Invalid Workplace"
+        error!("workplace \"#{params[:workplace]}\" not found", 400)          
+      elsif works.nil? || works.empty?
+        logger.info "no reviews found"
+        error!("no reviews found", 200)
+      else
+        logger.info "Works: #{works.count} - Reviews: #{c=0 ; works.each {|w| c += w.reviews.count};c}"
+        {:works => works }
+      end
+    end
+  end  
 end
