@@ -197,7 +197,7 @@ class API < Grape::API
     desc "returns all users or specific user"
     get "/" do
       content_type 'json'
-      unless params.has_key?(:uri || :name)
+      unless params[:uri] || params[:name]
         users = Reviewer.new.all
         {:users => users }
       else
