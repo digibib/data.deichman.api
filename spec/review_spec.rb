@@ -45,7 +45,7 @@ describe Review do
           :workplace => "Dummy workplace"
           }
       review = Review.new.create(params)
-      review.save(params)
+      review.save
       review.source.to_s.should == "http://data.deichman.no/source/test"
     end
   end

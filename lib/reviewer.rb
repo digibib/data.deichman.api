@@ -41,7 +41,7 @@ class Reviewer
     query = QUERY.select(*selects).from(APIGRAPH)
     query.where([api[:uri], RDF.type, RDF::FOAF.Person],
     # reviewer by foaf name
-      [api[:uri], RDF::FOAF.name, api[:name]],
+      [api[:uri], RDF::FOAF.name, :name],
     # reviewer by accountname
       [api[:uri], RDF::FOAF.account, :userAccount],
       [:userAccount, RDF::FOAF.accountName, :accountName],
@@ -54,7 +54,8 @@ class Reviewer
     query.optional([:userAccount, RDF::ACC.status, :status])
     query.optional([:userAccount, RDF::ACC.password, :password])
     query.optional([api[:uri], RDF::FOAF.workplaceHomepage, :workplaceHomepage])
-                  
+    query.filter('regex(?name, "' + api[:name] + '", "i")') if params[:name]
+    query.filter('regex(?workplace, "' + api[:workplace] + '", "i")') if params[:workplace]  
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
     return nil if solutions.empty? # not found!

@@ -5,11 +5,11 @@ Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :workplace
 
 class Review
   
-  # return all reviews
-  def all(params = {:limit=>10, :offset=>0, :order_by=>"author", :order=>"asc"})
+  # return all reviews, but with limits...
+  def all(params={:limit=>10, :offset=>0, :order_by=>"author", :order=>"asc"})
     selects     = [:uri, :work_id, :book_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer_name, :accountName, :workplace]
     solutions = review_query(selects, params)
-    solutions.empty? ? reviews = nil : reviews = populate_works(solutions, {:params => params, :cluster => false})
+    solutions.empty? ? reviews = nil : reviews = populate_works(solutions, :params => params, :cluster => false)
     reviews
   end
   
@@ -44,14 +44,21 @@ class Review
         solutions.empty? ? works = nil : works = populate_works(solutions, :uri => uri, :cluster => false) 
       else
         begin
+          solutions = RDF::Query::Solutions.new
           selects.delete(:uri)
           uri = URI::parse(params[:uri])
           uri = RDF::URI(uri)
-          solutions = review_query(selects, :uri => uri)
-          solutions.empty? ? works = nil : works = populate_works(solutions, :uri => uri, :cluster => true) 
+          res = review_query(selects, :uri => uri)
+          unless res.empty?
+            # need to append uri to solution for later use
+            solution = res.first.merge(RDF::Query::Solution.new(:uri => uri))
+            # then merge into solutions
+            solutions << solution 
+          end
         rescue URI::InvalidURIError
           return "Invalid URI"
         end
+        solutions.empty? ? works = nil : works = populate_works(solutions, :uri => uri, :cluster => true) 
       end
     elsif params.has_key?(:isbn)
       isbn      = String.new.sanitize_isbn("#{params[:isbn]}")
@@ -77,18 +84,18 @@ class Review
         return "Invalid URI"
       end   
     elsif params.has_key?(:reviewer)
-      reviewer = find_reviewer(:reviewer => params[:reviewer])
+      reviewer = Reviewer.new.find(:name => params[:reviewer])
       if reviewer
-        solutions = review_query(selects, :reviewer => reviewer[:reviewer_id])
-        solutions.empty? ? works = nil : works = populate_works(solutions, :reviewer => reviewer[:reviewer_id], :cluster => true)
+        solutions = review_query(selects, :reviewer => reviewer.uri)
+        solutions.empty? ? works = nil : works = populate_works(solutions, :reviewer => reviewer.uri, :cluster => true)
       else
         return "Invalid Reviewer"
       end
     elsif params.has_key?(:workplace)
-      reviewer = find_reviewer(:workplace => params[:workplace])
+      reviewer = Reviewer.new.find(:workplace => params[:workplace])
       if reviewer
-        solutions = review_query(selects, :workplace => reviewer[:workplace])
-        solutions.empty? ? works = nil : works = populate_works(solutions, :workplace => reviewer[:workplace], :cluster => true)
+        solutions = review_query(selects, :workplace => reviewer.workplace)
+        solutions.empty? ? works = nil : works = populate_works(solutions, :workplace => reviewer.workplace, :cluster => true)
       else
         return "Invalid Workplace"
       end      
@@ -97,7 +104,7 @@ class Review
       solutions = review_query(selects, params)
       solutions.empty? ? works = nil : works = populate_works(solutions, {:params => params, :cluster => true})
     end
-    puts works
+    #puts works
     return works
   end  
   
@@ -126,27 +133,22 @@ class Review
       review_uri = solution[:uri] ? solution[:uri] : params[:uri]
       query = QUERY.select(:review_text).where([review_uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH])
       review_text = REPO.select(query).first[:review_text].to_s
-      # reviewer
-      reviewer = solution[:reviewer_name] ? solution[:reviewer_name].to_s : solution[:reviewer_nick].to_s 
 
       # populate review object (Struct)
-      review = Review.new(
-                      solution[:uri] ? solution[:uri].to_s : review_uri,
-                      solution[:review_title].to_s,
-                      solution[:review_abstract].to_s,
-                      review_text,
-                      solution[:review_source].to_s,
-                      reviewer,
-                      solution[:workplace].to_s,
-                      solution[:review_audience].to_s,
-                      work.isbn,
-                      solution[:created].to_s,
-                      solution[:issued] ? solution[:issued].to_s : nil,
-                      solution[:modified].to_s,
-                      solution[:issued] ? true : false # published?
-                      )
+      # map solutions to matching struct attributes
+      self.members.each {|name| self[name] = solution[name] unless solution[name].nil? } 
+      # map the rest
+      self.title     = solution[:review_title].to_s
+      self.teaser    = solution[:review_abstract].to_s
+      self.text      = review_text
+      self.reviewer  = solution[:reviewer_name].to_s
+      self.source    = solution[:review_source].to_s
+      self.subject   = work.isbn
+      self.audience  = solution[:review_audience].to_s
+      self.published = solution[:issued] ? true : false # published?
+      
       # insert review object into work
-      work.reviews << review
+      work.reviews << self
        
       # append to works array unless :cluster not set to true and work matching previous work
       unless params[:cluster] && works.any? {|w| w[:uri] == solution[:work_id].to_s}
@@ -317,9 +319,15 @@ class Review
     puts "delete result:\n #{result}" if ENV['RACK_ENV'] == 'development'
     
     # Then update
-    # update reviewer with new params    
+    params.delete(:uri) # don't update uri!
+    # reviewer
+    reviewer = Reviewer.new.find(:name => self.reviewer)
+
+    # update review with new params
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
     self.modified  = Time.now.xmlschema
+    self.source    = source.uri
+    self.reviewer  = reviewer.uri
     # change issued if publish state changed
     if publish   then self.issued = Time.now.xmlschema end
     if unpublish then self.issued = nil end
@@ -377,7 +385,7 @@ class Review
   end
     
   # this method deletes review from RDF store
-  def delete(params = {})
+  def delete(params)
     # do nothing if review not found
     return nil unless self.uri
     
@@ -386,7 +394,9 @@ class Review
     return "Invalid api_key" unless source
         
     # then delete review, but only if source matches
-    query  = QUERY.delete([self.uri, :p, :o]).where([self.uri, RDF::DC.source, source.uri], [self.uri, :p, :o]).graph(REVIEWGRAPH)
+    query  = QUERY.delete([self.uri, :p, :o])
+    query.where([self.uri, RDF::DC.source, source.uri], [self.uri, :p, :o]).graph(REVIEWGRAPH)
+    puts query
     result = REPO.delete(query)
     # and delete hasReview reference from work and manifestation
     query  = QUERY.delete([:workandbook, RDF::REV.hasReview, self.uri])

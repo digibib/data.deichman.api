@@ -12,14 +12,14 @@ describe Reviewer do
     it "returns a reviewer by name" do
       params = {:name => "anonymous"}
       r = Reviewer.new.find(params)
-      r.name.to_s.should == "Anonymous"
+      r.name.to_s.should == "anonymous"
     end
   end
   context 'update' do
     it "creates a new reviewer" do
-      params = {:api_key => "test", :name => "anonymous"}
+      params = {:api_key => "test", :name => "dummy"}
       r = Reviewer.new.create(params)
-      r.name.to_s.should == "anonymous"
+      r.name.to_s.should == "dummy"
     end
     it "saves a reviewer" do
       params = {:api_key => "test", :name => "dummy"}
@@ -37,7 +37,7 @@ describe Reviewer do
     it "deletes a reviewer" do
       params = {:api_key => "test", :name => "dummy"}
       r = Reviewer.new.find(params)
-      result = r.delete
+      result = r.delete(params)
       result.should match(/(done)/)
     end  
   

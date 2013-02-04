@@ -77,4 +77,34 @@ class Source
       resource_id = solutions.first[:s]
     end
   end
+  
+  def get_last_id(source, resource = "review")
+    if source
+      # convert to string if RDF::URI
+      source.is_a?(RDF::URI) ? source = source.to_s : source
+      # parts to compose URI base for resource
+      parts = []
+      parts << "'#{BASE_URI}'"
+      parts << "bif:REPLACE(str(?source), 'http://data.deichman.no/source/', '/')" if resource == "review"
+      parts << "'/#{resource}'"
+      parts << "'/id_'"
+      
+      # choose sequence origin, either from review source or from resource
+      resource == "review" ? parts << "str(bif:sequence_set ('#{source}', 0, 1))" : parts << "str(bif:sequence_set ('#{resource}, 0, 1'))"
+      
+      # CONSTRUCT query  
+      query = "CONSTRUCT { `iri( bif:CONCAT( "
+      query << parts.join(', ').to_s
+      query << " ) )` a <#{RDF::DEICHMAN.DummyClass}> } "
+      query << "WHERE { <#{source}> a <#{RDF::FOAF.Document}> ; <#{RDF::FOAF.name}> ?name . ?source a <#{RDF::FOAF.Document}> ; <#{RDF::FOAF.name}> ?name }"
+      query << " ORDER BY(?source) LIMIT 1"
+      puts "constructed #{resource} id: #{query}" if ENV['RACK_ENV'] == 'development'
+      
+      solutions = REPO.construct(query)
+      
+      return nil if solutions.empty?
+      puts "constructed #{resource} id: #{solutions.first[:s]}" if ENV['RACK_ENV'] == 'development'
+      resource_id = solutions.first[:s]
+    end
+  end
 end
