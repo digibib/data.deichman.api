@@ -24,8 +24,8 @@ class API < Grape::API
     def logger
       logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
     end
-    
   end
+
   version 'v1', :using => :header, :vendor => 'deichman.no'
   prefix 'api'
   rescue_from :all, :backtrace => true
@@ -71,7 +71,7 @@ class API < Grape::API
     get "/" do
       #header['Content-Type'] = 'application/json; charset=utf-8'
       content_type 'json'
-      works = Review.new.find_reviews(params)
+      works = Review.new.find(params)
       if works == "Invalid URI"
         logger.error "Invalid URI"
         error!("\"#{params[:uri]}\" is not a valid URI", 400)
@@ -104,14 +104,14 @@ class API < Grape::API
     post "/" do
       #header['Content-Type'] = 'application/json; charset=utf-8'
       content_type 'json'
-      work = Review.new.create(params)
-      error!("Sorry, #{params[:isbn]} matches no known book in our base", 400) if work == "Invalid ISBN"
-      error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if work == "Invalid api_key"
-      error!("Sorry, unable to obtain unique ID of reviewer", 400) if work == "Invalid Reviewer ID"
-      error!("Sorry, unable to generate unique ID of review", 400) if work == "Invalid UID"
+      review = Review.new.create(params)
+      error!("Sorry, #{params[:isbn]} matches no known book in our base", 400) if review == "Invalid ISBN"
+      error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if review == "Invalid api_key"
+      error!("Sorry, unable to obtain unique ID of reviewer", 400) if review == "Invalid Reviewer ID"
+      error!("Sorry, unable to generate unique ID of review", 400) if review == "Invalid UID"
       
-      logger.info "POST: params: #{params} - review: #{work.reviews}"
-      {:work => work }
+      logger.info "POST: params: #{params} - review: #{review}"
+      {:review => review }
     end
 
     desc "updates a review"
@@ -137,12 +137,13 @@ class API < Grape::API
         params.delete_if {|p| !valid_params.include?(p) }
         logger.info "params after: #{params}"
         # is it in the base? uses params[:uri]
-        work = Review.new.update(params)
-        error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if work == "Review not found"
-        error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if work == "Invalid api_key"
+        review = Review.new.find(:uri => params[:uri])
+        result = review.update(params)
+        error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if review == "Review not found"
+        error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if review == "Invalid api_key"
         #throw :error, :status => 400, :message => "Sorry, unable to update review #{params[:uri]} ..." if result =~ /nothing to do/
-        logger.info "PUT: params: #{params} - review: #{work['reviews']}"
-        {:after => work[:after], :before => work[:before] }
+        logger.info "PUT: params: #{params} - review: #{review}"
+        {:result => result, :review => review }
       else
         logger.error "invalid or missing params"   
         error!("Need at least one param of title|teaser|text|audience|published", 400)      
@@ -155,13 +156,13 @@ class API < Grape::API
         requires :uri,     type: String, desc: "URI of review"
       end    
     delete "/" do
-      header['Content-Type'] = 'application/json; charset=utf-8'
+      #header['Content-Type'] = 'application/json; charset=utf-8'
       content_type 'json'
       # is it in the base?
-      review = Review.new.find_reviews(params)
+      review = Review.new.find(:uri => params[:uri])
       error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if review.empty?
       # yes, then delete it!
-      result = Review.new.delete(params)
+      result = review.delete(params)
       error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if result == "Invalid api_key"
       error!("Sorry, unable to delete review #{params[:uri]} ...", 400) if result =~ /nothing to do/
       logger.info "DELETE: params: #{params} - result: #{result}"
@@ -170,53 +171,85 @@ class API < Grape::API
   end
   
   resource :works do
-    desc "returns works, not implemented"
+    desc "returns works, only by isbn for now"
       params do
-          requires :uri,       desc: "URI of review, accepts array"
-          optional :isbn,      type: String, desc: "ISBN"
-          optional :title,     type: String, desc: "Book title"
-          optional :author,    type: String, desc: "Book author"
-          optional :author_id, type: String, desc: "ID of Book author"
-          optional :limit,     type: Integer, desc: "Limit result"
-          optional :offset,    type: Integer, desc: "Offset, for pagination" 
-          optional :order_by,  type: String, desc: "Order of results" 
-          optional :order,     type: String, desc: "Ascending or Descending order" 
+        requires :isbn,      type: String, desc: "ISBN"
+        optional :title,     type: String, desc: "Book title"
+        optional :author,    type: String, desc: "Book author"
+        optional :author_id, type: String, desc: "ID of Book author"
+        optional :limit,     type: Integer, desc: "Limit result"
+        optional :offset,    type: Integer, desc: "Offset, for pagination" 
+        optional :order_by,  type: String, desc: "Order of results" 
+        optional :order,     type: String, desc: "Ascending or Descending order" 
       end
-
     get "/" do
+      content_type 'json'
+      logger.info "params: #{params}"
+      work = Work.new.find(params)
+      error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) unless work
+      {:work => work}
     end
   end
   
   resource :users do
-    desc "returns users"
-      params do
-          optional :uri,       desc: "URI of review, accepts array"
-          optional :workplace, type: String, desc: "Reviewer's workplace"
-          optional :limit,     type: Integer, desc: "Limit result"
-          optional :offset,    type: Integer, desc: "Offset, for pagination" 
-          optional :order_by,  type: String, desc: "Order of results" 
-          optional :order,     type: String, desc: "Ascending or Descending order" 
-      end
 
+    desc "returns all users or specific user"
     get "/" do
       content_type 'json'
-      user = Review.new.find_reviews(params)
-      if works == "Invalid URI"
-        logger.error "Invalid URI"
-        error!("\"#{params[:uri]}\" is not a valid URI", 400)
-      elsif works == "Invalid Reviewer"
-        logger.error "Invalid Reviewer"
-        error!("reviewer \"#{params[:reviewer]}\" not found", 400)
-      elsif works == "Invalid Workplace"
-        logger.error "Invalid Workplace"
-        error!("workplace \"#{params[:workplace]}\" not found", 400)          
-      elsif works.nil? || works.empty?
-        logger.info "no reviews found"
-        error!("no reviews found", 200)
+      unless params.has_key?(:uri || :name)
+        users = Reviewer.new.all
+        {:users => users }
       else
-        logger.info "Works: #{works.count} - Reviews: #{c=0 ; works.each {|w| c += w.reviews.count};c}"
-        {:works => works }
+        logger.info "params: #{params}"
+        user = Reviewer.new.find(params)
+        {:user => user }
       end
     end
+
+    desc "creates a user"
+      params do
+        requires :api_key,   type: String, desc: "API key"
+        requires :name,      type: String, desc: "Reviewer's name"
+      end    
+    post "/" do
+      content_type 'json'
+      logger.info "params: #{params}"
+      reviewer = Reviewer.new.create(params)
+      error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviewer == "Invalid api_key"
+      reviewer.save
+      {:reviewer => reviewer}
+    end
+    
+    desc "updates a user"
+      params do
+        requires :api_key,   type: String, desc: "API key"
+        optional :name,      type: String, desc: "Reviewer's name"
+        optional :workplace, type: String, desc: "Reviewer's workplace"
+      end
+    put "/" do
+      content_type 'json'
+      logger.info "params: #{params}"
+      reviewer = Reviewer.new.find(params)
+      error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviewer == "Invalid api_key"
+      error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) unless reviewer
+      reviewer.update(params)
+      {:reviewer => reviewer}    
+    end
+    
+    desc "deletes a user"
+      params do
+        requires :api_key,   type: String, desc: "API key"
+        requires :uri,       type: String, desc: "Reviewer URI"
+      end
+    delete "/" do
+      content_type 'json'
+      logger.info "params: #{params}"
+      reviewer = Reviewer.new.find(params)
+      error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviewer == "Invalid api_key"
+      error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) unless reviewer
+      result = reviewer.delete(params)
+      {:result => result}   
+    end
+    
   end  
 end

@@ -29,37 +29,38 @@ class Reviewer
     reviewers
   end
   
-  def find(params)
-    return nil unless params[:reviewer] || params[:workplace]
-    # looks in apigraph for reviewer by either reviewer's foaf:name or reviewer account's foaf:accountName
-    query = QUERY.select(:uri, :name, :workplaceHomepage, :userAccount, :accountName, :status, :password,  
-                        :accountServiceHomepage, :workplace, :workplace_id).from(APIGRAPH)
-    query.where([:uri, RDF.type, RDF::FOAF.Person],
+  def find(params={})
+    selects = [:uri, :name, :workplaceHomepage, :userAccount, :accountName, :status, :password,  
+                        :accountServiceHomepage, :workplace, :workplace_id]
+    api = Hashie::Mash.new(:uri => :uri, :name => :name, :isbn => :isbn, :author => :author, :author_id => :author_id, :title => :title)
+    params[:uri] = RDF::URI(params[:uri]) if params[:uri]
+    api.merge!(params)
+    params.each {|k,v| selects.delete(k)}
+    puts params
+    
+    query = QUERY.select(*selects).from(APIGRAPH)
+    query.where([api[:uri], RDF.type, RDF::FOAF.Person],
     # reviewer by foaf name
-      [:uri, RDF::FOAF.name, :name],
+      [api[:uri], RDF::FOAF.name, api[:name]],
     # reviewer by accountname
-      [:uri, RDF::FOAF.account, :userAccount],
+      [api[:uri], RDF::FOAF.account, :userAccount],
       [:userAccount, RDF::FOAF.accountName, :accountName],
       [:userAccount, RDF::FOAF.accountServiceHomepage, :accountServiceHomepage])
     # reviewer workplace
     query.optional(
-      [:uri, RDF::ORG.memberOf, :workplace_id],
+      [api[:uri], RDF::ORG.memberOf, :workplace_id],
       [:workplace_id, RDF::SKOS.prefLabel, :workplace])    
     # status
     query.optional([:userAccount, RDF::ACC.status, :status])
     query.optional([:userAccount, RDF::ACC.password, :password])
-    query.optional([:uri, RDF::FOAF.workplaceHomepage, :workplaceHomepage])
-    # do filter on reviewer id|name|nick
-    query.filter("regex(?reviewer_id, \"#{params[:reviewer]}\", \"i\") || 
-                  regex(?reviewer_name, \"#{params[:reviewer]}\", \"i\") || 
-                  regex(?accountName, \"#{params[:reviewer]}\", \"i\") ") if params[:reviewer]
-    query.filter("regex(?workplace, \"#{params[:workplace]}\", \"i\") ") if params[:workplace]
+    query.optional([api[:uri], RDF::FOAF.workplaceHomepage, :workplaceHomepage])
                   
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
     return nil if solutions.empty? # not found!
     puts solutions.inspect if ENV['RACK_ENV'] == 'development'
-    
+    self.uri  = params[:uri] if params[:uri] 
+    self.name = params[:name] if params[:name]
     # populate Review Struct    
     self.members.each {|name| self[name] = solutions.first[name] unless solutions.first[name].nil? }  
     self
@@ -86,9 +87,9 @@ class Reviewer
       end
     end
     self.workplaceHomepage = RDF::URI("#{params[:workplaceHomepage]}") if params[:workplaceHomepage]
-    self.accountName = "#{params[:reviewer].urlize}"
+    self.accountName = "#{params[:name].urlize}"
     self.accountServiceHomepage = source.name
-    self.name     = "#{params[:reviewer]}"
+    self.name     = "#{params[:name]}"
     self.password = "#{self.accountName.to_s}123"
     self.status   = RDF::ACC.ActivationNeeded
     self
@@ -109,7 +110,6 @@ class Reviewer
     puts "delete result:\n #{result}" if ENV['RACK_ENV'] == 'development'
     
     # Then update
-    params[:name] = "#{params[:reviewer]}" # reviewer param translated to :name
     # update reviewer with new params    
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
     
@@ -141,9 +141,13 @@ class Reviewer
     self
   end
   
-  def delete
+  def delete(params)
     # do nothing if reviewer not found
     return nil unless self.uri
+    # check api_key
+    source = Source.new.find_by_apikey(params[:api_key])
+    return "Invalid api_key" unless source    
+    
     # delete both reviewer and useraccount
     deletequery = QUERY.delete([self.uri, :p, :o],[self.userAccount, :p2, :o2]).graph(APIGRAPH)
     deletequery.where([self.uri, :p, :o],[self.uri, RDF.type, RDF::FOAF.Person],

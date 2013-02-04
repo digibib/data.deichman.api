@@ -1,7 +1,7 @@
 #encoding: utf-8
 
 Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :workplace, 
-          :audience, :subject, :created, :issued, :modified, :published)
+          :audience, :subject, :work_id, :book_id, :created, :issued, :modified, :published)
 
 class Review
   
@@ -54,7 +54,7 @@ class Review
         end
       end
     elsif params.has_key?(:isbn)
-      isbn      = sanitize_isbn("#{params[:isbn]}")
+      isbn      = String.new.sanitize_isbn("#{params[:isbn]}")
       solutions = review_query(selects, :isbn => isbn)
       solutions.empty? ? works = nil : works = populate_works(solutions, :isbn => isbn, :cluster => true)
     elsif params.has_key?(:work)
@@ -106,7 +106,7 @@ class Review
     works = []
     solutions.each do |solution|
       # use already defined Work if present and :cluster options given
-      work = works.find {|w| w[:work_id] == solution[:work_id].to_s} if params[:cluster]
+      work = works.find {|w| w[:uri] == solution[:work_id].to_s} if params[:cluster]
       # or make a new Work object
       unless work
         # populate work object (Struct)
@@ -149,11 +149,11 @@ class Review
       work.reviews << review
        
       # append to works array unless :cluster not set to true and work matching previous work
-      unless params[:cluster] && works.any? {|w| w[:work_id] == solution[:work_id].to_s}
+      unless params[:cluster] && works.any? {|w| w[:uri] == solution[:work_id].to_s}
         works << work
       # if :cluster not set and work not matching previous works
       else 
-        works.map! {|w| (w[:work_id] == solution[:work_id].to_s) ? work : w }
+        works.map! {|w| (w[:uri] == solution[:work_id].to_s) ? work : w }
       end
     end
     works
@@ -276,21 +276,59 @@ class Review
     params[:teaser] = String.new.clean_text(params[:teaser])
     params[:text]   = String.new.clean_text(params[:text])
     params[:audience] ? params[:audience] = params[:audience] : params[:audience] = "adult"
-    # update reviewer with new params    
+    # update reviewer with new params
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
     self.source    = source.uri
+    self.subject   = String.new.sanitize_isbn(params[:isbn])
+    self.work_id   = work.first.uri
+    self.book_id   = work.first.manifestation
     self.reviewer  = reviewer.uri
     self.workplace = reviewer.workplace
     self.created   = Time.now.xmlschema
-    self.issued    = Time.now.xmlschema
+    self.issued    = Time.now.xmlschema if params[:published]
     self.modified  = Time.now.xmlschema
     self
   end
   
-  def save(params)
-    work = Work.new.find(params)
-    return nil unless work
+  def update(params)
+    # this method updates review and inserts into RDF store
+    # first use api_key parameter to fetch source
+    puts "update params: #{params.inspect}" if ENV['RACK_ENV'] == 'development'
+    # find source
+    source = Source.new.find_by_apikey(params[:api_key])
+    return "Invalid api_key" unless source
     
+    # make publish or unpublish switches
+    if self.published && !params[:published] then unpublish = true end
+    if !self.published && params[:published] then publish   = true end
+    
+    # Delete first
+    # DO NOT delete DC.created and DC.issued properties on update unless published is changed
+    deletequery = QUERY.delete([self.uri, :p, :o]).graph(REVIEWGRAPH)
+    deletequery.where([self.uri, :p, :o])
+    # MINUS not working properly until virtuoso 6.1.6!
+    #deletequery.minus([self.uri, RDF::DC.created, :o])
+    #deletequery.minus([self.uri, RDF::DC.issued, :o])
+    deletequery.filter("?p != <#{RDF::DC.created.to_s}>")
+    deletequery.filter("?p != <#{RDF::DC.issued.to_s}>") unless unpublish # keep issued unless unpublish state set
+    
+    puts "deletequery:\n #{deletequery}" if ENV['RACK_ENV'] == 'development'
+    result = REPO.delete(deletequery)
+    puts "delete result:\n #{result}" if ENV['RACK_ENV'] == 'development'
+    
+    # Then update
+    # update reviewer with new params    
+    self.members.each {|name| self[name] = params[name] unless params[name].nil? }
+    self.modified  = Time.now.xmlschema
+    # change issued if publish state changed
+    if publish   then self.issued = Time.now.xmlschema end
+    if unpublish then self.issued = nil end
+    save # save changes to RDF store
+    self    
+  end
+
+  # this method actually saves the review
+  def save
     insert_statements = []
     insert_statements << RDF::Statement.new(self.uri, RDF.type, RDF::REV.Review)
     insert_statements << RDF::Statement.new(self.uri, RDF::DC.source, RDF::URI(self.source))
@@ -298,15 +336,15 @@ class Review
     insert_statements << RDF::Statement.new(self.uri, RDF::DC.abstract, RDF::Literal(self.teaser))
     insert_statements << RDF::Statement.new(self.uri, RDF::REV.text, RDF::Literal(self.text))
     # add link to manifetation by isbn
-    insert_statements << RDF::Statement.new(self.uri, RDF::DC.subject, RDF::Literal(work.first.isbn))
+    insert_statements << RDF::Statement.new(self.uri, RDF::DC.subject, RDF::Literal(self.subject))
     insert_statements << RDF::Statement.new(self.uri, RDF::DC.created, RDF::Literal(self.created, :datatype => RDF::XSD.dateTime))
-    insert_statements << RDF::Statement.new(self.uri, RDF::DC.issued, RDF::Literal(self.issued, :datatype => RDF::XSD.dateTime)) if params[:published]
+    insert_statements << RDF::Statement.new(self.uri, RDF::DC.issued, RDF::Literal(self.issued, :datatype => RDF::XSD.dateTime)) if self.issued
     insert_statements << RDF::Statement.new(self.uri, RDF::DC.modified, RDF::Literal(self.modified, :datatype => RDF::XSD.dateTime))
 
     # insert reviewer if found or created
     insert_statements << RDF::Statement.new(self.uri, RDF::REV.reviewer, self.reviewer)
   
-    # Optionals - Audience, Maybe better to lookup labels on the fly?
+    # Optionals - Audience
     unless self.audience
       # default to adult if not given
       insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
@@ -330,134 +368,29 @@ class Review
     
     # also insert hasReview property on work and book
     hasreview_statements  = []
-    hasreview_statements << RDF::Statement.new(RDF::URI(work.first.uri), RDF::REV.hasReview, self.uri)
-    hasreview_statements << RDF::Statement.new(RDF::URI(work.first.manifestation), RDF::REV.hasReview, self.uri)
+    hasreview_statements << RDF::Statement.new(RDF::URI(self.work_id), RDF::REV.hasReview, self.uri)
+    hasreview_statements << RDF::Statement.new(RDF::URI(self.book_id), RDF::REV.hasReview, self.uri)
     query                 = QUERY.insert_data(hasreview_statements).graph(BOOKGRAPH)
     puts query
-    #result                = REPO.insert_data(query)
-    return self
+    result                = REPO.insert_data(query)
+    self
   end
-  
-  ## HERE!
-  def update(params={})
-    # this method updates review and inserts into RDF store
-    # first use api_key parameter to fetch source
-    puts "update params: #{params.inspect}" if ENV['RACK_ENV'] == 'development'
-    source = find_by_apikey(params[:api_key])
-    return "Invalid api_key" unless source
     
-    # cannot lookup with published parameter, as this filters response!
-    lookup  = Marshal.load(Marshal.dump(params)) # temporary params for review lookup
-    lookup.delete('published')
-    works   = self.find_reviews(lookup)
-    return "Review not found" unless works
-    work    = works.first
-    review  = work.reviews.first 
-    before  = Marshal.load(Marshal.dump(work))  # save before state to be able to check for changes in review
-    
-    # handle modified variables from given params
-    # puts "params before:\n #{params}"
-    unwanted_params = ['uri', 'api_key', 'route_info', 'method', 'path']
-    unwanted_params.each {|d| params.delete(d)}
-    
-    #puts "params after:\n #{params}"
-    
-    puts "before update:\n#{work}" if ENV['RACK_ENV'] == 'development'
-    # update review with new params
-    params.each{|k,v| review[k] = v}
-    # new = params.to_struct "Review"
-    # set modified time
-    review.published ? review.issued = Time.now.xmlschema : review.issued = nil
-    review.modified = Time.now.xmlschema
-    review.teaser   = clean_text(review.teaser)
-    review.text     = clean_text(review.text)
-    puts "after update:\n#{work}" if ENV['RACK_ENV'] == 'development'
-    
-    # SPARQL UPDATE
-    # DO NOT delete DC.created and DC.issued properties on update unless published is changed
-    deletequery = QUERY.delete([review.uri, :p, :o]).graph(REVIEWGRAPH)
-    deletequery.where([review.uri, :p, :o])
-    # MINUS not working properly until virtuoso 6.1.6!
-    #deletequery.minus([review.review_id, RDF::DC.created, :o])
-    #deletequery.minus([review.review_id, RDF::DC.issued, :o])
-    deletequery.filter("?p != <#{RDF::DC.created.to_s}>")
-    deletequery.filter("?p != <#{RDF::DC.issued.to_s}>") unless review.published == false # don't delete issued unless published changed to false
-    
-    puts "deletequery:\n #{deletequery}" if ENV['RACK_ENV'] == 'development'
-    result = REPO.delete(deletequery)
-    puts "delete result:\n #{result}" if ENV['RACK_ENV'] == 'development'
-    
-    insert_statements = []
-    insert_statements << RDF::Statement.new(review.uri, RDF.type, RDF::REV.Review)
-    insert_statements << RDF::Statement.new(review.uri, RDF::DC.source, RDF::URI(source))
-    insert_statements << RDF::Statement.new(review.uri, RDF::REV.title, RDF::Literal(review.title))
-    insert_statements << RDF::Statement.new(review.uri, RDF::DC.abstract, RDF::Literal(review.teaser))
-    insert_statements << RDF::Statement.new(review.uri, RDF::REV.text, RDF::Literal(review.text))
-    # create dct:subject statements for all isbns connected to review
-    work.isbn.each {|i| insert_statements << RDF::Statement.new(review.uri, RDF::DC.subject, RDF::Literal(i)) }
-    #insert_statements << RDF::Statement.new(review.uri, RDF::DEICHMAN.basedOnManifestation, RDF::URI(work.book_id))
-    insert_statements << RDF::Statement.new(review.uri, RDF::DC.modified, RDF::Literal(review.modified, :datatype => RDF::XSD.dateTime))
-    # add dct:issued Now if published changed from false to true
-    if before.reviews.first.published == false && review.published == true
-      insert_statements << RDF::Statement.new(review.uri, RDF::DC.issued, RDF::Literal(Time.now.xmlschema, :datatype => RDF::XSD.dateTime)) 
-    end
-    
-    # Optionals - Reviewer lookup in APIGRAPH for full name or nick
-    if review.reviewer
-      query = QUERY.select(:reviewer_id).from(APIGRAPH)
-      query.where([:reviewer_id, RDF.type, RDF::FOAF.Person])
-      # reviewer by foaf name
-      query.optional([:reviewer_id, RDF::FOAF.name, "#{params[:reviewer]}"])
-      # reviewer by accountname
-      query.optional([:reviewer_id, RDF::FOAF.account, :useraccount],
-                      [:useraccount, RDF::FOAF.accountName, "#{params[:reviewer]}"])
-      solutions = REPO.select(query)
-      if solutions
-        insert_statements << RDF::Statement.new(review.uri, RDF::REV.reviewer, RDF::URI("#{solutions.first[:reviewer_id]}"))
-      end
-    end 
-        
-    # Optionals - audience
-    unless review.audience
-      # default to adult if not given
-      insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
-    else
-      audiences = split_param(review.audience)
-      audiences.each do |audience|
-        case audience
-        when 'barn' || 'children'
-          insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/children"))
-        when 'ungdom' || 'youth'
-          insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/youth"))
-        when 'voksen' || 'adult'
-          insert_statements << RDF::Statement.new(review.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
-        end
-      end
-    end
-    
-    insertquery = QUERY.insert_data(insert_statements).graph(REVIEWGRAPH)
-    puts "insertquery:\n #{insertquery}" if ENV['RACK_ENV'] == 'development'
-    result = REPO.insert_data(insertquery)
-    puts "insert result:\n #{result}" if ENV['RACK_ENV'] == 'development'
-    return { :before => before, :after => work }
-  end
-  
+  # this method deletes review from RDF store
   def delete(params = {})
-    # this method deletes review from RDF store
-    # first use api_key parameter to fetch source
-    review_source = find_by_apikey(params[:api_key])
-    return "Invalid api_key" unless review_source
-        
-    source = RDF::URI(review_source)
-    uri    = RDF::URI(params[:uri])
+    # do nothing if review not found
+    return nil unless self.uri
     
+    # check api_key
+    source = Source.new.find_by_apikey(params[:api_key])
+    return "Invalid api_key" unless source
+        
     # then delete review, but only if source matches
-    query  = QUERY.delete([uri, :p, :o]).where([uri, RDF::DC.source, source], [uri, :p, :o]).graph(REVIEWGRAPH)
+    query  = QUERY.delete([self.uri, :p, :o]).where([self.uri, RDF::DC.source, source.uri], [self.uri, :p, :o]).graph(REVIEWGRAPH)
     result = REPO.delete(query)
-    # and delete hasReview reference from work
-    query  = QUERY.delete([:work, RDF::REV.hasReview, uri])
-    query.where([:work, RDF::REV.hasReview, uri]).graph(BOOKGRAPH)
+    # and delete hasReview reference from work and manifestation
+    query  = QUERY.delete([:workandbook, RDF::REV.hasReview, self.uri])
+    query.where([:workandbook, RDF::REV.hasReview, self.uri]).graph(BOOKGRAPH)
     result = REPO.delete(query)
   end
-  
 end

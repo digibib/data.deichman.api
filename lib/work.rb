@@ -2,10 +2,11 @@
 Work = Struct.new(:uri, :isbn, :title, :manifestation, :author_id, :author, :cover_url, :reviews)
 
 class Work
+  # under construction
   def find(params)
     selects     = [:uri, :isbn, :title, :manifestation, :author, :author_id, :cover_url]
-    params[:isbn] = String.new.sanitize_isbn("#{params[:isbn]}") if params[:isbn]
-    api = {:uri => :uri, :isbn => :isbn, :author => :author, :author_id => :author_id, :title => :title, :work => :work_id}
+    api = Hashie::Mash.new(:uri => :uri, :isbn => :isbn, :author => :author, :author_id => :author_id, :title => :title)
+    params[:isbn] = String.new.sanitize_isbn(params[:isbn]) if params[:isbn]
     api.merge!(params)
     params.each {|k,v| selects.delete(k)}
     
@@ -20,6 +21,7 @@ class Work
       [:uri, RDF::FABIO.hasManifestation, :manifestation]
       )
     query.optional([:manifestation, RDF::FOAF.depiction, :cover_url])
+    query.limit(10)
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
     return nil if solutions.empty?
