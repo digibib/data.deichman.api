@@ -203,6 +203,7 @@ class API < Grape::API
       else
         logger.info "params: #{params}"
         user = Reviewer.new.find(params)
+        user.password = nil
         {:user => user }
       end
     end
@@ -252,5 +253,20 @@ class API < Grape::API
       {:result => result}   
     end
     
+    desc "authenticates a user"
+      params do
+        requires :username,   type: String, desc: "Reviewer accountName"
+        requires :password,   type: String, desc: "account password"
+      end
+    post "/authenticate" do
+      authenticated = false
+
+      user = Reviewer.new.find(:name => params["username"])
+      authenticated = true if user.accountName == params["username"] && user.authenticate(params["password"])
+
+      status 401
+      status 200 if authenticated
+      {:authenticated => authenticated}
+    end    
   end  
 end
