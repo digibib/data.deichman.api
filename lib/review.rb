@@ -136,19 +136,20 @@ class Review
 
       # populate review object (Struct)
       # map solutions to matching struct attributes
-      self.members.each {|name| self[name] = solution[name] unless solution[name].nil? } 
+      review = Review.new
+      review.members.each {|name| review[name] = solution[name] unless solution[name].nil? } 
       # map the rest
-      self.title     = solution[:review_title].to_s
-      self.teaser    = solution[:review_abstract].to_s
-      self.text      = review_text
-      self.reviewer  = solution[:reviewer_name].to_s
-      self.source    = solution[:review_source].to_s
-      self.subject   = work.isbn
-      self.audience  = solution[:review_audience].to_s
-      self.published = solution[:issued] ? true : false # published?
+      review.title     = solution[:review_title].to_s
+      review.teaser    = solution[:review_abstract].to_s
+      review.text      = review_text
+      review.reviewer  = solution[:reviewer_name].to_s
+      review.source    = solution[:review_source].to_s
+      review.subject   = work.isbn
+      review.audience  = solution[:review_audience].to_s
+      review.published = solution[:issued] ? true : false # published?
       
       # insert review object into work
-      work.reviews << self
+      work.reviews << review
        
       # append to works array unless :cluster not set to true and work matching previous work
       unless params[:cluster] && works.any? {|w| w[:uri] == solution[:work_id].to_s}
