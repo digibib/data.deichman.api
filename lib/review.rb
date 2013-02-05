@@ -165,9 +165,10 @@ class Review
   def review_query(selects, params={})
     # this method queries RDF store with chosen selects and optional params from API
     # allowed params merged with params given in api
-    api = {:uri => :uri, :isbn => :isbn, :title => :title, :author => :author, :author_id => :author_id, 
-          :reviewer => :reviewer, :work => :work_id, :workplace => :workplace}
+    api = Hashie::Mash.new(:uri => :uri, :isbn => :isbn, :title => :title, :author => :author, :author_id => :author_id, 
+          :reviewer => :reviewer, :work => :work_id, :workplace => :workplace)
     api.merge!(params)
+    puts params
     # do we have freetext searches on author/title?
     author_search   = params[:author] ? params[:author].gsub(/[[:punct:]]/, '').split(" ") : nil
     title_search    = params[:title] ? params[:title].gsub(/[[:punct:]]/, '').split(" ") : nil

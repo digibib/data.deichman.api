@@ -203,6 +203,7 @@ class API < Grape::API
       else
         logger.info "params: #{params}"
         user = Reviewer.new.find(params)
+        error!("Sorry, user not found", 401) unless user
         user.password = nil
         {:user => user }
       end
@@ -262,9 +263,11 @@ class API < Grape::API
       authenticated = false
 
       user = Reviewer.new.find(:name => params["username"])
-      authenticated = true if user.accountName == params["username"] && user.authenticate(params["password"])
-
-      status 401
+      if user
+        authenticated = true if user.accountName == params["username"] && user.authenticate(params["password"])
+      else
+        error!("Sorry, username \"#{params[:username]}\" not found", 401)
+      end
       status 200 if authenticated
       {:authenticated => authenticated}
     end    
