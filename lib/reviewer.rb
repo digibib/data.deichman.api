@@ -32,13 +32,14 @@ class Reviewer
   end
   
   def find(params)
+    return nil unless params[:uri] || params[:name]
     selects = [:uri, :name, :workplaceHomepage, :userAccount, :accountName, :status, :password,  
                         :accountServiceHomepage, :workplace, :workplace_id]
     api = Hashie::Mash.new(:uri => :uri, :name => :name, :isbn => :isbn, :author => :author, :author_id => :author_id, :title => :title)
     params[:uri] = RDF::URI(params[:uri]) if params[:uri]
     api.merge!(params)
     params.each {|k,v| selects.delete(k)}
-    puts params
+    #puts params
     
     query = QUERY.select(*selects).from(APIGRAPH)
     query.where([api[:uri], RDF.type, RDF::FOAF.Person],
@@ -58,6 +59,7 @@ class Reviewer
     query.optional([api[:uri], RDF::FOAF.workplaceHomepage, :workplaceHomepage])
     query.filter('regex(?name, "' + api[:name] + '", "i")') if params[:name]
     query.filter('regex(?workplace, "' + api[:workplace] + '", "i")') if params[:workplace]  
+    #puts query
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
     return nil if solutions.empty? # not found!

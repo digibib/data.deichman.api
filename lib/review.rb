@@ -270,11 +270,11 @@ class Review
     return nil unless work
     
     if params[:reviewer]
-      reviewer = Reviewer.new.find(:reviewer => params[:reviewer])
+      reviewer = Reviewer.new.find(:name => params[:reviewer])
       reviewer = Reviewer.new.create(params) if reviewer.nil? # create new if not found
     else
-      # default to anonymous
-      reviewer = Reviewer.new.find(:reviewer => "http://data.deichman.no/reviewer/id_0")
+      # default to anonymous user
+      reviewer = Reviewer.new.find(:uri => "http://data.deichman.no/reviewer/id_0")
     end
     
     params[:teaser] = String.new.clean_text(params[:teaser])
