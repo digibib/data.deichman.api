@@ -201,8 +201,6 @@ describe API do
       response["error"].should match(/(not a valid api key)/)
     end    
     
-
-    
     it "is should delete a user" do
       get "/api/users", :name => "testdummy"
       response = JSON.parse(last_response.body)

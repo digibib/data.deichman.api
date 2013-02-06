@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe Source do
   context 'find' do
-    it "returns all reviewers" do
+    it "returns all sources" do
       s = Source.new.all
       s.count.should >= 1
     end
