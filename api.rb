@@ -93,15 +93,19 @@ class API < Grape::API
     desc "creates a review"
       params do
         requires :api_key,   type: String, desc: "Authorization Key"
-        requires :title,     type: String, desc: "Title of review"
-        requires :teaser,    type: String, desc: "Abstract of review"
-        requires :text,      type: String, desc: "Text of review"
-        requires :isbn,      type: String, desc: "ISBN of reviewed book" 
+        requires :isbn,      type: String, desc: "ISBN of reviewed book"
         optional :audience,  type: String, desc: "Audience comma-separated, barn|ungdom|voksen|children|youth|adult"
         optional :reviewer,  type: String, desc: "Name of reviewer"
         optional :published, type: Boolean, desc: "Published - true/false"
+        # allow creating draft without :title, :teaser & :text
+        unless :published
+          requires :title,   type: String, desc: "Title of review"
+          requires :teaser,  type: String, desc: "Abstract of review"
+          requires :text,    type: String, desc: "Text of review"
+        end
       end
     post "/" do
+      error!("Wow", 400) unless params[:api_key]
       #header['Content-Type'] = 'application/json; charset=utf-8'
       content_type 'json'
       review = Review.new.create(params)

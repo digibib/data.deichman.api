@@ -277,8 +277,8 @@ class Review
       reviewer = Reviewer.new.find(:uri => "http://data.deichman.no/reviewer/id_0")
     end
     
-    params[:teaser] = String.new.clean_text(params[:teaser])
-    params[:text]   = String.new.clean_text(params[:text])
+    params[:teaser] = String.new.clean_text(params[:teaser]) if params[:teaser]
+    params[:text]   = String.new.clean_text(params[:text]) if params[:text] 
     params[:audience] ? params[:audience] = params[:audience] : params[:audience] = "adult"
     # update reviewer with new params
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
