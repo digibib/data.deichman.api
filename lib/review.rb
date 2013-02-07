@@ -361,17 +361,15 @@ class Review
     else
       audiences = String.new.split_param(self.audience)
       audiences.each do |audience|
-        case audience
-        when 'barn' || 'children'
+        if audience=="barn" || audience=="children"
           insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/children"))
-        when 'ungdom' || 'youth'
+        elsif audience=="ungdom" || audience=="youth"
           insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/youth"))
-        when 'voksen' || 'adult'
+        elsif audience=="voksen" || audience=="adult"
           insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
         end
       end
     end
-
     query = QUERY.insert_data(insert_statements).graph(REVIEWGRAPH)
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     result = REPO.insert_data(query)
@@ -381,14 +379,13 @@ class Review
     hasreview_statements << RDF::Statement.new(RDF::URI(self.work_id), RDF::REV.hasReview, self.uri)
     hasreview_statements << RDF::Statement.new(RDF::URI(self.book_id), RDF::REV.hasReview, self.uri)
     query                 = QUERY.insert_data(hasreview_statements).graph(BOOKGRAPH)
-    puts query
     result                = REPO.insert_data(query)
     self
   end
     
   # this method deletes review from RDF store
   def delete(params)
-    # do nothing if review not found
+    # do nothing if review is not found
     return nil unless self.uri
     
     # check api_key

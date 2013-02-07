@@ -161,7 +161,7 @@ class API < Grape::API
       content_type 'json'
       # is it in the base?
       works = Review.new.find(:uri => params[:uri])
-      error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if works.empty?
+      error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if works.nil?
       # yes, then delete it!
       result = works.first.reviews.first.delete(params)
       error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if works == "Invalid api_key"

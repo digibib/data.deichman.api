@@ -94,7 +94,7 @@ class Source
       query << " ) )` a <#{RDF::DEICHMAN.DummyClass}> } "
       query << "WHERE { <#{source}> a <#{RDF::FOAF.Document}> ; <#{RDF::FOAF.name}> ?name . ?source a <#{RDF::FOAF.Document}> ; <#{RDF::FOAF.name}> ?name }"
       query << " ORDER BY(?source) LIMIT 1"
-      puts "constructed #{resource} id: #{query}" if ENV['RACK_ENV'] == 'development'
+      puts "constructing #{resource} id: #{query}" if ENV['RACK_ENV'] == 'development'
       
       solutions = REPO.construct(query)
       
