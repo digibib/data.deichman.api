@@ -6,11 +6,11 @@ describe Review do
   context 'find' do
     it "returns all reviews" do
       reviews = Review.new.all
-      reviews.count.should >= 10
+      reviews.count.should >= 1
     end
     it "accepts limit and order params" do
-      reviews = Review.new.all :limit=>5, :offset=>5, :order_by=>"author", :order=>"desc"
-      reviews.count.should >= 5
+      reviews = Review.new.all :limit=>5, :offset=>0, :order_by=>"author", :order=>"desc"
+      reviews.count.should >= 1
     end
     
     it "returns a specific review" do
