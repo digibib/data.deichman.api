@@ -136,19 +136,20 @@ class Review
 
       # populate review object (Struct)
       # map solutions to matching struct attributes
-      self.members.each {|name| self[name] = solution[name] unless solution[name].nil? } 
+      review = Review.new
+      review.members.each {|name| review[name] = solution[name] unless solution[name].nil? } 
       # map the rest
-      self.title     = solution[:review_title].to_s
-      self.teaser    = solution[:review_abstract].to_s
-      self.text      = review_text
-      self.reviewer  = solution[:reviewer_name].to_s
-      self.source    = solution[:review_source].to_s
-      self.subject   = work.isbn
-      self.audience  = solution[:review_audience].to_s
-      self.published = solution[:issued] ? true : false # published?
+      review.title     = solution[:review_title].to_s
+      review.teaser    = solution[:review_abstract].to_s
+      review.text      = review_text
+      review.reviewer  = solution[:reviewer_name].to_s
+      review.source    = solution[:review_source].to_s
+      review.subject   = work.isbn
+      review.audience  = solution[:review_audience].to_s
+      review.published = solution[:issued] ? true : false # published?
       
       # insert review object into work
-      work.reviews << self
+      work.reviews << review
        
       # append to works array unless :cluster not set to true and work matching previous work
       unless params[:cluster] && works.any? {|w| w[:uri] == solution[:work_id].to_s}
@@ -164,9 +165,10 @@ class Review
   def review_query(selects, params={})
     # this method queries RDF store with chosen selects and optional params from API
     # allowed params merged with params given in api
-    api = {:uri => :uri, :isbn => :isbn, :title => :title, :author => :author, :author_id => :author_id, 
-          :reviewer => :reviewer, :work => :work_id, :workplace => :workplace}
+    api = Hashie::Mash.new(:uri => :uri, :isbn => :isbn, :title => :title, :author => :author, :author_id => :author_id, 
+          :reviewer => :reviewer, :work => :work_id, :workplace => :workplace)
     api.merge!(params)
+    puts params
     # do we have freetext searches on author/title?
     author_search   = params[:author] ? params[:author].gsub(/[[:punct:]]/, '').split(" ") : nil
     title_search    = params[:title] ? params[:title].gsub(/[[:punct:]]/, '').split(" ") : nil
@@ -268,15 +270,15 @@ class Review
     return nil unless work
     
     if params[:reviewer]
-      reviewer = Reviewer.new.find(:reviewer => params[:reviewer])
+      reviewer = Reviewer.new.find(:name => params[:reviewer])
       reviewer = Reviewer.new.create(params) if reviewer.nil? # create new if not found
     else
-      # default to anonymous
-      reviewer = Reviewer.new.find(:reviewer => "http://data.deichman.no/reviewer/id_0")
+      # default to anonymous user
+      reviewer = Reviewer.new.find(:uri => "http://data.deichman.no/reviewer/id_0")
     end
     
-    params[:teaser] = String.new.clean_text(params[:teaser])
-    params[:text]   = String.new.clean_text(params[:text])
+    params[:teaser] = String.new.clean_text(params[:teaser]) if params[:teaser]
+    params[:text]   = String.new.clean_text(params[:text]) if params[:text] 
     params[:audience] ? params[:audience] = params[:audience] : params[:audience] = "adult"
     # update reviewer with new params
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
@@ -361,17 +363,15 @@ class Review
     else
       audiences = String.new.split_param(self.audience)
       audiences.each do |audience|
-        case audience
-        when 'barn' || 'children'
+        if audience=="barn" || audience=="children"
           insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/children"))
-        when 'ungdom' || 'youth'
+        elsif audience=="ungdom" || audience=="youth"
           insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/youth"))
-        when 'voksen' || 'adult'
+        elsif audience=="voksen" || audience=="adult"
           insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
         end
       end
     end
-
     query = QUERY.insert_data(insert_statements).graph(REVIEWGRAPH)
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     result = REPO.insert_data(query)
@@ -381,14 +381,13 @@ class Review
     hasreview_statements << RDF::Statement.new(RDF::URI(self.work_id), RDF::REV.hasReview, self.uri)
     hasreview_statements << RDF::Statement.new(RDF::URI(self.book_id), RDF::REV.hasReview, self.uri)
     query                 = QUERY.insert_data(hasreview_statements).graph(BOOKGRAPH)
-    puts query
     result                = REPO.insert_data(query)
     self
   end
     
   # this method deletes review from RDF store
   def delete(params)
-    # do nothing if review not found
+    # do nothing if review is not found
     return nil unless self.uri
     
     # check api_key

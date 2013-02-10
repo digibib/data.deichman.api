@@ -11,11 +11,12 @@ REPO        = RDF::Virtuoso::Repository.new(
               :password => repository["password"],
               :auth_method => repository["auth_method"])
 
-REVIEWGRAPH = RDF::URI(repository["reviewgraph"])
-BOOKGRAPH   = RDF::URI(repository["bookgraph"])
-APIGRAPH    = RDF::URI(repository["apigraph"])
-QUERY       = RDF::Virtuoso::Query
-BASE_URI    = repository["base_uri"]
+REVIEWGRAPH        = RDF::URI(repository["reviewgraph"])
+BOOKGRAPH          = RDF::URI(repository["bookgraph"])
+APIGRAPH           = RDF::URI(repository["apigraph"])
+QUERY              = RDF::Virtuoso::Query
+BASE_URI           = repository["base_uri"]
+SECRET_SESSION_KEY = repository["secret_session_key"]
 
 # load all library files
 Dir[File.dirname(__FILE__) + '/../lib/*.rb'].each do |file|

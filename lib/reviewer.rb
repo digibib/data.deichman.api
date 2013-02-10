@@ -1,7 +1,7 @@
 Reviewer = Struct.new(:uri, :name, :workplaceHomepage, :userAccount, :accountName, :password, :status, :accountServiceHomepage, :workplace, :workplace_id)
 class Reviewer
   def all
-    query = QUERY.select(:uri, :name, :userAccount, :accountName, :password, :status, 
+    query = QUERY.select(:uri, :name, :userAccount, :accountName, :status, 
                         :accountServiceHomepage, :workplace, :workplace_id).from(APIGRAPH)
     query.where(
       [:uri, RDF.type, RDF::FOAF.Person],
@@ -24,19 +24,22 @@ class Reviewer
     #puts solutions.inspect if ENV['RACK_ENV'] == 'development'
     reviewers = []
     solutions.each do |s|
-      reviewers << s.to_hash.to_struct("Reviewer")
+      reviewer = s.to_hash.to_struct("Reviewer")
+      reviewer.password = nil
+      reviewers << reviewer
     end
     reviewers
   end
   
-  def find(params={})
+  def find(params)
+    return nil unless params[:uri] || params[:name]
     selects = [:uri, :name, :workplaceHomepage, :userAccount, :accountName, :status, :password,  
                         :accountServiceHomepage, :workplace, :workplace_id]
     api = Hashie::Mash.new(:uri => :uri, :name => :name, :isbn => :isbn, :author => :author, :author_id => :author_id, :title => :title)
     params[:uri] = RDF::URI(params[:uri]) if params[:uri]
     api.merge!(params)
     params.each {|k,v| selects.delete(k)}
-    puts params
+    #puts params
     
     query = QUERY.select(*selects).from(APIGRAPH)
     query.where([api[:uri], RDF.type, RDF::FOAF.Person],
@@ -56,6 +59,7 @@ class Reviewer
     query.optional([api[:uri], RDF::FOAF.workplaceHomepage, :workplaceHomepage])
     query.filter('regex(?name, "' + api[:name] + '", "i")') if params[:name]
     query.filter('regex(?workplace, "' + api[:workplace] + '", "i")') if params[:workplace]  
+    #puts query
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
     return nil if solutions.empty? # not found!
@@ -65,6 +69,10 @@ class Reviewer
     # populate Review Struct    
     self.members.each {|name| self[name] = solutions.first[name] unless solutions.first[name].nil? }  
     self
+  end
+  
+  def authenticate(password)
+    self.password == password
   end
   
   def create(params)

@@ -93,15 +93,19 @@ class API < Grape::API
     desc "creates a review"
       params do
         requires :api_key,   type: String, desc: "Authorization Key"
-        requires :title,     type: String, desc: "Title of review"
-        requires :teaser,    type: String, desc: "Abstract of review"
-        requires :text,      type: String, desc: "Text of review"
-        requires :isbn,      type: String, desc: "ISBN of reviewed book" 
+        requires :isbn,      type: String, desc: "ISBN of reviewed book"
         optional :audience,  type: String, desc: "Audience comma-separated, barn|ungdom|voksen|children|youth|adult"
         optional :reviewer,  type: String, desc: "Name of reviewer"
         optional :published, type: Boolean, desc: "Published - true/false"
+        # allow creating draft without :title, :teaser & :text
+        unless :published
+          requires :title,   type: String, desc: "Title of review"
+          requires :teaser,  type: String, desc: "Abstract of review"
+          requires :text,    type: String, desc: "Text of review"
+        end
       end
     post "/" do
+      error!("Wow", 400) unless params[:api_key]
       #header['Content-Type'] = 'application/json; charset=utf-8'
       content_type 'json'
       review = Review.new.create(params)
@@ -161,7 +165,7 @@ class API < Grape::API
       content_type 'json'
       # is it in the base?
       works = Review.new.find(:uri => params[:uri])
-      error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if works.empty?
+      error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if works.nil?
       # yes, then delete it!
       result = works.first.reviews.first.delete(params)
       error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if works == "Invalid api_key"
@@ -203,6 +207,8 @@ class API < Grape::API
       else
         logger.info "params: #{params}"
         user = Reviewer.new.find(params)
+        error!("Sorry, user not found", 401) unless user
+        user.password = nil
         {:user => user }
       end
     end
@@ -252,5 +258,40 @@ class API < Grape::API
       {:result => result}   
     end
     
-  end  
+    desc "authenticates a user"
+      params do
+        requires :username,   type: String, desc: "Reviewer accountName"
+        requires :password,   type: String, desc: "account password"
+      end
+    post "/authenticate" do
+      authenticated = false
+
+      user = Reviewer.new.find(:name => params["username"])
+      if user
+        authenticated = true if user.accountName == params["username"] && user.authenticate(params["password"])
+      else
+        error!("Sorry, username \"#{params[:username]}\" not found", 401)
+      end
+      status 200 if authenticated
+      {:authenticated => authenticated}
+    end    
+  end 
+  
+  resource :sources do 
+
+    desc "returns all users or specific user"
+    get "/" do
+      error!('Unauthorized', 401) unless env['HTTP_SECRET_SESSION_KEY'] == SECRET_SESSION_KEY
+      content_type 'json'
+      unless params[:uri] || params[:name]
+        sources = {:sources => Source.new.all }
+      else
+        logger.info "params: #{params}"
+        source = Source.new.find(params)
+        error!("Sorry, source not found", 401) unless source
+        {:source => source }
+      end
+    end
+  end
+  
 end

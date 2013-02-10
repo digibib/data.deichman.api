@@ -103,8 +103,8 @@ class Struct
     # this method returns Hash map of Struct
     map = Hash.new
     self.members.each { |m| map[m] = self[m] }
-    # strip out empty struct values
-    map.reject! {|k,v| v.strip.empty? if v.is_a?(String) && v.respond_to?('empty?')}
+    # strip out empty struct values and nils
+    map.reject! {|k,v| v.strip.empty? if v.is_a?(String) && v.respond_to?('empty?') ; v.nil? }
     map
   end
   def to_json(*a)

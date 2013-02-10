@@ -13,11 +13,37 @@ class Source
     return nil if solutions.empty?
     sources = []
     solutions.each do |s|
-      sources << s.to_hash.to_struct("Source")
+      source = s.to_hash.to_struct("Source")
+      source.api_key = nil
+      sources << source
     end
     sources
   end
-  
+
+  def find(params)
+    return nil unless params[:uri] || params[:name]
+    selects = [:uri, :name, :homepage, :api_key]
+    api = Hashie::Mash.new(:uri => :uri, :name => :name)
+    params[:uri] = RDF::URI(params[:uri]) if params[:uri]
+    api.merge!(params)
+    params.each {|k,v| selects.delete(k)}
+    
+    query = QUERY.select(*selects).from(APIGRAPH)
+    query.where(
+      [api[:uri], RDF.type, RDF::FOAF.Document], 
+      [api[:uri], RDF::FOAF.name, api[:name]],
+      [api[:uri], RDF::DEICHMAN.apikey, :api_key])
+    query.optional([api[:uri], RDF::FOAF.homepage, :homepage])
+    query.limit(1)
+    puts "#{query}" if ENV['RACK_ENV'] == 'development'
+    solutions = REPO.select(query)
+    return nil if solutions.empty?
+    
+    # populate Source Struct    
+    self.members.each {|name| self[name] = solutions.first[name] }  
+    self
+  end
+    
   def find_by_apikey(api_key)
     # fetch source by api key in protected graph
     # each source needs three statements: 
@@ -68,7 +94,7 @@ class Source
       query << " ) )` a <#{RDF::DEICHMAN.DummyClass}> } "
       query << "WHERE { <#{source}> a <#{RDF::FOAF.Document}> ; <#{RDF::FOAF.name}> ?name . ?source a <#{RDF::FOAF.Document}> ; <#{RDF::FOAF.name}> ?name }"
       query << " ORDER BY(?source) LIMIT 1"
-      puts "constructed #{resource} id: #{query}" if ENV['RACK_ENV'] == 'development'
+      puts "constructing #{resource} id: #{query}" if ENV['RACK_ENV'] == 'development'
       
       solutions = REPO.construct(query)
       
