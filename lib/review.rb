@@ -322,6 +322,8 @@ class Review
     params.delete(:uri) # don't update uri!
     # reviewer
     reviewer = Reviewer.new.find(:name => self.reviewer)
+    # delete empty params so they don't overwrite current review 
+    params.each {|p| params.delete(p) if p.empty? }
 
     # update review with new params
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
