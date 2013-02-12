@@ -231,7 +231,10 @@ class API < Grape::API
       params do
         requires :api_key,   type: String, desc: "API key"
         optional :name,      type: String, desc: "Reviewer's name"
+        optional :password,  type: String, desc: "Reviewer's password"
+        optional :email,     type: String, desc: "Reviewer's email"
         optional :workplace, type: String, desc: "Reviewer's workplace"
+        optional :active,    type: Boolean, desc: "Active? - true/false"
       end
     put "/" do
       content_type 'json'

@@ -303,8 +303,8 @@ class Review
     return "Invalid api_key" unless source
     
     # make publish or unpublish switches
-    if self.published && !params[:published] then unpublish = true end
-    if !self.published && params[:published] then publish   = true end
+    unpublish = true if self.published && !params[:published]
+    publish   = true if !self.published && params[:published]
     
     # Delete first
     # DO NOT delete DC.created and DC.issued properties on update unless published is changed
@@ -333,8 +333,8 @@ class Review
     self.source    = source.uri
     self.reviewer  = reviewer.uri
     # change issued if publish state changed
-    if publish   then self.issued = Time.now.xmlschema end
-    if unpublish then self.issued = nil end
+    self.issued = Time.now.xmlschema if publish
+    self.issued = nil if unpublish
     save # save changes to RDF store
     self    
   end
