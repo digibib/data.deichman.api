@@ -109,7 +109,7 @@ class API < Grape::API
       review = Review.new.create(params)
       error!("Sorry, #{params[:isbn]} matches no known book in our base", 400) if review == "Invalid ISBN"
       error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if review == "Invalid api_key"
-      error!("Sorry, unable to obtain unique ID of reviewer", 400) if review == "Invalid Reviewer ID"
+      error!("Sorry, unable to create/obtain unique ID of reviewer", 400) if review == "Invalid Reviewer ID"
       error!("Sorry, unable to generate unique ID of review", 400) if review == "Invalid UID"
       result = review.save
       logger.info "POST: params: #{params} - review: #{review}"

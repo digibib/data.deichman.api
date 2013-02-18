@@ -264,15 +264,16 @@ class Review
     return "Invalid api_key" unless source
     
     self.uri = source.autoincrement_resource(source.uri.to_s, resource = "review")
-    return nil unless self.uri # break out if unable to generate unique ID
+    return "Invalid UID" unless self.uri # break out if unable to generate unique ID
     
     work = Work.new.find(params)
-    return nil unless work
+    return "Invalid ISBN" unless work
     
     if params[:reviewer]
       params[:name] = params[:reviewer] # Reviewer takes :name parameter
       reviewer = Reviewer.new.find(:name => params[:reviewer])
       reviewer = Reviewer.new.create(params) if reviewer.nil? # create new if not found
+      return "Invalid Reviewer ID" unless reviewer
     else
       # default to anonymous user
       reviewer = Reviewer.new.find(:uri => "http://data.deichman.no/reviewer/id_0")
