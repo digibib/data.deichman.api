@@ -105,8 +105,6 @@ class API < Grape::API
         end
       end
     post "/" do
-      error!("Wow", 400) unless params[:api_key]
-      #header['Content-Type'] = 'application/json; charset=utf-8'
       content_type 'json'
       review = Review.new.create(params)
       error!("Sorry, #{params[:isbn]} matches no known book in our base", 400) if review == "Invalid ISBN"

@@ -270,6 +270,7 @@ class Review
     return nil unless work
     
     if params[:reviewer]
+      params[:name] = params[:reviewer] # Reviewer takes :name parameter
       reviewer = Reviewer.new.find(:name => params[:reviewer])
       reviewer = Reviewer.new.create(params) if reviewer.nil? # create new if not found
     else
