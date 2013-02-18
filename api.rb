@@ -142,11 +142,11 @@ class API < Grape::API
         works = Review.new.find(:uri => params[:uri])
         error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if works.nil?
         logger.info "works: #{works}"
-        result = works.first.reviews.first.update(params)
+        review = works.first.reviews.first.update(params)
         error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if works == "Invalid api_key"
         #throw :error, :status => 400, :message => "Sorry, unable to update review #{params[:uri]} ..." if result =~ /nothing to do/
         logger.info "PUT: params: #{params} - review: #{works}"
-        {:result => result, :review => works.first }
+        {:review => review }
       else
         logger.error "invalid or missing params"   
         error!("Need at least one param of title|teaser|text|audience|published", 400)      
@@ -167,9 +167,9 @@ class API < Grape::API
       # yes, then delete it!
       result = works.first.reviews.first.delete(params)
       error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if works == "Invalid api_key"
-      error!("Sorry, unable to delete review #{params[:uri]} ...", 400) if works =~ /nothing to do/
+      error!("Sorry, unable to delete review #{params[:uri]} ...", 400) if works.nil? || works =~ /nothing to do/
       logger.info "DELETE: params: #{params} - result: #{works}"
-      {:result => result, :review => works }
+      {:result => result, :review => works.first.reviews.first }
     end
   end
   

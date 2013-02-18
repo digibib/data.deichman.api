@@ -8,7 +8,8 @@ class Work
     api = Hashie::Mash.new(:uri => :uri, :isbn => :isbn, :author => :author, :author_id => :author_id, :title => :title)
     params[:isbn] = String.new.sanitize_isbn(params[:isbn]) if params[:isbn]
     api.merge!(params)
-    params.each {|k,v| selects.delete(k)}
+    # remove variable from selects array if variable given as param
+    selects.delete_if {|s| params[s]}
     
     query = QUERY.select(*selects).from(BOOKGRAPH)
     query.where(

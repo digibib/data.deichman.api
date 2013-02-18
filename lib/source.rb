@@ -26,7 +26,8 @@ class Source
     api = Hashie::Mash.new(:uri => :uri, :name => :name)
     params[:uri] = RDF::URI(params[:uri]) if params[:uri]
     api.merge!(params)
-    params.each {|k,v| selects.delete(k)}
+    p# remove variable from selects array if variable given as param
+    selects.delete_if {|s| params[s]}
     
     query = QUERY.select(*selects).from(APIGRAPH)
     query.where(
