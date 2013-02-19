@@ -65,7 +65,8 @@ class API < Grape::API
           optional :offset,    type: Integer, desc: "Offset, for pagination" 
           optional :order_by,  type: String, desc: "Order of results" 
           optional :order,     type: String, desc: "Ascending or Descending order" 
-          optional :published, coerce: Virtus::Attribute::Boolean, desc: "Sort by published - true/false" 
+          optional :published, type: Boolean, desc: "Sort by published - true/false" 
+          optional :cluester,  type: Boolean, desc: "cluster by works - true/false" 
       end
 
     get "/" do
@@ -124,7 +125,7 @@ class API < Grape::API
         optional :teaser,    type: String, desc: "Abstract of review"
         optional :text,      type: String, desc: "Text of review"
         optional :audience,  type: String, desc: "Audience comma-separated, barn|ungdom|voksen|children|youth|adult"
-        optional :published, coerce: Virtus::Attribute::Boolean, desc: "Published - true/false"
+        optional :published, type: Boolean, desc: "Published - true/false"
         #optional :reviewer, type: String, desc: "Name of reviewer"
         #optional :source, type: String, desc: "Source of review"
       end    

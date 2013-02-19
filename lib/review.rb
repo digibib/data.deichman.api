@@ -9,7 +9,7 @@ class Review
   def all(params={:limit=>10, :offset=>0, :order_by=>"author", :order=>"asc"})
     selects     = [:uri, :work_id, :book_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer_name, :accountName, :workplace]
     solutions = review_query(selects, params)
-    solutions.empty? ? reviews = nil : reviews = populate_works(solutions, :params => params, :cluster => false)
+    solutions.empty? ? reviews = nil : reviews = populate_works(solutions, :params => params, :cluster => params[:cluster])
     reviews
   end
   
@@ -41,7 +41,7 @@ class Review
             return "Invalid URI"
           end
         end
-        solutions.empty? ? works = nil : works = populate_works(solutions, :uri => uri, :cluster => false) 
+        solutions.empty? ? works = nil : works = populate_works(solutions, :uri => uri, :cluster => params[:cluster]) 
       else
         begin
           solutions = RDF::Query::Solutions.new
@@ -58,19 +58,19 @@ class Review
         rescue URI::InvalidURIError
           return "Invalid URI"
         end
-        solutions.empty? ? works = nil : works = populate_works(solutions, :uri => uri, :cluster => true) 
+        solutions.empty? ? works = nil : works = populate_works(solutions, :uri => uri, :cluster => params[:cluster]) 
       end
     elsif params.has_key?(:isbn)
       isbn      = String.new.sanitize_isbn("#{params[:isbn]}")
       solutions = review_query(selects, :isbn => isbn)
-      solutions.empty? ? works = nil : works = populate_works(solutions, :isbn => isbn, :cluster => true)
+      solutions.empty? ? works = nil : works = populate_works(solutions, :isbn => isbn, :cluster => params[:cluster])
     elsif params.has_key?(:work)
       begin 
         selects.delete(:work_id)
         uri = URI::parse(params[:work])
         uri = RDF::URI(uri)
         solutions = review_query(selects, :work => uri)
-        solutions.empty? ? works = nil : works = populate_works(solutions, :work => uri, :cluster => true)
+        solutions.empty? ? works = nil : works = populate_works(solutions, :work => uri, :cluster => params[:cluster])
       rescue URI::InvalidURIError
         return "Invalid URI"
       end
@@ -79,7 +79,7 @@ class Review
         uri = URI::parse(params[:author_id])
         uri = RDF::URI(uri)
         solutions = review_query(selects, :author_id => uri)
-        solutions.empty? ? works = nil : works = populate_works(solutions, :author_id => uri, :cluster => true)
+        solutions.empty? ? works = nil : works = populate_works(solutions, :author_id => uri, :cluster => params[:cluster])
       rescue URI::InvalidURIError
         return "Invalid URI"
       end   
@@ -87,7 +87,7 @@ class Review
       reviewer = Reviewer.new.find(:name => params[:reviewer])
       if reviewer
         solutions = review_query(selects, :reviewer => reviewer.uri)
-        solutions.empty? ? works = nil : works = populate_works(solutions, :reviewer => reviewer.uri, :cluster => true)
+        solutions.empty? ? works = nil : works = populate_works(solutions, :reviewer => reviewer.uri, :cluster => params[:cluster])
       else
         return "Invalid Reviewer"
       end
@@ -95,14 +95,14 @@ class Review
       reviewer = Reviewer.new.find(:workplace => params[:workplace])
       if reviewer
         solutions = review_query(selects, :workplace => reviewer.workplace)
-        solutions.empty? ? works = nil : works = populate_works(solutions, :workplace => reviewer.workplace, :cluster => true)
+        solutions.empty? ? works = nil : works = populate_works(solutions, :workplace => reviewer.workplace, :cluster => params[:cluster])
       else
         return "Invalid Workplace"
       end      
     else
       # do a general lookup
       solutions = review_query(selects, params)
-      solutions.empty? ? works = nil : works = populate_works(solutions, {:params => params, :cluster => true})
+      solutions.empty? ? works = nil : works = populate_works(solutions, {:params => params, :cluster => params[:cluster]})
     end
     #puts works
     return works
@@ -154,7 +154,7 @@ class Review
       # append to works array unless :cluster not set to true and work matching previous work
       unless params[:cluster] && works.any? {|w| w[:uri] == solution[:work_id].to_s}
         works << work
-      # if :cluster not set and work not matching previous works
+      # if :cluster is set true and work not matching previous works
       else 
         works.map! {|w| (w[:uri] == solution[:work_id].to_s) ? work : w }
       end
