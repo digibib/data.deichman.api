@@ -60,7 +60,7 @@ class Reviewer
     query.optional([:userAccount, RDF::ACC.password, :password])
     query.optional([api[:uri], RDF::FOAF.workplaceHomepage, :workplaceHomepage])
     query.filter('regex(?name, "' + api[:name] + '", "i")') if params[:name]
-    query.filter('regex(?workplace, "' + api[:workplace] + '", "i")') if params[:workplace]  
+    #query.filter('regex(?workplace, "' + api[:workplace] + '", "i" ) || regex(?workplace_id, "' + api[:workplace] + '", "i")') if params[:workplace]  
     #puts query
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)

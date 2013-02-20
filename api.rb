@@ -240,7 +240,7 @@ class API < Grape::API
       logger.info "params: #{params}"
       reviewer = Reviewer.new.find(params)
       error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviewer == "Invalid api_key"
-      error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) unless reviewer
+      error!("Sorry, \"#{params[:name]}#{params[:workplace]}\" matches no workplace in our base", 400) unless reviewer
       reviewer.update(params)
       {:reviewer => reviewer}    
     end
