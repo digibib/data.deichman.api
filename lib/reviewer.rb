@@ -126,6 +126,14 @@ class Reviewer
     puts "delete result:\n #{result}" if ENV['RACK_ENV'] == 'development'
     
     # Then update
+    # add link to workplace if found
+    if params[:workplace]
+      workplace = Workplace.new.find(params)
+      if workplace
+        self.workplace_id = workplace.uri
+        self.workplace    = workplace.prefLabel.to_s
+      end
+    end
     # update reviewer with new params    
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
     self.status = RDF::ACC.ActivationNeeded if inactivate

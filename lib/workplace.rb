@@ -26,7 +26,7 @@ class Workplace
       [:uri, RDF.type, RDF::ORG.Organization],
       [:uri, RDF::SKOS.prefLabel, :prefLabel])
     query.optional([:uri, RDF::FOAF.homepage, :homepage])
-    query.filter("regex(?prefLabel, \"#{params[:workplace]}\", \"i\") ") if params[:workplace]
+    query.filter("regex(?prefLabel, \"#{params[:workplace]}\", \"i\") || regex(str(?uri), \"#{params[:workplace]}\", \"i\")") if params[:workplace]
     puts query
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
