@@ -281,7 +281,16 @@ class Review
     
     params[:teaser] = String.new.clean_text(params[:teaser]) if params[:teaser]
     params[:text]   = String.new.clean_text(params[:text]) if params[:text] 
-    params[:audience] ? params[:audience] = params[:audience] : params[:audience] = "adult"
+    # make sure we have audience!
+    if params[:audience]
+      if /([Bb]arn|[Un]gdom|[Vv]oksen|[Cc]hildren|[Yy]outh|[Aa]dult)/.match(params[:audience].to_s)
+        params[:audience].downcase! 
+      else
+        params[:audience] = "adult"
+      end
+    else 
+      params[:audience] = "adult"
+    end
     # update reviewer with new params
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
     self.source    = source.uri

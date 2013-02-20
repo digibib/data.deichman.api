@@ -99,7 +99,7 @@ class Reviewer
     end
     self.workplaceHomepage = RDF::URI("#{params[:workplaceHomepage]}") if params[:workplaceHomepage]
     self.accountName = "#{params[:name].urlize}"
-    self.accountServiceHomepage = source.name
+    self.accountServiceHomepage = source.uri
     self.name     = "#{params[:name]}"
     self.password = "#{self.accountName.to_s}123"
     self.email    = "#{params[:email]}"
