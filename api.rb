@@ -137,7 +137,7 @@ class API < Grape::API
       if valid_params.any? {|p| params.has_key?(p) }
         # delete params not listed in valid_params
         logger.info "params before: #{params}"
-        params.delete_if {|p| !valid_params.include?(p) }
+        params.delete_if {|p| !valid_params.include?(p) || p.empty?}
         logger.info "params after: #{params}"
         # is it in the base? uses params[:uri]
         works = Review.new.find(:uri => params[:uri])
