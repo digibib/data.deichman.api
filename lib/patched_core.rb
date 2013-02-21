@@ -125,4 +125,9 @@ class Hash
       struct  
     end 
   end
+  
+  # remove empty params from params Hash
+  def remove_empty_params!
+    self.delete_if {|k,v| v.respond_to?(:empty?) && v.empty? }
+  end
 end

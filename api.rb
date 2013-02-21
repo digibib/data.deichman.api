@@ -37,6 +37,8 @@ class API < Grape::API
     # Of course this makes the request.body unavailable afterwards.
     # You can just use a helper method to store it away for later if needed. 
     logger.info "#{env['REMOTE_ADDR']} #{env['HTTP_USER_AGENT']} #{env['REQUEST_METHOD']} #{env['REQUEST_PATH']} -- Request: #{request.body.read}"
+    # strip out empty params
+    params.remove_empty_params!
   end
   
   # Rescue and log validation errors gracefully
@@ -66,7 +68,7 @@ class API < Grape::API
           optional :order_by,  type: String, desc: "Order of results" 
           optional :order,     type: String, desc: "Ascending or Descending order" 
           optional :published, type: Boolean, desc: "Sort by published - true/false" 
-          optional :cluester,  type: Boolean, desc: "cluster by works - true/false" 
+          optional :cluster,   type: Boolean, desc: "cluster by works - true/false" 
       end
 
     get "/" do
@@ -107,15 +109,21 @@ class API < Grape::API
       end
     post "/" do
       content_type 'json'
-      review = Review.new.create(params)
-      error!("Sorry, #{params[:isbn]} matches no known book in our base", 400) if review == "Invalid ISBN"
-      error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if review == "Invalid api_key"
-      error!("Sorry, unable to create/obtain unique ID of reviewer", 400) if review == "Invalid Reviewer ID"
-      error!("Sorry, unable to generate unique ID of review", 400) if review == "Invalid UID"
-      result = review.save
-      logger.info "POST: params: #{params} - review: #{review}"
-      {:review => review }
-
+      valid_params = ['api_key','isbn','title','teaser','text','audience', 'reviewer', 'published']
+      if valid_params.any? {|p| params.has_key?(p) }
+        params.delete_if {|p| !valid_params.include?(p) }
+        review = Review.new.create(params)
+        error!("Sorry, #{params[:isbn]} matches no known book in our base", 400) if review == "Invalid ISBN"
+        error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if review == "Invalid api_key"
+        error!("Sorry, unable to create/obtain unique ID of reviewer", 400) if review == "Invalid Reviewer ID"
+        error!("Sorry, unable to generate unique ID of review", 400) if review == "Invalid UID"
+        result = review.save
+        logger.info "POST: params: #{params} - review: #{review}"
+        {:review => review }
+      else
+        logger.error "invalid or missing params"   
+        error!("Need at least one param of title|teaser|text|audience|reviewer|published", 400)      
+      end
     end
     desc "updates a review"
       params do
@@ -137,7 +145,7 @@ class API < Grape::API
       if valid_params.any? {|p| params.has_key?(p) }
         # delete params not listed in valid_params
         logger.info "params before: #{params}"
-        params.delete_if {|p| !valid_params.include?(p) || p.empty?}
+        params.delete_if {|p| !valid_params.include?(p) }
         logger.info "params after: #{params}"
         # is it in the base? uses params[:uri]
         works = Review.new.find(:uri => params[:uri])
