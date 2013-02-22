@@ -291,7 +291,7 @@ class Review
     else 
       params[:audience] = "adult"
     end
-    # update reviewer with new params
+    # create review from params
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
     self.source    = source.uri
     self.subject   = String.new.sanitize_isbn(params[:isbn])
@@ -335,9 +335,20 @@ class Review
     params.delete(:uri) # don't update uri!
     # reviewer
     reviewer = Reviewer.new.find(:name => self.reviewer)
-    # delete empty params so they don't overwrite current review 
-    params.each {|p| params.delete(p) if p.empty? }
 
+    params[:teaser] = String.new.clean_text(params[:teaser]) if params[:teaser]
+    params[:text]   = String.new.clean_text(params[:text]) if params[:text] 
+    # make sure we have audience!
+    if params[:audience]
+      if /([Bb]arn|[Un]gdom|[Vv]oksen|[Cc]hildren|[Yy]outh|[Aa]dult)/.match(params[:audience].to_s)
+        params[:audience].downcase! 
+      else
+        params[:audience] = "adult"
+      end
+    else
+      # don't update audience unless match above
+      params[:audience] = nil
+    end
     # update review with new params
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
     self.modified  = Time.now.xmlschema
