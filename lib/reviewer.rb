@@ -1,7 +1,7 @@
 class Review
-  def find_reviewer(params)
+  def find_reviewer(params={})
     # looks in apigraph for reviewer by either reviewer's foaf:name or reviewer account's foaf:accountName
-    query = QUERY.select(:reviewer_id, :reviewer_name, :accountName, :reviewer_workplace).from(APIGRAPH)
+    query = QUERY.select(:reviewer_id, :reviewer_name, :accountName, :workplace).from(APIGRAPH)
     query.where([:reviewer_id, RDF.type, RDF::FOAF.Person],
     # reviewer by foaf name
       [:reviewer_id, RDF::FOAF.name, :reviewer_name],
@@ -11,16 +11,17 @@ class Review
     # reviewer workplace
     query.optional(
       [:reviewer_id, RDF::ORG.memberOf, :workplace_id],
-      [:workplace_id, RDF::SKOS.prefLabel, :reviewer_workplace])      
+      [:workplace_id, RDF::SKOS.prefLabel, :workplace])      
     # do filter on reviewer id|name|nick
-    query.filter("regex(?reviewer_id, \"#{params}\", \"i\") || 
-                  regex(?reviewer_name, \"#{params}\", \"i\") || 
-                  regex(?accountName, \"#{params}\", \"i\")")
+    query.filter("regex(?reviewer_id, \"#{params[:reviewer]}\", \"i\") || 
+                  regex(?reviewer_name, \"#{params[:reviewer]}\", \"i\") || 
+                  regex(?accountName, \"#{params[:reviewer]}\", \"i\") ") if params[:reviewer]
+    query.filter("regex(?workplace, \"#{params[:workplace]}\", \"i\") ") if params[:workplace]
                   
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
-    #puts solutions.inspect
-    return nil if solutions.empty?
+    return nil if solutions.empty? # not found!
+    #puts solutions.inspect if ENV['RACK_ENV'] == 'development'
     reviewer = solutions.first
   end
 
@@ -48,7 +49,8 @@ class Review
     query = QUERY.insert_data(insert_statements).graph(APIGRAPH)
     puts "create reviewer query: #{query}" if ENV['RACK_ENV'] == 'development'
     result = REPO.insert_data(query)
+    return nil if result.empty?
     puts "create reviewer result: #{result}" if ENV['RACK_ENV'] == 'development'
-    reviewer = {:reviewer_id => reviewer_id, :reviewer_name => "#{reviewer}", :accountName => "#{account_name}", :reviewer_workplace => nil}
+    reviewer = {:reviewer_id => reviewer_id, :reviewer_name => "#{reviewer}", :accountName => "#{account_name}", :workplace => nil}
   end  
 end

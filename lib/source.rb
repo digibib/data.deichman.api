@@ -42,11 +42,12 @@ class Review
       query << " ) )` a <#{RDF::DEICHMAN.DummyClass}> } "
       query << "WHERE { <#{source}> a <#{RDF::FOAF.Document}> ; <#{RDF::FOAF.name}> ?name . ?source a <#{RDF::FOAF.Document}> ; <#{RDF::FOAF.name}> ?name }"
       query << " ORDER BY(?source) LIMIT 1"
-      puts "#{query}" if ENV['RACK_ENV'] == 'development'
+      puts "constructed #{resource} id: #{query}" if ENV['RACK_ENV'] == 'development'
       
       solutions = REPO.construct(query)
       
       return nil if solutions.empty?
+      puts "constructed #{resource} id: #{solutions.first[:s]}" if ENV['RACK_ENV'] == 'development'
       resource_id = solutions.first[:s]
     end
   end

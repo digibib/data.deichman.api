@@ -3,6 +3,7 @@ $stdout.sync = true
 
 require "bundler/setup"
 require "grape"
+require "json"
 require "./lib/review.rb"
 
 # trap all exceptions and fail gracefuly with a 500 and a proper message
@@ -27,6 +28,7 @@ class API < Grape::API
   end
   version 'v1', :using => :header, :vendor => 'deichman.no'
   prefix 'api'
+  rescue_from :all, :backtrace => true
   format :json
   default_format :json
   #use ApiErrorHandler
@@ -51,35 +53,39 @@ class API < Grape::API
   resource :reviews do
     desc "returns reviews"
       params do
-          optional :uri,      type: String, desc: "URI of review"
-          optional :isbn,     type: String, desc: "ISBN of reviewed book" #, regexp: /^[0-9Xx-]+$/
-          optional :title,    type: String, desc: "Book title"
-          optional :author,   type: String, desc: "Book author"
-          optional :reviewer, type: String, desc: "Review author"
-          optional :work,     type: String, desc: "Work ID" 
+          optional :uri,       desc: "URI of review, accepts array"
+          optional :isbn,      type: String, desc: "ISBN of reviewed book" #, regexp: /^[0-9Xx-]+$/
+          optional :title,     type: String, desc: "Book title"
+          optional :author,    type: String, desc: "Book author"
+          optional :author_id, type: String, desc: "ID of Book author"
+          optional :reviewer,  type: String, desc: "Review author"
+          optional :work,      type: String, desc: "Work ID"
+          optional :workplace, type: String, desc: "Reviewer's workplace"
+          optional :limit,     type: Integer, desc: "Limit result"
+          optional :offset,    type: Integer, desc: "Offset, for pagination" 
+          optional :order_by,  type: String, desc: "Order of results" 
+          optional :order,     type: String, desc: "Ascending or Descending order" 
       end
 
     get "/" do
-      content_type 'json'
       #header['Content-Type'] = 'application/json; charset=utf-8'
-      if [:uri,:isbn,:author,:title,:reviewer,:work].any? {|p| params.has_key?(p) }
-        works = Review.new.find_reviews(params)
-        if works == "Invalid URI"
-          logger.error "Invalid URI"
-          error!("\"#{params[:uri]}\" is not a valid URI", 400)
-        elsif works == "Invalid Reviewer"
-          logger.error "Invalid Reviewer"
-          error!("\"#{params[:reviewer]}\" not found", 400)
-        elsif works.empty? 
-          logger.info "no reviews found"
-          error!("no reviews found", 200)
-        else
-          logger.info "Works: #{works.count} - Reviews: #{c=0 ; works.each {|w| c += w.reviews.count};c}"
-          {:works => works }
-        end
+      content_type 'json'
+      works = Review.new.find_reviews(params)
+      if works == "Invalid URI"
+        logger.error "Invalid URI"
+        error!("\"#{params[:uri]}\" is not a valid URI", 400)
+      elsif works == "Invalid Reviewer"
+        logger.error "Invalid Reviewer"
+        error!("reviewer \"#{params[:reviewer]}\" not found", 400)
+      elsif works == "Invalid Workplace"
+        logger.error "Invalid Workplace"
+        error!("workplace \"#{params[:workplace]}\" not found", 400)          
+      elsif works.nil? || works.empty?
+        logger.info "no reviews found"
+        error!("no reviews found", 200)
       else
-        logger.error "invalid or missing params"   
-        error!("Need one param of isbn|uri|author|title|reviewer", 400)
+        logger.info "Works: #{works.count} - Reviews: #{c=0 ; works.each {|w| c += w.reviews.count};c}"
+        {:works => works }
       end
     end
 
@@ -89,19 +95,18 @@ class API < Grape::API
         requires :title,    type: String, desc: "Title of review"
         requires :teaser,   type: String, desc: "Abstract of review"
         requires :text,     type: String, desc: "Text of review"
-        requires :isbn,     type: String, desc: "ISBN of reviewed book" #, regexp: /^[0-9Xx-]+$/
-        optional :audience, type: String, desc: "Audience comma-separated, barn|ungdom|voksen|children|youth|adult" #, regexp: /([Vv]oksen|[Aa]dult|[Bb]arn|[Uu]ngdom|[Jj]uvenile)/
+        requires :isbn,     type: String, desc: "ISBN of reviewed book" 
+        optional :audience, type: String, desc: "Audience comma-separated, barn|ungdom|voksen|children|youth|adult"
         optional :reviewer, type: String, desc: "Name of reviewer"
-        #optional :source, type: String, desc: "Source of review"
       end
     post "/" do
+      #header['Content-Type'] = 'application/json; charset=utf-8'
       content_type 'json'
-      #header['Content-Type'] = 'application/json; charset=utf-8' 
       work = Review.new.create(params)
       error!("Sorry, #{params[:isbn]} matches no known book in our base", 400) if work == "Invalid ISBN"
       error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if work == "Invalid api_key"
-      error!("Sorry, unable to generate unique ID of review", 400) if work == "Invalid UID"
       error!("Sorry, unable to obtain unique ID of reviewer", 400) if work == "Invalid Reviewer ID"
+      error!("Sorry, unable to generate unique ID of review", 400) if work == "Invalid UID"
       
       logger.info "POST: params: #{params} - review: #{work.reviews}"
       {:work => work }
@@ -114,13 +119,13 @@ class API < Grape::API
         optional :title,    type: String, desc: "Title of review"
         optional :teaser,   type: String, desc: "Abstract of review"
         optional :text,     type: String, desc: "Text of review"
-        optional :audience, type: String, desc: "Audience comma-separated, barn|ungdom|voksen|children|youth|adult" #, regexp: /([Vv]oksen|[Aa]dult|[Bb]arn|[Uu]ngdom|[Jj]uvenile)/
+        optional :audience, type: String, desc: "Audience comma-separated, barn|ungdom|voksen|children|youth|adult"
         #optional :reviewer, type: String, desc: "Name of reviewer"
         #optional :source, type: String, desc: "Source of review"
       end    
     put "/" do
       content_type 'json'
-      header['Content-Type'] = 'application/json; charset=utf-8'
+      #header['Content-Type'] = 'application/json; charset=utf-8'
       valid_params = ['api_key','uri','title','teaser','text','audience']
       # do we have a valid parameter?
       if valid_params.any? {|p| params.has_key?(p) }
@@ -150,8 +155,8 @@ class API < Grape::API
         requires :uri,     type: String, desc: "URI of review"
       end    
     delete "/" do
+      header['Content-Type'] = 'application/json; charset=utf-8'
       content_type 'json'
-      #header['Content-Type'] = 'application/json; charset=utf-8' 
       # is it in the base?
       review = Review.new.find_reviews(params)
       error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if review.empty?

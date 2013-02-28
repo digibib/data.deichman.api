@@ -4,7 +4,7 @@ require "rdf/virtuoso"
 require "sanitize"
 
 # Structs are simple classes with fixed sequence of instance variables
-Work = Struct.new(:title, :isbn, :book_id, :work_id, :author, :cover_url, :reviews)
+Work = Struct.new(:title, :isbn, :book_id, :work_id, :author_id, :author, :cover_url, :reviews)
 Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :workplace, :audience, :created, :issued, :modified)
 
 require_relative './string_replace.rb'
@@ -17,97 +17,149 @@ class Review
   # main method to find reviews, GET /api/review
   # params: uri, isbn, title, author, reviewer, work
   def find_reviews(params = {})
-    selects     = [:uri, :work_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer_name, :accountName, :reviewer_workplace]
-    
+    selects     = [:uri, :work_id, :book_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer_name, :accountName, :workplace]
+
     # this clause composes query attributes modified by params from API
     if params.has_key?(:uri)
-      begin 
+      # if uri param is Array, iterate URIs and merge solutions into separate works
+      if params[:uri].is_a?(Array)
+        works = []
+        solutions = RDF::Query::Solutions.new
         selects.delete(:uri)
-        uri = URI::parse(params[:uri])
-        uri = RDF::URI(uri)
-        solutions = review_query(selects, :uri => uri)
-      rescue URI::InvalidURIError
-        return "Invalid URI"
+        params[:uri].each do |u|
+          begin
+            uri = URI::parse(u)
+            uri = RDF::URI(uri)
+            res = review_query(selects, :uri => uri)
+            unless res.empty?
+              # need to append uri to solution for later use
+              solution = res.first.merge(RDF::Query::Solution.new(:uri => uri))
+              # then merge into solutions
+              solutions << solution 
+            end
+          rescue URI::InvalidURIError
+            return "Invalid URI"
+          end
+        end
+        solutions.empty? ? works = nil : works = populate_works(solutions, :uri => uri, :cluster => false) 
+      else
+        begin
+          selects.delete(:uri)
+          uri = URI::parse(params[:uri])
+          uri = RDF::URI(uri)
+          solutions = review_query(selects, :uri => uri)
+          solutions.empty? ? works = nil : works = populate_works(solutions, :uri => uri, :cluster => true) 
+        rescue URI::InvalidURIError
+          return "Invalid URI"
+        end
       end
     elsif params.has_key?(:isbn)
-      isbn          = sanitize_isbn("#{params[:isbn]}")
+      isbn      = sanitize_isbn("#{params[:isbn]}")
       solutions = review_query(selects, :isbn => isbn)
+      solutions.empty? ? works = nil : works = populate_works(solutions, :isbn => isbn, :cluster => true)
     elsif params.has_key?(:work)
       begin 
         selects.delete(:work_id)
         uri = URI::parse(params[:work])
         uri = RDF::URI(uri)
         solutions = review_query(selects, :work => uri)
+        solutions.empty? ? works = nil : works = populate_works(solutions, :work => uri, :cluster => true)
       rescue URI::InvalidURIError
         return "Invalid URI"
-      end    
+      end
+    elsif params.has_key?(:author_id)
+      begin 
+        uri = URI::parse(params[:author_id])
+        uri = RDF::URI(uri)
+        solutions = review_query(selects, :author_id => uri)
+        solutions.empty? ? works = nil : works = populate_works(solutions, :author_id => uri, :cluster => true)
+      rescue URI::InvalidURIError
+        return "Invalid URI"
+      end   
     elsif params.has_key?(:reviewer)
-      reviewer  = find_reviewer(params[:reviewer])
+      reviewer = find_reviewer(:reviewer => params[:reviewer])
       if reviewer
         solutions = review_query(selects, :reviewer => reviewer[:reviewer_id])
+        solutions.empty? ? works = nil : works = populate_works(solutions, :reviewer => reviewer[:reviewer_id], :cluster => true)
       else
         return "Invalid Reviewer"
       end
+    elsif params.has_key?(:workplace)
+      reviewer = find_reviewer(:workplace => params[:workplace])
+      if reviewer
+        solutions = review_query(selects, :workplace => reviewer[:workplace])
+        solutions.empty? ? works = nil : works = populate_works(solutions, :workplace => reviewer[:workplace], :cluster => true)
+      else
+        return "Invalid Workplace"
+      end      
     else
-      solutions = review_query(selects, :author => params[:author], :title => params[:title])
+      # do a general lookup
+      solutions = review_query(selects, params)
+      solutions.empty? ? works = nil : works = populate_works(solutions, {:params => params, :cluster => true})
     end
-
+    return works
+  end  
+  
+  def populate_works(solutions, params={})
+    # this method populates Work and Review object, with optional clustering parameter
     works = []
-    unless solutions.empty?
-        solutions.each do |solution|
-          # use already defined Work if present
-          work = works.find {|w| w[:work_id] == solution[:work_id].to_s}
-          # or make a new Work object
-          unless work
-            work = Work.new(
-                            solution[:book_title].to_s,
-                            solution[:isbn] ? solution[:isbn].to_s : isbn,
-                            solution[:book_id].to_s,
-                            solution[:work_id].to_s,
-                            solution[:author].to_s,
-                            solution[:cover_url].to_s
-                            )
-            work.reviews = []
-          end
-          # and fill with reviews
-          # append text of reviews here to avvoid "Temporary row length exceeded error" in Virtuoso on sorting long texts
-          review_uri = solution[:uri] ? solution[:uri] : uri
-          query = QUERY.select(:review_text).where([review_uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH])
-          review_text = REPO.select(query).first[:review_text].to_s
-          # reviewer
-          reviewer = solution[:reviewer_name] ? solution[:reviewer_name].to_s : solution[:reviewer_nick].to_s 
-          
-          review = Review.new(
-                          solution[:uri] ? solution[:uri].to_s : uri,
-                          solution[:review_title].to_s,
-                          solution[:review_abstract].to_s,
-                          #solution[:review_text].to_s,
-                          review_text,
-                          solution[:review_source].to_s,
-                          reviewer,
-                          solution[:reviewer_workplace].to_s,
-                          solution[:review_audience].to_s,
-                          solution[:created].to_s,
-                          solution[:issued].to_s,
-                          solution[:modified].to_s
-                          )
-          work.reviews << review
-
-        # append to or replace work in works array
-        unless works.any? {|w| w[:work_id] == solution[:work_id].to_s}
-          works << work
-        else
-          works.map! {|w| (w[:work_id] == solution[:work_id].to_s) ? work : w }
-        end
-
+    solutions.each do |solution|
+      # use already defined Work if present and :cluster options given
+      work = works.find {|w| w[:work_id] == solution[:work_id].to_s} if params[:cluster]
+      # or make a new Work object
+      unless work
+        # populate work object (Struct)
+        work = Work.new(
+                        solution[:book_title].to_s,
+                        solution[:isbn] ? solution[:isbn].to_s.split(', ') : [params[:isbn]],
+                        solution[:book_id],
+                        solution[:work_id].to_s,
+                        solution[:author_id].to_s.split(', '),
+                        solution[:author].to_s,
+                        solution[:cover_url].to_s
+                        )
+        work.reviews = []
+      end
+      # and fill with reviews
+      # append text of reviews here to avvoid "Temporary row length exceeded error" in Virtuoso on sorting long texts
+      review_uri = solution[:uri] ? solution[:uri] : params[:uri]
+      query = QUERY.select(:review_text).where([review_uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH])
+      review_text = REPO.select(query).first[:review_text].to_s
+      # reviewer
+      reviewer = solution[:reviewer_name] ? solution[:reviewer_name].to_s : solution[:reviewer_nick].to_s 
+      
+      # populate review object (Struct)
+      review = Review.new(
+                      solution[:uri] ? solution[:uri].to_s : review_uri,
+                      solution[:review_title].to_s,
+                      solution[:review_abstract].to_s,
+                      review_text,
+                      solution[:review_source].to_s,
+                      reviewer,
+                      solution[:workplace].to_s,
+                      solution[:review_audience].to_s,
+                      solution[:created].to_s,
+                      solution[:issued].to_s,
+                      solution[:modified].to_s
+                      )
+      # insert review object into work
+      work.reviews << review
+       
+      # append to works array unless :cluster not set to true and work matching previous work
+      unless params[:cluster] && works.any? {|w| w[:work_id] == solution[:work_id].to_s}
+        works << work
+      # if :cluster not set and work not matching previous works
+      else 
+        works.map! {|w| (w[:work_id] == solution[:work_id].to_s) ? work : w }
       end
     end
     works
-  end  
+  end
   
   def review_query(selects, params={})
+    # this method queries RDF store with chosen selects and optional params from API
     # allowed params merged with params given in api
-    api = {:uri => :uri, :isbn => :isbn, :title => :title, :author => :author, :reviewer => :reviewer, :work => :work_id}
+    api = {:uri => :uri, :isbn => :isbn, :title => :title, :author => :author, :author_id => :author_id, :reviewer => :reviewer, :work => :work_id, :workplace => :workplace}
     api.merge!(params)
     # do we have freetext searches on author/title?
     author_search   = params[:author] ? params[:author].gsub(/[[:punct:]]/, '').split(" ") : nil
@@ -116,9 +168,10 @@ class Review
     # query RDF store for work and reviews
     query = QUERY.select(*selects)
     query.group_digest(:author, ', ', 1000, 1)
+    query.group_digest(:author_id, ', ', 1000, 1)
     query.group_digest(:isbn, ', ', 1000, 1) if api[:isbn] == :isbn
     query.group_digest(:review_audience, ',', 1000, 1)
-    query.sample(:book_id, :cover_url)
+    query.sample(:cover_url)
     query.distinct.where(
       [api[:uri], RDF.type, RDF::REV.Review, :context => REVIEWGRAPH],
       [api[:uri], RDF::DC.created, :created, :context => REVIEWGRAPH],
@@ -130,10 +183,11 @@ class Review
       [:book_id, RDF.type, RDF::FABIO.Manifestation, :context => BOOKGRAPH],
       [:book_id, RDF::BIBO.isbn, api[:isbn], :context => BOOKGRAPH],
       [:book_id, RDF::DC.title, :book_title, :context => BOOKGRAPH], # filtered by regex later
-      # work
+      # work & author
       [api[:work], RDF::FABIO.hasManifestation, :book_id, :context => BOOKGRAPH], 
-      [api[:work], RDF::DC.creator, :author_id, :context => BOOKGRAPH],
-      [:author_id, RDF::FOAF.name, :author, :context => BOOKGRAPH],    # filtered by regex later
+      [api[:work], RDF::DC.creator, api[:author_id], :context => BOOKGRAPH],
+      [api[:work], RDF::DC.creator, :author_id, :context => BOOKGRAPH],     # to get author_id in response
+      [api[:author_id], RDF::FOAF.name, :author, :context => BOOKGRAPH],    # filtered by regex later
       # source
       [api[:uri], RDF::DC.source, :review_source_id, :context => REVIEWGRAPH],
       [:review_source_id, RDF::FOAF.name, :review_source, :context => APIGRAPH],
@@ -144,6 +198,15 @@ class Review
       [api[:uri], RDF::DC.audience, :review_audience_id, :context => REVIEWGRAPH],
       [:review_audience_id, RDF::RDFS.label, :review_audience, :context => REVIEWGRAPH]
       )
+      # workplace
+    if params[:workplace]
+      query.where([api[:reviewer], RDF::ORG.memberOf, :workplace_id, :context => APIGRAPH],
+      [:workplace_id, RDF::SKOS.prefLabel, api[:workplace], :context => APIGRAPH], # to get workplace in response
+      [:workplace_id, RDF::SKOS.prefLabel, :workplace, :context => APIGRAPH])
+    else
+      query.optional([api[:reviewer], RDF::ORG.memberOf, :workplace_id, :context => APIGRAPH],
+      [:workplace_id, RDF::SKOS.prefLabel, :workplace, :context => APIGRAPH])
+    end
     query.filter('(lang(?review_audience) = "no")') 
     # optional attributes
     # NB! all these optionals adds extra ~2 sec to query
@@ -152,10 +215,6 @@ class Review
       [api[:reviewer], RDF::FOAF.account, :useraccount, :context => APIGRAPH],
       [:useraccount, RDF::FOAF.accountName, :accountName, :context => APIGRAPH]
       )      
-    # reviewer workplace
-    query.optional(
-      [api[:reviewer], RDF::ORG.memberOf, :workplace_id, :context => APIGRAPH],
-      [:workplace_id, RDF::SKOS.prefLabel, :reviewer_workplace, :context => APIGRAPH])
 
     if author_search
       author_search.each do |author|
@@ -171,14 +230,23 @@ class Review
     
     # optimize query in virtuoso, drastically improves performance on optionals
     query.define('sql:select-option "ORDER"')
-    query.limit(50)
-
+    # limit, offset and order by params
+    params[:limit] ? query.limit(params[:limit]) : query.limit(10)
+    query.offset(params[:offset]) if params[:offset]
+    if /(author|title|reviewer|workplace|issued|modified|created)/.match(params[:order_by].to_s)
+      if /(desc|asc)/.match(params[:order].to_s)  
+        query.order_by("#{params[:order].upcase}(?#{params[:order_by]})")
+      else
+        query.order_by(params[:order_by].to_sym)
+      end
+    end
+    
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
   end
   
   def create(params)
-    # create new review here
+    # this method creates a new Review object and inserts it into RDF store 
     # first use api_key parameter to fetch source
     source = find_source_by_apikey(params[:api_key])
     return "Invalid api_key" unless source
@@ -186,17 +254,20 @@ class Review
     # find work based on isbn
     isbn = sanitize_isbn("#{params[:isbn]}")
 
-    query = QUERY.select(:book_id, :book_title, :work_id, :author)
+    # quick lookup, don't need reviewer or source
+    query = QUERY.select(:book_id, :book_title, :work_id)
+    query.group_digest(:author_id, ', ', 1000, 1)
+    query.group_digest(:author, ', ', 1000, 1)
     query.from(BOOKGRAPH)
     query.where(
       [:book_id, RDF::BIBO.isbn, "#{isbn}"],
       [:book_id, RDF.type, RDF::BIBO.Document],
       [:book_id, RDF::DC.title, :book_title],
-      [:book_id, RDF::DC.creator, :creator],
-      [:creator, RDF::FOAF.name, :author],
-      [:work_id, RDF::FABIO.hasManifestation, :book_id]
+      [:author_id, RDF::FOAF.name, :author],
+      [:work_id, RDF::FABIO.hasManifestation, :book_id],
+      [:work_id, RDF::DC.creator, :author_id]
       )
-    #puts "#{query}"
+    puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
 
     # populate review attributes
@@ -207,16 +278,21 @@ class Review
       
       if params[:reviewer]
         # lookup reviewer by nick or full name
-        reviewer = find_reviewer(params[:reviewer])
-        # create new if not found
-        reviewer = create_reviewer(source, params[:reviewer]) unless reviewer
-        return "Invalid Reviewer ID" unless reviewer # break out if unable to generate ID
+        reviewer = find_reviewer(:reviewer => params[:reviewer])
+        unless reviewer
+          # create new reviewer if not found in base
+          reviewer = create_reviewer(source, params[:reviewer])
+          return "Invalid Reviewer ID" unless reviewer # break out if unable to generate ID
+        end
+      else 
+        reviewer = {}
       end
       work = Work.new(
           solutions.first[:book_title],
           isbn,
           solutions.first[:book_id],
           solutions.first[:work_id],
+          solutions.first[:author_id].to_s.split(', '),
           solutions.first[:author]
           )
       work.reviews = []
@@ -227,7 +303,7 @@ class Review
           clean_text(params[:text]),
           source,
           reviewer[:reviewer_id],
-          reviewer[:reviewer_workplace],
+          reviewer[:workplace],
           params[:audience] ? params[:audience] : "adult",
           Time.now.xmlschema, # created
           Time.now.xmlschema, # issued
@@ -285,7 +361,7 @@ class Review
   end
   
   def update(params)
-    # update review here
+    # this method updates review and inserts into RDF store
     # first use api_key parameter to fetch source
     puts "update params: #{params.inspect}" if ENV['RACK_ENV'] == 'development'
     source = find_source_by_apikey(params[:api_key])
@@ -375,7 +451,7 @@ class Review
   end
   
   def delete(params = {})
-    # delete review here
+    # this method deletes review from RDF store
     # first use api_key parameter to fetch source
     review_source = find_source_by_apikey(params[:api_key])
     return "Invalid api_key" unless review_source
@@ -389,7 +465,7 @@ class Review
     # and delete hasReview reference from work
     query  = QUERY.delete([:work, RDF::REV.hasReview, uri])
     query.where([:work, RDF::REV.hasReview, uri]).graph(BOOKGRAPH)
-    result    = REPO.delete(query)
+    result = REPO.delete(query)
   end
 
   # string methods
@@ -399,6 +475,7 @@ class Review
   end
   
   def clean_text(text)
+    # this method cleans html tags and other presentation awkwardnesses
     # first remove all but whitelisted html elements
     sanitized = Sanitize.clean(text, :elements => %w[p pre small em i strong strike b blockquote q cite code br h1 h2 h3 h4 h5 h6],
       :attributes => {'span' => ['class']})
@@ -414,6 +491,7 @@ end
 # patched Struct and Hash classes to allow easy conversion to/from JSON and Hash
 class Struct
   def to_map
+    # this method returns Hash map of Struct
     map = Hash.new
     self.members.each { |m| map[m] = self[m] }
     # strip out empty struct values
@@ -427,6 +505,7 @@ end
 
 class Hash
   def to_struct(name)
+    #This method returns struct object "name" from hash object
     Struct.new(name, *keys).new(*values)
   end
 end

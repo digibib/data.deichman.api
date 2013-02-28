@@ -79,6 +79,8 @@ DEPENDENCIES
   rdf-n3
   rdf-virtuoso (~> 0.1.1)
   rspec
+  rspec-core
+  rspec-expectations
   rspec-mocks
   sanitize
   shotgun

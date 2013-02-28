@@ -10,6 +10,8 @@ The API will be expanded as we see fit. Currently only the `/reviews` endpoint i
 
 The API is open for anyone to use, but a key is required in order to write to the API (i.e perform POST/PUT/DELETE requests). Please get in tocuh if your library wants to publish to our RDF-store.
 
+## The Reviews Endpoint 
+
 ### Architecture
 
 ![API architecture](https://github.com/digibib/data.deichman.api/raw/develop/doc/review_rdf.png)
@@ -19,10 +21,13 @@ The API is open for anyone to use, but a key is required in order to write to th
 
 Fetches one or more reviews
 
-#### Parameters: `isbn`, `uri`, `author`, `title`, `reviewer`, `work`
+#### Allowed parameters: `isbn`, `uri`, `author`, `author_id`, `title`, `reviewer`, `work`, `workplace`, `order_by`, `order`, `limit`, `offset`
 
-Other parameters will be ignored if `isbn`, `uri`, `reviewer` or `work`  is present.
-The `uri` must refer to a bookreview.
+* Other parameters will be ignored if `isbn`, `uri`, `reviewer` or `work`  is present.
+* The `uri` must refer to a bookreview. `uri` can be an Array of uris
+* `offset` and `limit` must be integers.
+* `order_by` allows values `author`, `title`, `reviewer`, `workplace`, `|issued`, `modified`, `created` 
+* `order` must be `desc` or `asc`.
 
 Examples
 ```
@@ -30,8 +35,12 @@ http GET http://data.deichman.no/api/reviews isbn=9788243006218
 http GET http://data.deichman.no/api/reviews author="Knut Hamsun" title="Sult"
 http GET http://data.deichman.no/api/reviews author="Nesbø, Jo"
 http GET http://data.deichman.no/api/reviews uri="http://data.deichman.no/bookreviews/deich3456"
+http GET http://data.deichman.no/api/reviews uri:='["http://data.deichman.no/bookreviews/deich3456",
+                                                    "http://data.deichman.no/bookreviews/deich3457"]'
 http GET http://data.deichman.no/api/reviews reviewer="Test Reviewer"
 http GET http://data.deichman.no/api/reviews work="http://data.deichman.no/work/x18370200_snoemannen"
+http GET http://data.deichman.no/api/reviews limit=20 offset=20 order_by=reviewer order=desc
+
 ```
 #### Returns
 
@@ -46,7 +55,7 @@ Creates a new review
 * Required: `api_key`, `isbn`, `title`, `teaser`, `text`
 * Optional: `reviewer`, `audience`
 
-    allowed audience values are `voksen|adult`, `ungdom|youth`, `children|barn`
+    allowed audience values are `voksen`, `adult`, `ungdom`, `youth`, `children` or `barn`
     can be multiple separated by either comma, slash or pipe (,/|)    
 
 Example
@@ -58,7 +67,7 @@ http POST http://data.deichman.no/api/reviews api_key="dummyapikey" isbn=9788243
 
 #### Returns
 
-* JSON hash of one or more `work`, its `reviews` and `uri` of review
+* JSON hash of the reviewed `work`, its `reviews` and `uri` of review
 * if new reviewer:      reviewer ID (created unique in database as Reviewer and UserAccount
 * if existing reviewer: reviewer name
 
