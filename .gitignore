@@ -9,12 +9,7 @@ pkg
 rdoc
 config/repository.yml
 spec/reports
-test/tmp
-test/version_tmp
 tmp
 logs/*.log
-
-# YARD artifacts
-.yardoc
-_yardoc
 docs/
+Procfile
