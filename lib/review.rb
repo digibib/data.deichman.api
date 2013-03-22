@@ -14,10 +14,9 @@ class Review
   end
   
   # main method to find reviews, GET /api/review
-  # params: uri, isbn, title, author, reviewer, work
-  # TODO: published true/false
+  # params: uri, isbn, title, author, reviewer, work, published
   def find(params={})
-    selects = [:uri, :work_id, :book_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer_name, :accountName, :workplace]
+    selects = [:uri, :work_id, :book_id, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer_name, :accountName, :workplace]
 
     # this clause composes query attributes modified by params from API
     if params.has_key?(:uri)
@@ -69,8 +68,9 @@ class Review
         selects.delete(:work_id)
         uri = URI::parse(params[:work])
         uri = RDF::URI(uri)
-        solutions = review_query(selects, :work => uri)
-        solutions.empty? ? works = nil : works = populate_works(solutions, :work => uri, :cluster => params[:cluster])
+        solutions = new_review_query(selects, :work => uri)
+        #solutions.empty? ? works = nil : works = populate_works(solutions, :work => uri, :cluster => params[:cluster])
+        return nil if solutions.empty?
       rescue URI::InvalidURIError
         return "Invalid URI"
       end
@@ -103,11 +103,29 @@ class Review
       # do a general lookup
       solutions = review_query(selects, params)
       solutions.empty? ? works = nil : works = populate_works(solutions, {:params => params, :cluster => params[:cluster]})
+      #solutions.empty? ? works = nil : works = Work.new.collection(solutions, params)
     end
-    #puts works
-    return works
+    reviews = []
+    solutions.each do |s| 
+      review = s.to_hash.to_struct("Review")
+      reviews << review
+    end
+    reviews
   end  
-  
+
+  def find_by_work(work)
+    selects = [:uri, :book_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer_name, :accountName, :workplace]
+    begin 
+      uri = URI::parse(work)
+      uri = RDF::URI(uri)
+      solutions = review_query(selects, :work => uri)
+      return nil unless solutions.empty?
+    rescue URI::InvalidURIError
+      return "Invalid URI"
+    end
+    solutions
+  end
+    
   def populate_works(solutions, params={})
     # this method populates Work and Review objects, with optional clustering parameter
     works = []
@@ -117,15 +135,13 @@ class Review
       # or make a new Work object
       unless work
         # populate work object (Struct)
-        work = Work.new(
-              solution[:work_id].to_s,
-              solution[:isbn] ? solution[:isbn].to_s.split(', ') : [params[:isbn]],
-              solution[:book_title].to_s,
-              solution[:book_id],
-              solution[:author_id].to_s.split(', '),
-              solution[:author].to_s,
-              solution[:cover_url].to_s
-              )
+        ## HERE!
+        work = Work.new
+        work.uri   = solution[:work_id].to_s
+        work.isbns = (solution[:isbn] ? solution[:isbn].to_s.split(', ') : [params[:isbn]])
+        work.title = solution[:book_title].to_s
+        work.editions = solution[:book_id]
+        work.authors = solution[:author_id].to_s.split(', ')
         work.reviews = []
       end
       # and fill with reviews
@@ -144,7 +160,7 @@ class Review
       review.text      = review_text
       review.reviewer  = solution[:reviewer_name].to_s
       review.source    = solution[:review_source].to_s
-      review.subject   = work.isbn
+      review.subject   = work.isbns
       review.audience  = solution[:review_audience].to_s
       review.published = solution[:issued] ? true : false # published?
       
@@ -160,6 +176,75 @@ class Review
       end
     end
     works
+  end
+  
+  # only allow query on uri, reviewer and workplace. Rest should be on work
+  def new_review_query(selects, params={})
+    api = Hashie::Mash.new(:uri => :uri, :reviewer => :reviewer, :workplace => :workplace)
+    api.merge!(params)
+    puts params
+    
+    # query RDF store for work and reviews
+    query = QUERY.select(*selects)
+    query.group_digest(:review_audience, ',', 1000, 1)
+    query.from(REVIEWGRAPH)
+    query.from_named(BOOKGRAPH)
+    query.from_named(APIGRAPH)
+    query.distinct.where(
+      [api[:uri], RDF.type, RDF::REV.Review],
+      [api[:uri], RDF::DC.created, :created],
+      [api[:uri], RDF::DC.modified, :modified],
+      [api[:uri], RDF::REV.title, :review_title],
+      [api[:uri], RDF::DC.abstract, :review_abstract])
+    query.where.graph2(BOOKGRAPH).group(
+      [:book_id, RDF::REV.hasReview, api[:uri]],
+      [:book_id, RDF.type, RDF::FABIO.Manifestation],
+      [:work_id, RDF::FABIO.hasManifestation, :book_id])
+      # source
+    query.where([api[:uri], RDF::DC.source, :review_source_id],
+      [:review_source_id, RDF::FOAF.name, :review_source, :context => APIGRAPH],
+      # reviewer
+      [api[:uri], RDF::REV.reviewer, api[:reviewer]],
+      [api[:reviewer], RDF::FOAF.name, :reviewer_name, :context => APIGRAPH],
+      # audience
+      [api[:uri], RDF::DC.audience, :review_audience_id],
+      [:review_audience_id, RDF::RDFS.label, :review_audience]
+      )
+      # workplace
+    if params[:workplace]
+      query.where([api[:reviewer], RDF::ORG.memberOf, :workplace_id, :context => APIGRAPH],
+      [:workplace_id, RDF::SKOS.prefLabel, api[:workplace], :context => APIGRAPH], # to get workplace in response
+      [:workplace_id, RDF::SKOS.prefLabel, :workplace, :context => APIGRAPH])
+    else
+      query.optional([api[:reviewer], RDF::ORG.memberOf, :workplace_id, :context => APIGRAPH],
+      [:workplace_id, RDF::SKOS.prefLabel, :workplace, :context => APIGRAPH])
+    end
+    query.filter('(lang(?review_audience) = "no")') 
+    # optional attributes
+    query.optional([api[:uri], RDF::DC.issued, :issued]) # made optional to allow sorting by published true/false
+    query.optional(
+      [api[:reviewer], RDF::FOAF.account, :useraccount, :context => APIGRAPH],
+      [:useraccount, RDF::FOAF.accountName, :accountName, :context => APIGRAPH]
+      )      
+    # filter by published parameter
+    query.filter('bound(?issued)') if params[:published] == true
+    query.filter('!bound(?issued)') if params[:published] == false
+    
+    # optimize query in virtuoso, drastically improves performance on optionals
+    query.define('sql:select-option "ORDER"')
+    # limit, offset and order by params
+    params[:limit] ? query.limit(params[:limit]) : query.limit(10)
+    query.offset(params[:offset]) if params[:offset]
+    if /(reviewer|workplace|issued|modified|created)/.match(params[:order_by].to_s)
+      if /(desc|asc)/.match(params[:order].to_s)  
+        query.order_by("#{params[:order].upcase}(?#{params[:order_by]})")
+      else
+        query.order_by(params[:order_by].to_sym)
+      end
+    end
+    
+    puts "#{query.pp}" if ENV['RACK_ENV'] == 'development'
+    solutions = REPO.select(query)
   end
   
   def review_query(selects, params={})
@@ -180,30 +265,34 @@ class Review
     query.group_digest(:isbn, ', ', 1000, 1) if api[:isbn] == :isbn
     query.group_digest(:review_audience, ',', 1000, 1)
     query.sample(:cover_url)
+    query.from(REVIEWGRAPH)
+    query.from_named(BOOKGRAPH)
+    query.from_named(APIGRAPH)
     query.distinct.where(
-      [api[:uri], RDF.type, RDF::REV.Review, :context => REVIEWGRAPH],
-      [api[:uri], RDF::DC.created, :created, :context => REVIEWGRAPH],
-      [api[:uri], RDF::DC.modified, :modified, :context => REVIEWGRAPH],
-      [api[:uri], RDF::REV.title, :review_title, :context => REVIEWGRAPH],
-      [api[:uri], RDF::DC.abstract, :review_abstract, :context => REVIEWGRAPH],
-      [:book_id, RDF::REV.hasReview, api[:uri], :context => BOOKGRAPH],
-      [:book_id, RDF.type, RDF::FABIO.Manifestation, :context => BOOKGRAPH],
-      [:book_id, RDF::BIBO.isbn, api[:isbn], :context => BOOKGRAPH],
-      [:book_id, RDF::DC.title, :book_title, :context => BOOKGRAPH], # filtered by regex later
+      [api[:uri], RDF.type, RDF::REV.Review],
+      [api[:uri], RDF::DC.created, :created],
+      [api[:uri], RDF::DC.modified, :modified],
+      [api[:uri], RDF::REV.title, :review_title],
+      [api[:uri], RDF::DC.abstract, :review_abstract])
+    query.where.graph2(BOOKGRAPH).group(
+      [:book_id, RDF::REV.hasReview, api[:uri]],
+      [:book_id, RDF.type, RDF::FABIO.Manifestation],
+      [:book_id, RDF::BIBO.isbn, api[:isbn]],
+      [:book_id, RDF::DC.title, :book_title], # filtered by regex later
       # work & author
-      [api[:work], RDF::FABIO.hasManifestation, :book_id, :context => BOOKGRAPH], 
-      [api[:work], RDF::DC.creator, api[:author_id], :context => BOOKGRAPH],
-      [api[:work], RDF::DC.creator, :author_id, :context => BOOKGRAPH],     # to get author_id in response
-      [api[:author_id], RDF::FOAF.name, :author, :context => BOOKGRAPH],    # filtered by regex later
+      [api[:work], RDF::FABIO.hasManifestation, :book_id], 
+      [api[:work], RDF::DC.creator, api[:author_id]],
+      [api[:work], RDF::DC.creator, :author_id],     # to get author_id in response
+      [api[:author_id], RDF::FOAF.name, :author])    # filtered by regex later
       # source
-      [api[:uri], RDF::DC.source, :review_source_id, :context => REVIEWGRAPH],
+    query.where([api[:uri], RDF::DC.source, :review_source_id],
       [:review_source_id, RDF::FOAF.name, :review_source, :context => APIGRAPH],
       # reviewer
-      [api[:uri], RDF::REV.reviewer, api[:reviewer], :context => REVIEWGRAPH],
+      [api[:uri], RDF::REV.reviewer, api[:reviewer]],
       [api[:reviewer], RDF::FOAF.name, :reviewer_name, :context => APIGRAPH],
       # audience
-      [api[:uri], RDF::DC.audience, :review_audience_id, :context => REVIEWGRAPH],
-      [:review_audience_id, RDF::RDFS.label, :review_audience, :context => REVIEWGRAPH]
+      [api[:uri], RDF::DC.audience, :review_audience_id],
+      [:review_audience_id, RDF::RDFS.label, :review_audience]
       )
       # workplace
     if params[:workplace]
@@ -218,7 +307,7 @@ class Review
     # optional attributes
     # NB! all these optionals adds extra ~2 sec to query
     query.optional([:book_id, RDF::FOAF.depiction, :cover_url, :context => BOOKGRAPH])
-    query.optional([api[:uri], RDF::DC.issued, :issued, :context => REVIEWGRAPH]) # made optional to allow sorting by published true/false
+    query.optional([api[:uri], RDF::DC.issued, :issued]) # made optional to allow sorting by published true/false
     query.optional(
       [api[:reviewer], RDF::FOAF.account, :useraccount, :context => APIGRAPH],
       [:useraccount, RDF::FOAF.accountName, :accountName, :context => APIGRAPH]
@@ -253,7 +342,7 @@ class Review
       end
     end
     
-    puts "#{query}" if ENV['RACK_ENV'] == 'development'
+    puts "#{query.pp}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
   end
 
@@ -321,7 +410,7 @@ class Review
     # DO NOT delete DC.created and DC.issued properties on update unless published is changed
     deletequery = QUERY.delete([self.uri, :p, :o]).graph(REVIEWGRAPH)
     deletequery.where([self.uri, :p, :o])
-    # MINUS not working properly until virtuoso 6.1.6!
+    # MINUS not working properly as of virtuoso 6.1.6!
     #deletequery.minus([self.uri, RDF::DC.created, :o])
     #deletequery.minus([self.uri, RDF::DC.issued, :o])
     deletequery.filter("?p != <#{RDF::DC.created.to_s}>")

@@ -1,7 +1,9 @@
-Reviewer = Struct.new(:uri, :name, :workplaceHomepage, :userAccount, :accountName, :password, :email, :status, :accountServiceHomepage, :workplace, :workplace_id)
+Reviewer = Struct.new(:uri, :name, :workplaceHomepage, :userAccount, :accountName, :password, :status, :accountServiceHomepage, :workplace, :workplace_id)
+
+# main class for reviewer lookup and create/update/delete
 class Reviewer
   def all
-    query = QUERY.select(:uri, :name, :userAccount, :accountName, :email, :status, 
+    query = QUERY.select(:uri, :name, :userAccount, :accountName, :status, 
                         :accountServiceHomepage, :workplace, :workplace_id).from(APIGRAPH)
     query.where(
       [:uri, RDF.type, RDF::FOAF.Person],
@@ -16,7 +18,6 @@ class Reviewer
       [:uri, RDF::ORG.memberOf, :workplace_id],
       [:workplace_id, RDF::SKOS.prefLabel, :workplace])
     query.optional([:userAccount, RDF::ACC.status, :status])
-    query.optional([:userAccount, RDF::SIOC.email, :email])    
     query.optional([:userAccount, RDF::ACC.password, :password])    
     query.optional([:userAccount, RDF::FOAF.workplaceHomepage, :workplaceHomepage])
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
@@ -33,10 +34,10 @@ class Reviewer
   end
   
   def find(params)
-    return nil unless params[:uri] || params[:name]
-    selects = [:uri, :name, :workplaceHomepage, :userAccount, :accountName, :email, :status, :password,  
+    return nil unless params[:uri] || params[:name] || params[:accountName]
+    selects = [:uri, :name, :workplaceHomepage, :userAccount, :accountName, :status, :password,  
                         :accountServiceHomepage, :workplace, :workplace_id]
-    api = Hashie::Mash.new(:uri => :uri, :name => :name, :isbn => :isbn, :author => :author, :author_id => :author_id, :title => :title)
+    api = Hashie::Mash.new(:uri => :uri, :name => :name, :accountName => :accountName, :isbn => :isbn, :author => :author, :author_id => :author_id, :title => :title)
     params[:uri] = RDF::URI(params[:uri]) if params[:uri]
     api.merge!(params)
     # remove variable from selects array if variable given as param
@@ -45,10 +46,10 @@ class Reviewer
     query = QUERY.select(*selects).from(APIGRAPH)
     query.where([api[:uri], RDF.type, RDF::FOAF.Person],
     # reviewer by foaf name
-      [api[:uri], RDF::FOAF.name, :name],
+      [api[:uri], RDF::FOAF.name, api[:name]],
     # reviewer by accountname
       [api[:uri], RDF::FOAF.account, :userAccount],
-      [:userAccount, RDF::FOAF.accountName, :accountName],
+      [:userAccount, RDF::FOAF.accountName, api[:accountName]],
       [:userAccount, RDF::FOAF.accountServiceHomepage, :accountServiceHomepage])
     # reviewer workplace
     query.optional(
@@ -56,17 +57,13 @@ class Reviewer
       [:workplace_id, RDF::SKOS.prefLabel, :workplace])    
     # status
     query.optional([:userAccount, RDF::ACC.status, :status])
-    query.optional([:userAccount, RDF::SIOC.email, :email])    
     query.optional([:userAccount, RDF::ACC.password, :password])
     query.optional([api[:uri], RDF::FOAF.workplaceHomepage, :workplaceHomepage])
-    query.filter('regex(?name, "' + api[:name] + '", "i")') if params[:name]
-    #query.filter('regex(?workplace, "' + api[:workplace] + '", "i" ) || regex(?workplace_id, "' + api[:workplace] + '", "i")') if params[:workplace]  
-    #puts query
-    puts "#{query}" if ENV['RACK_ENV'] == 'development'
+    puts "#{query.pp}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
     return nil if solutions.empty? # not found!
     puts solutions.inspect if ENV['RACK_ENV'] == 'development'
-    self.uri  = params[:uri] if params[:uri] 
+    self.uri  = RDF::URI(params[:uri]) if params[:uri] 
     self.name = params[:name] if params[:name]
     # populate Review Struct    
     self.members.each {|name| self[name] = solutions.first[name] unless solutions.first[name].nil? }  
@@ -81,7 +78,7 @@ class Reviewer
     # find source
     source = Source.new.find_by_apikey(params[:api_key])
     return "Invalid api_key" unless source
-    
+
     # create a new reviewer id, Reviewer and Account
     self.uri = source.autoincrement_resource(source.uri.to_s, resource = "reviewer")
     return nil unless self.uri # break out if unable to generate unique ID
@@ -98,11 +95,10 @@ class Reviewer
       end
     end
     self.workplaceHomepage = RDF::URI("#{params[:workplaceHomepage]}") if params[:workplaceHomepage]
-    self.accountName = "#{params[:name].urlize}"
+    self.accountName = "#{params[:accountName]}"
     self.accountServiceHomepage = source.uri
     self.name     = "#{params[:name]}"
-    self.password = "#{self.accountName.to_s}123"
-    self.email    = "#{params[:email]}"
+    self.password = "#{self.accountName.split('@').first}123"
     self.status   = RDF::ACC.ActivationNeeded
     self
   end
@@ -134,7 +130,8 @@ class Reviewer
         self.workplace    = workplace.prefLabel.to_s
       end
     end
-    # update reviewer with new params    
+    # Then update
+    params.delete(:uri) # don't update uri!
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
     self.status = RDF::ACC.ActivationNeeded if inactivate
     self.status = nil if activate
@@ -157,7 +154,6 @@ class Reviewer
     insert_statements << RDF::Statement.new(self.userAccount, RDF::ACC.password, self.password)
     insert_statements << RDF::Statement.new(self.userAccount, RDF::FOAF.accountServiceHomepage, self.accountServiceHomepage)
     # optionals
-    insert_statements << RDF::Statement.new(self.userAccount, RDF::SIOC.email, self.email) unless self.email.nil?
     insert_statements << RDF::Statement.new(self.userAccount, RDF::ACC.status, self.status) unless self.status.nil?
     insert_statements << RDF::Statement.new(self.userAccount, RDF::ACC.lastActivity, RDF::Literal(Time.now.xmlschema, :datatype => RDF::XSD.dateTime))
     query = QUERY.insert_data(insert_statements).graph(APIGRAPH)

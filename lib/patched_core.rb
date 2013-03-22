@@ -131,3 +131,12 @@ class Hash
     self.delete_if {|k,v| v.respond_to?(:empty?) && v.empty? }
   end
 end
+
+# monkey-patch Virtuoso gem for pretty printing to logs 
+module RDF::Virtuoso
+  class Query
+    def pp
+      self.to_s.gsub(/(SELECT|FROM|WHERE|GRAPH|FILTER)/,"\n"+'\1').gsub(/(\s\.\s|WHERE\s{\s|})(?!})/, '\1'+"\n")
+    end
+  end
+end

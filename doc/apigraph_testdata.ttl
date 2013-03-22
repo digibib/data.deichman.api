@@ -4,6 +4,7 @@
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
 @prefix sioc: <http://rdfs.org/sioc/ns#>.
+@prefix skos: <http://www.w3.org/2004/02/skos/core#>.
 @prefix acc: <http://purl.org/NET/acc#>.
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
 @prefix org: <http://www.w3.org/ns/org#>.
@@ -49,7 +50,7 @@
 ###
 
 <http://data.deichman.no/account/id_0> a sioc:UserAccount;
-  foaf:accountName "anonymous";
+  foaf:accountName "test@person.com";
   foaf:accountServiceHomepage <http://data.deichman.no/source/test>;
   acc:password "secret";
   acc:lastActivity "2012-12-08T11:40:00+02:00"^^xsd:dateTime;
