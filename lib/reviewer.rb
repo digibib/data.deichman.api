@@ -98,7 +98,7 @@ class Reviewer
     self.workplaceHomepage = RDF::URI("#{params[:workplaceHomepage]}") if params[:workplaceHomepage]
     self.accountName = "#{params[:accountName]}"
     self.accountServiceHomepage = source.uri
-    self.name     = "#{params[:name]}"
+    params[:name] ? self.name = "#{params[:name]}" : self.name = "#{params[:accountName]}"
     self.password = "#{self.accountName.split('@').first}123"
     self.status   = RDF::ACC.ActivationNeeded
     self

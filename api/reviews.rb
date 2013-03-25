@@ -1,4 +1,12 @@
 #encoding: utf-8
+class Email < Grape::Validations::SingleOptionValidator
+  def validate_param!(attr_name, params)
+    unless params[attr_name] =~ /[[:ascii:]]+@[[:ascii:]]+\.[[:ascii:]]{2,4}/
+      throw :error, :status => 400, :message => "#{attr_name}: must be a valid email"
+    end
+  end
+end
+
 module API
   class Reviews < Grape::API
   # /api/reviews
@@ -10,7 +18,7 @@ module API
             optional :title,       type: String, desc: "Book title"
             optional :author_name, type: String, desc: "Book author"
             optional :author,      type: String, desc: "URI of Book author"
-            optional :reviewer,    type: String, desc: "URI of Review author"
+            optional :reviewer,    type: String, desc: "Reviewer's email, uri or name"
             optional :work,        type: String, desc: "URI of Work"
             optional :workplace,   type: String, desc: "URI of Reviewer's workplace"
             optional :limit,       type: Integer, desc: "Limit result"
@@ -39,11 +47,13 @@ module API
           error!("no reviews found", 200)
         else
           # found reviews, append to works
-          works = Review.new.populate_works_from_reviews(reviews)
+          works = Review.new.reviews_to_works(reviews)
           #reviews.each do |review|
-          #  (@works ||=[]) << Work.new.find(:isbn => review.subject).first
+          #  work = Work.new.find(:work => review.work, :reviews => false)
+          #  work.first.reviews << review if work
+          #  (@works ||=[]) << work
           #end
-          #logger.info "Works: #{@works.count} - Reviews: #{c=0 ; @works.each {|w| c += w.reviews.count};c}"
+          logger.info "Works: #{works.count} - Reviews: #{c=0 ; works.each {|w| c += w.reviews.count};c}"
           {:works => works }
         end
       end
@@ -52,7 +62,7 @@ module API
         params do
           requires :api_key,   type: String, desc: "Authorization Key"
           requires :isbn,      type: String, desc: "ISBN of reviewed book"
-          optional :reviewer,  type: String, desc: "Name of reviewer"
+          optional :reviewer,  type: String, desc: "Reviewer's email", email: true 
           optional :published, type: Boolean, desc: "Published - true/false"
           optional :series,    type: Boolean, desc: "Is review on a series of books? - NOT IMPLEMENTED YET"
           # allow creating draft without :title, :teaser & :text
@@ -68,16 +78,16 @@ module API
         valid_params = ['api_key','isbn','title','teaser','text','audience', 'reviewer', 'published', 'series']
         if valid_params.any? {|p| params.has_key?(p) }
           params.delete_if {|p| !valid_params.include?(p) }
+          work = Work.new.find(:isbn => params[:isbn])
+          error!("Sorry, #{params[:isbn]} matches no known book in our base", 400) if work == "Invalid ISBN"
           review = Review.new.create(params)
-          error!("Sorry, #{params[:isbn]} matches no known book in our base", 400) if review == "Invalid ISBN"
           error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if review == "Invalid api_key"
           error!("Sorry, unable to create/obtain unique ID of reviewer", 400) if review == "Invalid Reviewer ID"
           error!("Sorry, unable to generate unique ID of review", 400) if review == "Invalid UID"
           result = review.save
           logger.info "POST: params: #{params} - review: #{review}"
-          (works ||=[]) << Work.new.find(:isbn => params[:isbn]).first
-          works.first.reviews << review
-          {:works => works }
+          work.first.reviews << review
+          {:works => work }
         else
           logger.error "invalid or missing params"   
           error!("Need at least one param of title|teaser|text|audience|reviewer|published", 400)      
@@ -113,8 +123,9 @@ module API
           error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if review == "Invalid api_key"
           #throw :error, :status => 400, :message => "Sorry, unable to update review #{params[:uri]} ..." if result =~ /nothing to do/
           logger.info "PUT: params: #{params} - review: #{review}"
-          (works ||=[]) << Work.new.find(:isbn => review.subject).first
-          works.first.reviews << review
+          works = Review.new.reviews_to_works(reviews)
+          #(works ||=[]) << Work.new.find(:isbn => review.subject).first
+          #works.first.reviews << review
           {:works => works }
         else
           logger.error "invalid or missing params"   
@@ -131,14 +142,14 @@ module API
         #header['Content-Type'] = 'application/json; charset=utf-8'
         content_type 'json'
         # is it in the base?
-        works = Review.new.find(:uri => params[:uri])
-        error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if works.nil?
+        reviews = Review.new.find(:uri => params[:uri])
+        error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if reviews.nil?
         # yes, then delete it!
-        result = works.first.reviews.first.delete(params)
-        error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if works == "Invalid api_key"
-        error!("Sorry, unable to delete review #{params[:uri]} ...", 400) if works.nil? || works =~ /nothing to do/
-        logger.info "DELETE: params: #{params} - result: #{works}"
-        {:result => result, :review => works.first.reviews.first }
+        result = reviews.first.delete(params)
+        error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviews == "Invalid api_key"
+        error!("Sorry, unable to delete review #{params[:uri]} ...", 400) if reviews.nil? || reviews =~ /nothing to do/
+        logger.info "DELETE: params: #{params} - result: #{reviews}"
+        {:result => result }
       end
     end
   end

@@ -14,20 +14,20 @@ class Work
   # under construction
   # params: uri, title, author, author's URI, isbn
   def find(params)
-    return nil unless params[:uri] || params[:title] || params[:isbn] || params[:author] || params[:author_id]
-    selects = [:uri, :originalTitle, :title, :lang, :edition, :isbn, :author, :author_id, :cover_url]
-    api = Hashie::Mash.new(:uri => :uri, :name => :name, :isbn => :isbn, :author => :author, :author_id => :author_id, :title => :title)
+    return nil unless params[:uri] || params[:title] || params[:isbn] || params[:author] || params[:author_name]
+    selects = [:uri, :originalTitle, :title, :lang, :edition, :isbn, :author, :author_name, :cover_url]
+    api = Hashie::Mash.new(:uri => :uri, :name => :name, :isbn => :isbn, :author => :author, :author_name => :author_name, :title => :title)
     # handle params
     params[:uri] = RDF::URI(params[:uri]) if params[:uri]
-    params[:author_id] = RDF::URI(params[:author_id]) if params[:author_id]
+    params[:author] = RDF::URI(params[:author]) if params[:author]
     params[:isbn] = String.new.sanitize_isbn("#{params[:isbn]}") if params[:isbn]
     api.merge!(params)
     selects.delete(:isbn) if api[:isbn] == :isbn
     
     # disabled freetext author/title search
     # do we have freetext searches on author/title?
-    #author_search   = params[:author] ? params[:author].gsub(/[[:punct:]]/, '').split(" ") : nil
-    #title_search    = params[:title] ? params[:title].gsub(/[[:punct:]]/, '').split(" ") : nil
+    author_search   = params[:author_name] ? params[:author_name].gsub(/[[:punct:]]/, '').split(" ") : nil
+    title_search    = params[:title] ? params[:title].gsub(/[[:punct:]]/, '').split(" ") : nil
     
     query = QUERY.select(*selects).from(BOOKGRAPH)
     query.group_digest(:isbn, ', ', 1000, 1) if api[:isbn] == :isbn
@@ -38,14 +38,14 @@ class Work
       query.where([api[:uri], RDF.type, RDF::FABIO.Work],[:uri, RDF.type, RDF::FABIO.Work])
 
     # author id
-    api[:author_id].is_a?(Symbol) ?
-      query.where([api[:uri], RDF::DC.creator, api[:author_id]],[api[:author_id], RDF::FOAF.name, :author]) :
-      query.where([api[:uri], RDF::DC.creator, api[:author_id]],[api[:author_id], RDF::FOAF.name, api[:author]],[:author_id, RDF::FOAF.name, :author])
+    api[:author].is_a?(Symbol) ?
+      query.where([api[:uri], RDF::DC.creator, api[:author]],[api[:author], RDF::FOAF.name, :author_name]) :
+      query.where([api[:uri], RDF::DC.creator, api[:author]],[api[:author], RDF::FOAF.name, api[:author_name]],[:author, RDF::FOAF.name, :author_name])
     
     # author 
-    api[:author].is_a?(Symbol) ?
-      query.where([:author_id, RDF::FOAF.name, api[:author]]) :
-      query.where([:author_id, RDF::FOAF.name, api[:author]],[:author_id, RDF::FOAF.name, :author])
+    api[:author_name].is_a?(Symbol) ?
+      query.where([:author, RDF::FOAF.name, api[:author_name]]) :
+      query.where([:author, RDF::FOAF.name, api[:author_name]],[:author, RDF::FOAF.name, :author_name])
     # isbn
     api[:isbn].is_a?(Symbol) ?
       query.where([:uri, RDF::BIBO.isbn, api[:isbn]]) :
@@ -58,11 +58,10 @@ class Work
       [:edition, RDF::DC.language, :lang]
       )
     query.optional([:edition, RDF::FOAF.depiction, :cover_url])
-=begin
-  disabled freetext search
+
     if author_search
       author_search.each do |author|
-        query.filter("regex(?author, \"#{author}\", \"i\")")
+        query.filter("regex(?author_name, \"#{author}\", \"i\")")
       end
     end
 
@@ -71,7 +70,7 @@ class Work
         query.filter("regex(?title, \"#{title}\", \"i\")")
       end
     end
-=end    
+
     puts "#{query.pp}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
     return nil if solutions.empty? # not found!
@@ -88,9 +87,8 @@ class Work
   # params: 
   #   :cluster => (Bool) Cluster under distinct works. Default false
   #   :reviews => (Bool) Include reviews               Default true
-  def cluster(solutions, params={})
+  def cluster(solutions, params)
     works = []
-    #if params[:cluster]
       # make a clone of distinct works first
       distinct_works = Marshal.load(Marshal.dump(solutions)).select(:uri).distinct
       # loop each distinct work and iterate matching solutions into a new Work
@@ -103,7 +101,7 @@ class Work
   end
   
   # populates work struct based on cluster, optionally with reviews
-  def populate_work(cluster, params={:reviews => true})
+  def populate_work(cluster, params)
     # first solution creates Work, the rest appends info
     work = Work.new
     work.uri       =  cluster.first[:uri] 
@@ -111,11 +109,11 @@ class Work
     work.cover_url = cluster.first[:cover_url] if cluster.first[:cover_url]
     work.isbns     = (cluster.first[:isbn] ? cluster.first[:isbn].to_s.split(', ') : [params[:isbn]])
     cluster.each do |s|
-      work.authors   << Author.new(s[:author_id], s[:author]) unless work.authors.find {|a| a[:uri] == s[:author_id] }
+      work.authors   << Author.new(s[:author], s[:author_name]) unless work.authors.find {|a| a[:uri] == s[:author] }
       work.editions  << Edition.new(s[:edition], s[:title], s[:cover_url]) unless work.editions.find {|a| a[:uri] == s[:edition] }
       work.prefTitle  = s[:title] if s[:lang] == RDF::URI("http://lexvo.org/id/iso639-3/nob") || s[:lang] == RDF::URI("http://lexvo.org/id/iso639-3/nno")
     end
-    work.reviews = fetch_reviews(work.uri) if params[:reviews]
+    work.reviews = fetch_reviews(work.uri) if params[:reviews] == true
     work
   end
   
@@ -125,7 +123,7 @@ class Work
   end
   
   def fetch_reviews(uri)
-    Review.new.find(:work => uri)
+    Review.new.find(:work => uri, :published => true)
   end
 
 end

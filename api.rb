@@ -31,7 +31,7 @@ module API
     rescue_from :all, :backtrace => true
     format :json
     default_format :json
-    #use ApiErrorHandler
+    use ApiErrorHandler
     
     mount API::Reviews
     mount API::Works

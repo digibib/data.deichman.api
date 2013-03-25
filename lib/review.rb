@@ -116,23 +116,25 @@ class Review
   end
   
   ### methods for inserting review into Work
-  def populate_works_from_reviews(reviews)
+  def reviews_to_works(reviews)
     works = []
-    reviews.each {|r| works << r.add_work }
+    reviews.each {|r| work = r.add_work; works << work.first if work }
     works
   end
 
-  # private methods  
-  # this method simply looks up work
-  def find_work
-    work = Work.new.find(:uri => self.work.to_s, :reviews => false)
-  end
-  
+  # private methods
   # this method adds review to work
   def add_work
-    work = find_work.first
-    work.reviews = [self]
+    work = find_work
+    return nil unless work
+    work.first.reviews = [self]
     work
+  end
+  
+  
+  # this method simply looks up work
+  def find_work
+    work = Work.new.find(:uri => self.work, :reviews => false)
   end
   
   # deprecated
@@ -272,10 +274,12 @@ class Review
     return "Invalid ISBN" unless work
     
     if params[:reviewer]
-      params[:name] = params[:reviewer] # Reviewer takes :name parameter
-      reviewer = Reviewer.new.find(:name => params[:reviewer])
-      reviewer = Reviewer.new.create(params) if reviewer.nil? # create new if not found
+      params[:accountName] = params[:reviewer] # Reviewer takes :name parameter
+      reviewer = Reviewer.new.find(:accountName => params[:reviewer])
+      reviewer = Reviewer.new.create(:accountName => params[:accountName], 
+                                     :api_key => params[:api_key]) if reviewer.nil? # create new if not found
       return "Invalid Reviewer ID" unless reviewer
+      reviewer.save
     else
       # default to anonymous user
       reviewer = Reviewer.new.find(:uri => "http://data.deichman.no/reviewer/id_0")
@@ -336,7 +340,7 @@ class Review
     # Then update
     params.delete(:uri) # don't update uri!
     # reviewer
-    reviewer = Reviewer.new.find(:uri => self.reviewer)
+    reviewer = Reviewer.new.find(:uri => self.reviewer.uri)
     params[:teaser] = String.new.clean_text(params[:teaser]) if params[:teaser]
     params[:text]   = String.new.clean_text(params[:text]) if params[:text] 
     # make sure we have audience!
@@ -354,7 +358,7 @@ class Review
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
     self.modified  = Time.now.xmlschema
     self.source    = source.uri
-    self.reviewer  = reviewer.uri.to_s
+    self.reviewer  = reviewer.uri
     # change issued if publish state changed
     self.issued = Time.now.xmlschema if publish
     self.issued = nil if unpublish

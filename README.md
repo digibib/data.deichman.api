@@ -3,7 +3,33 @@
 ## Endpoint
     http://data.deichman.no/api
 
-The return format is JSON.
+The return format is JSON. All responses from /api/reviews and /api/works now responds to the format:
+
+```
+"works" : [
+  { "uri" : "http://example.com/workid",
+    "title" : "a title",
+    "authors": [
+      {
+      "uri": "http://example.com/authorid",
+      "name": Author's name",
+      }
+    ],
+      ...
+    "reviews" : [ 
+      {
+      "uri": "http://example.com/review_id",
+      "title": "A Review Title",
+      "reviewer": {
+        "uri": "http://example.com/reviewer_id",
+        "name": "Reviewer's name"
+        },
+      }
+    ]
+  }
+]
+         
+```
 
 ## Available routes and HTTP methods
 The API will be expanded as we see fit. Currently only the `/reviews` endpoint is implemented.
@@ -21,9 +47,9 @@ The API is open for anyone to use, but a key is required in order to write to th
 
 Fetches one or more reviews
 
-#### Allowed parameters: `isbn`, `uri`, `author`, `author_id`, `title`, `reviewer`, `work`, `workplace`, `order_by`, `order`, `limit`, `offset`
+#### Allowed parameters: `reviewer`, `work`, `workplace`, `order_by`, `order`, `limit`, `offset`
 
-* Other parameters will be ignored if `isbn`, `uri`, `reviewer` or `work`  is present.
+* Other parameters will be ignored if `uri`, `reviewer` or `work`  is present.
 * The `uri` must refer to a bookreview. `uri` can be an Array of uris
 * `offset` and `limit` must be integers.
 * `order_by` allows values `author`, `title`, `reviewer`, `workplace`, `|issued`, `modified`, `created` 
@@ -31,9 +57,6 @@ Fetches one or more reviews
 
 Examples
 ```
-http GET http://data.deichman.no/api/reviews isbn=9788243006218
-http GET http://data.deichman.no/api/reviews author="Knut Hamsun" title="Sult"
-http GET http://data.deichman.no/api/reviews author="Nesbø, Jo"
 http GET http://data.deichman.no/api/reviews uri="http://data.deichman.no/bookreviews/deich3456"
 http GET http://data.deichman.no/api/reviews uri:='["http://data.deichman.no/bookreviews/deich3456",
                                                     "http://data.deichman.no/bookreviews/deich3457"]'
@@ -42,9 +65,27 @@ http GET http://data.deichman.no/api/reviews work="http://data.deichman.no/work/
 http GET http://data.deichman.no/api/reviews limit=20 offset=20 order_by=reviewer order=desc
 
 ```
-#### Returns
 
-JSON hash of one or more `work`, and an array of its `reviews`
+### GET /works
+
+Fetches one or more works, optionally with reviews
+
+#### Allowed parameters: `uri`, `isbn`, `title`, `author`, `author_name`
+
+* Other parameters will be ignored if `uri`or `isbn` is present.
+* The `uri` must refer to a work id. `uri`
+* `offset` and `limit` must be integers.
+* `order_by` allows values `author`, `title`, `reviewer`, `workplace`, `|issued`, `modified`, `created` 
+* `order` must be `desc` or `asc`.
+
+Examples
+```
+http GET http://data.deichman.no/api/works uri="http://data.deichman.no/work/x18370200_snoemannen" reviews=true
+http GET http://data.deichman.no/api/works uri:='["http://data.deichman.no/resource/work/x123456",
+                                                    "http://data.deichman.no/resource/work/x123456"]'
+http GET http://data.deichman.no/api/works title="Test Title"
+http GET http://data.deichman.no/api/works author="Jo Nesbø" reviews=true limit=10 order_by=reviewer order=desc
+```
 
 ### POST /reviews
 
@@ -65,12 +106,6 @@ http POST http://data.deichman.no/api/reviews api_key="dummyapikey" isbn=9788243
     reviewer="John Doe" audience="children"
 ```
 
-#### Returns
-
-* JSON hash of the reviewed `work`, its `reviews` and `uri` of review
-* if new reviewer:      reviewer ID (created unique in database as Reviewer and UserAccount
-* if existing reviewer: reviewer name
-
 ### PUT /reviews
 
 Updates existing review
@@ -80,9 +115,6 @@ Updates existing review
 * Required: `api_key`, `uri`
 * Optional: `isbn|title|teaser|text|reviewer|audience`
 
-#### Returns
-
-JSON hash of modified review, `before` and `after`
 
 ### DELETE /reviews
 
@@ -94,4 +126,4 @@ Deletes a review
 
 #### Returns
 
-JSON hash success/failure (boolean)
+JSON hash result string
