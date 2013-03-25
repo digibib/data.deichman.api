@@ -1,22 +1,23 @@
 #encoding: utf-8
 
-Review = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :workplace, 
-          :audience, :subject, :work_id, :book_id, :created, :issued, :modified, :published)
+Review   = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :workplace, 
+            :audience, :subject, :work, :edition, :created, :issued, :modified, :published)
+Audience = Struct.new(:uri, :prefLabel)
 
 class Review
   
   # return all reviews, but with limits...
-  def all(params={:limit=>10, :offset=>0, :order_by=>"author", :order=>"asc"})
-    selects     = [:uri, :work_id, :book_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer_name, :accountName, :workplace]
+  def all(params={:limit=>10, :offset=>0, :order_by=>"created", :order=>"desc"})
+    selects = [:uri, :work, :title, :teaser, :edition, :created, :issued, :modified, :source, :source_name, :subject, :reviewer, :reviewer_name, :accountName, :workplace, :workplace_name]
     solutions = review_query(selects, params)
-    solutions.empty? ? reviews = nil : reviews = populate_works(solutions, :params => params, :cluster => params[:cluster])
-    reviews
+    return nil if solutions.empty?
+    reviews = populate_reviews(solutions)
   end
   
   # main method to find reviews, GET /api/review
   # params: uri, isbn, title, author, reviewer, work, published
   def find(params={})
-    selects = [:uri, :work_id, :book_id, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer_name, :accountName, :workplace]
+    selects = [:uri, :work, :title, :teaser, :edition, :created, :issued, :modified, :source, :source_name, :subject, :reviewer, :reviewer_name, :accountName, :workplace, :workplace_name]
 
     # this clause composes query attributes modified by params from API
     if params.has_key?(:uri)
@@ -40,7 +41,6 @@ class Review
             return "Invalid URI"
           end
         end
-        solutions.empty? ? works = nil : works = populate_works(solutions, :uri => uri, :cluster => params[:cluster]) 
       else
         begin
           solutions = RDF::Query::Solutions.new
@@ -57,75 +57,83 @@ class Review
         rescue URI::InvalidURIError
           return "Invalid URI"
         end
-        solutions.empty? ? works = nil : works = populate_works(solutions, :uri => uri, :cluster => params[:cluster]) 
       end
     elsif params.has_key?(:isbn)
       isbn      = String.new.sanitize_isbn("#{params[:isbn]}")
       solutions = review_query(selects, :isbn => isbn)
-      solutions.empty? ? works = nil : works = populate_works(solutions, :isbn => isbn, :cluster => params[:cluster])
     elsif params.has_key?(:work)
       begin 
-        selects.delete(:work_id)
+        selects.delete(:work)
         uri = URI::parse(params[:work])
         uri = RDF::URI(uri)
-        solutions = new_review_query(selects, :work => uri)
-        #solutions.empty? ? works = nil : works = populate_works(solutions, :work => uri, :cluster => params[:cluster])
+        solutions = review_query(selects, :work => uri)
         return nil if solutions.empty?
       rescue URI::InvalidURIError
         return "Invalid URI"
       end
-    elsif params.has_key?(:author_id)
+    elsif params.has_key?(:author)
       begin 
-        uri = URI::parse(params[:author_id])
+        uri = URI::parse(params[:author])
         uri = RDF::URI(uri)
-        solutions = review_query(selects, :author_id => uri)
-        solutions.empty? ? works = nil : works = populate_works(solutions, :author_id => uri, :cluster => params[:cluster])
+        solutions = review_query(selects, :author => uri)
       rescue URI::InvalidURIError
         return "Invalid URI"
       end   
     elsif params.has_key?(:reviewer)
-      reviewer = Reviewer.new.find(:name => params[:reviewer])
+      reviewer = Reviewer.new.find(:uri => params[:reviewer])
       if reviewer
         solutions = review_query(selects, :reviewer => reviewer.uri)
-        solutions.empty? ? works = nil : works = populate_works(solutions, :reviewer => reviewer.uri, :cluster => params[:cluster])
       else
         return "Invalid Reviewer"
       end
     elsif params.has_key?(:workplace)
-      reviewer = Reviewer.new.find(:workplace => params[:workplace])
+      reviewer = Workplace.new.find(:uri => params[:workplace])
       if reviewer
         solutions = review_query(selects, :workplace => reviewer.workplace)
-        solutions.empty? ? works = nil : works = populate_works(solutions, :workplace => reviewer.workplace, :cluster => params[:cluster])
       else
         return "Invalid Workplace"
       end      
     else
       # do a general lookup
       solutions = review_query(selects, params)
-      solutions.empty? ? works = nil : works = populate_works(solutions, {:params => params, :cluster => params[:cluster]})
-      #solutions.empty? ? works = nil : works = Work.new.collection(solutions, params)
     end
-    reviews = []
-    solutions.each do |s| 
-      review = s.to_hash.to_struct("Review")
-      reviews << review
-    end
-    reviews
+    return nil if solutions.empty?
+    reviews = populate_reviews(solutions)
   end  
 
+  # temporary, not needed when finished
   def find_by_work(work)
-    selects = [:uri, :book_id, :book_title, :created, :issued, :modified, :review_title, :review_abstract, :review_source, :reviewer_name, :accountName, :workplace]
+    selects = [:uri, :title, :teaser, :edition, :created, :issued, :modified, :source, :source_name, :subject, :reviewer, :reviewer_name, :accountName, :workplace, :workplace_name]
     begin 
       uri = URI::parse(work)
-      uri = RDF::URI(uri)
+      uri = RDF::URI(work)
       solutions = review_query(selects, :work => uri)
-      return nil unless solutions.empty?
     rescue URI::InvalidURIError
       return "Invalid URI"
     end
-    solutions
+    return nil if solutions.empty?
+    reviews = populate_reviews(solutions)
   end
-    
+  
+  def populate_reviews(solutions)
+    reviews = []
+    solutions.each do |s| 
+      review = s.to_hash.to_struct("Review")
+      review.workplace = Workplace.new(s[:workplace], s[:workplace_name])
+      review.source    = Source.new(s[:source], s[:source_name])
+      review.reviewer  = Reviewer.new(s[:reviewer], s[:reviewer_name])
+      review.audience  = Audience.new(s[:audience], s[:audience_name])
+      review.published = s[:issued] ? true : false # published?
+      ## query text of reviews here to avvoid "Temporary row length exceeded error" in Virtuoso on sorting long texts
+      query = QUERY.select(:text).from(REVIEWGRAPH).where([review.uri, RDF::REV.text, :text])
+      review.text = REPO.select(query).first[:text].to_s
+      ## end append text
+      reviews << review
+    end
+    reviews  
+  end
+  
+  # deprecated
   def populate_works(solutions, params={})
     # this method populates Work and Review objects, with optional clustering parameter
     works = []
@@ -178,15 +186,16 @@ class Review
     works
   end
   
-  # only allow query on uri, reviewer and workplace. Rest should be on work
-  def new_review_query(selects, params={})
-    api = Hashie::Mash.new(:uri => :uri, :reviewer => :reviewer, :workplace => :workplace)
+  # only allow query on uri, work, reviewer and workplace. Rest should query on work
+  def review_query(selects, params={:published=>true})
+    api = Hashie::Mash.new(:uri => :uri, :work=> :work, :reviewer => :reviewer, :workplace => :workplace)
     api.merge!(params)
     puts params
     
     # query RDF store for work and reviews
     query = QUERY.select(*selects)
-    query.group_digest(:review_audience, ',', 1000, 1)
+    query.group_digest(:audience, ',', 1000, 1)
+    query.group_digest(:audience_name, ',', 1000, 1)
     query.from(REVIEWGRAPH)
     query.from_named(BOOKGRAPH)
     query.from_named(APIGRAPH)
@@ -194,32 +203,33 @@ class Review
       [api[:uri], RDF.type, RDF::REV.Review],
       [api[:uri], RDF::DC.created, :created],
       [api[:uri], RDF::DC.modified, :modified],
-      [api[:uri], RDF::REV.title, :review_title],
-      [api[:uri], RDF::DC.abstract, :review_abstract])
+      [api[:uri], RDF::REV.title, :title],
+      [api[:uri], RDF::DC.abstract, :teaser],
+      [api[:uri], RDF::DC.subject, :subject])
     query.where.graph2(BOOKGRAPH).group(
-      [:book_id, RDF::REV.hasReview, api[:uri]],
-      [:book_id, RDF.type, RDF::FABIO.Manifestation],
-      [:work_id, RDF::FABIO.hasManifestation, :book_id])
+      [:edition, RDF::REV.hasReview, api[:uri]],
+      [:edition, RDF.type, RDF::FABIO.Manifestation],
+      [api[:work], RDF::FABIO.hasManifestation, :edition])
       # source
-    query.where([api[:uri], RDF::DC.source, :review_source_id],
-      [:review_source_id, RDF::FOAF.name, :review_source, :context => APIGRAPH],
+    query.where([api[:uri], RDF::DC.source, :source],
+      [:source, RDF::FOAF.name, :source_name, :context => APIGRAPH],
       # reviewer
       [api[:uri], RDF::REV.reviewer, api[:reviewer]],
       [api[:reviewer], RDF::FOAF.name, :reviewer_name, :context => APIGRAPH],
       # audience
-      [api[:uri], RDF::DC.audience, :review_audience_id],
-      [:review_audience_id, RDF::RDFS.label, :review_audience]
+      [api[:uri], RDF::DC.audience, :audience],
+      [:audience, RDF::RDFS.label, :audience_name]
       )
       # workplace
     if params[:workplace]
-      query.where([api[:reviewer], RDF::ORG.memberOf, :workplace_id, :context => APIGRAPH],
-      [:workplace_id, RDF::SKOS.prefLabel, api[:workplace], :context => APIGRAPH], # to get workplace in response
-      [:workplace_id, RDF::SKOS.prefLabel, :workplace, :context => APIGRAPH])
+      query.where([api[:reviewer], RDF::ORG.memberOf, api[:workplace], :context => APIGRAPH],
+        [api[:workplace], RDF::SKOS.prefLabel, api[:workplace], :context => APIGRAPH], # to get workplace in response
+        [api[:workplace], RDF::SKOS.prefLabel, :workplace_name, :context => APIGRAPH])
     else
-      query.optional([api[:reviewer], RDF::ORG.memberOf, :workplace_id, :context => APIGRAPH],
-      [:workplace_id, RDF::SKOS.prefLabel, :workplace, :context => APIGRAPH])
+      query.optional([api[:reviewer], RDF::ORG.memberOf, api[:workplace], :context => APIGRAPH],
+        [api[:workplace], RDF::SKOS.prefLabel, :workplace_name, :context => APIGRAPH])
     end
-    query.filter('(lang(?review_audience) = "no")') 
+    query.filter('(lang(?audience_name) = "no")') 
     # optional attributes
     query.optional([api[:uri], RDF::DC.issued, :issued]) # made optional to allow sorting by published true/false
     query.optional(
@@ -235,7 +245,7 @@ class Review
     # limit, offset and order by params
     params[:limit] ? query.limit(params[:limit]) : query.limit(10)
     query.offset(params[:offset]) if params[:offset]
-    if /(reviewer|workplace|issued|modified|created)/.match(params[:order_by].to_s)
+    if /(author|title|reviewer|workplace|issued|modified|created)/.match(params[:order_by].to_s)
       if /(desc|asc)/.match(params[:order].to_s)  
         query.order_by("#{params[:order].upcase}(?#{params[:order_by]})")
       else
@@ -247,7 +257,8 @@ class Review
     solutions = REPO.select(query)
   end
   
-  def review_query(selects, params={})
+  # deprecated
+  def old_review_query(selects, params={})
     # this method queries RDF store with chosen selects and optional params from API
     # allowed params merged with params given in api
     api = Hashie::Mash.new(:uri => :uri, :isbn => :isbn, :title => :title, :author => :author, :author_id => :author_id, 
@@ -384,8 +395,8 @@ class Review
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
     self.source    = source.uri
     self.subject   = String.new.sanitize_isbn(params[:isbn])
-    self.work_id   = work.first.uri
-    self.book_id   = work.first.manifestation
+    self.work      = work.first.uri
+    self.edition   = work.first.editions.first.uri
     self.reviewer  = reviewer.uri
     self.workplace = reviewer.workplace
     self.created   = Time.now.xmlschema
@@ -423,8 +434,7 @@ class Review
     # Then update
     params.delete(:uri) # don't update uri!
     # reviewer
-    reviewer = Reviewer.new.find(:name => self.reviewer)
-
+    reviewer = Reviewer.new.find(:uri => self.reviewer)
     params[:teaser] = String.new.clean_text(params[:teaser]) if params[:teaser]
     params[:text]   = String.new.clean_text(params[:text]) if params[:text] 
     # make sure we have audience!
@@ -442,7 +452,7 @@ class Review
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
     self.modified  = Time.now.xmlschema
     self.source    = source.uri
-    self.reviewer  = reviewer.uri
+    self.reviewer  = reviewer.uri.to_s
     # change issued if publish state changed
     self.issued = Time.now.xmlschema if publish
     self.issued = nil if unpublish
@@ -472,15 +482,19 @@ class Review
       # default to adult if not given
       insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
     else
-      audiences = String.new.split_param(self.audience)
-      audiences.each do |audience|
-        if audience=="barn" || audience=="children"
-          insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/children"))
-        elsif audience=="ungdom" || audience=="youth"
-          insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/youth"))
-        elsif audience=="voksen" || audience=="adult"
-          insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
+      if self.audience.is_a?(String)
+        audiences = String.new.split_param(self.audience)
+        audiences.each do |audience|
+          if audience=="barn" || audience=="children"
+            insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/children"))
+          elsif audience=="ungdom" || audience=="youth"
+            insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/youth"))
+          elsif audience=="voksen" || audience=="adult"
+            insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
+          end
         end
+      else
+        self.audience.each {|a| insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, self.audience.uri) }
       end
     end
     query = QUERY.insert_data(insert_statements).graph(REVIEWGRAPH)
@@ -489,8 +503,8 @@ class Review
     
     # also insert hasReview property on work and book
     hasreview_statements  = []
-    hasreview_statements << RDF::Statement.new(RDF::URI(self.work_id), RDF::REV.hasReview, self.uri)
-    hasreview_statements << RDF::Statement.new(RDF::URI(self.book_id), RDF::REV.hasReview, self.uri)
+    hasreview_statements << RDF::Statement.new(RDF::URI(self.work), RDF::REV.hasReview, self.uri)
+    hasreview_statements << RDF::Statement.new(RDF::URI(self.edition), RDF::REV.hasReview, self.uri)
     query                 = QUERY.insert_data(hasreview_statements).graph(BOOKGRAPH)
     result                = REPO.insert_data(query)
     self

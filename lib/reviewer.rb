@@ -1,3 +1,4 @@
+#encoding: utf-8
 Reviewer = Struct.new(:uri, :name, :workplaceHomepage, :userAccount, :accountName, :password, :status, :accountServiceHomepage, :workplace, :workplace_id)
 
 # main class for reviewer lookup and create/update/delete

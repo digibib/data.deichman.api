@@ -1,5 +1,8 @@
-source :rubygems
+source "http://rubygems.org"
+gem "builder"
+gem "bundler"
 gem "thin"
+gem "json"
 gem "grape", '0.2.4' #:git => 'https://github.com/intridea/grape.git'
 gem "rdf"
 gem "rdf-n3"

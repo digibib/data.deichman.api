@@ -1,3 +1,4 @@
+# encoding: UTF-8
 require 'rdf'
 
 module RDF

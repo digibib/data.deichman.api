@@ -1,3 +1,4 @@
+# encoding: UTF-8
 module API
   class Works < Grape::API
   # /api/works

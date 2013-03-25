@@ -1,3 +1,4 @@
+# encoding: UTF-8
 module API
   class Users < Grape::API
   # /api/users

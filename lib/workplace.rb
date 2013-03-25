@@ -1,3 +1,4 @@
+#encoding: utf-8
 Workplace = Struct.new(:uri, :prefLabel, :homepage)
 class Workplace
   def all

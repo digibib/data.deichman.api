@@ -1,5 +1,6 @@
 #encoding: utf-8
 require "rubygems"
+require "yaml"
 require "rdf"
 require "rdf/virtuoso"
 # read configuration file into constants
