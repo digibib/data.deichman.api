@@ -7,7 +7,15 @@ describe Work do
     it "returns works by isbn" do
       params = {:isbn => "9788203193538"}
       works = Work.new.find(params)
-      works.first.author.to_s.should == "Jo Nesbø"
+      puts works.inspect
+      works.first.authors.to_s.should == "Jo Nesbø"
+    end
+    
+    it "returns works by author" do
+      params = {:author => "Jo Nesbø"}
+      works = Work.new.find(params)
+      puts works.inspect
+      works.first.authors.to_s.should == "Jo Nesbø"
     end
   end
 end

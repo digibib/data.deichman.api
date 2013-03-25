@@ -10,9 +10,9 @@ describe Reviewer do
     end
     
     it "returns a reviewer by name" do
-      params = {:name => "anonymous"}
+      params = {:name => "Anonymous"}
       r = Reviewer.new.find(params)
-      r.name.to_s.should == "anonymous"
+      r.name.to_s.should == "Anonymous"
     end
   end
   context 'update' do

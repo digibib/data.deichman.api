@@ -2,7 +2,7 @@
 
 Review   = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :workplace, 
             :audience, :subject, :work, :edition, :created, :issued, :modified, :published)
-Audience = Struct.new(:uri, :prefLabel)
+Audience = Struct.new(:uri, :label)
 
 class Review
   
@@ -14,8 +14,8 @@ class Review
     reviews = populate_reviews(solutions)
   end
   
-  # main method to find reviews, GET /api/review
-  # params: uri, isbn, title, author, reviewer, work, published
+  # main method to find reviews, GET /api/reviews
+  # params: uri, reviewer, workplace, published
   def find(params={})
     selects = [:uri, :work, :title, :teaser, :edition, :created, :issued, :modified, :source, :source_name, :subject, :reviewer, :reviewer_name, :accountName, :workplace, :workplace_name]
 
@@ -58,9 +58,6 @@ class Review
           return "Invalid URI"
         end
       end
-    elsif params.has_key?(:isbn)
-      isbn      = String.new.sanitize_isbn("#{params[:isbn]}")
-      solutions = review_query(selects, :isbn => isbn)
     elsif params.has_key?(:work)
       begin 
         selects.delete(:work)
@@ -71,14 +68,6 @@ class Review
       rescue URI::InvalidURIError
         return "Invalid URI"
       end
-    elsif params.has_key?(:author)
-      begin 
-        uri = URI::parse(params[:author])
-        uri = RDF::URI(uri)
-        solutions = review_query(selects, :author => uri)
-      rescue URI::InvalidURIError
-        return "Invalid URI"
-      end   
     elsif params.has_key?(:reviewer)
       reviewer = Reviewer.new.find(:uri => params[:reviewer])
       if reviewer
@@ -100,41 +89,54 @@ class Review
     return nil if solutions.empty?
     reviews = populate_reviews(solutions)
   end  
-
-  # temporary, not needed when finished
-  def find_by_work(work)
-    selects = [:uri, :title, :teaser, :edition, :created, :issued, :modified, :source, :source_name, :subject, :reviewer, :reviewer_name, :accountName, :workplace, :workplace_name]
-    begin 
-      uri = URI::parse(work)
-      uri = RDF::URI(work)
-      solutions = review_query(selects, :work => uri)
-    rescue URI::InvalidURIError
-      return "Invalid URI"
-    end
-    return nil if solutions.empty?
-    reviews = populate_reviews(solutions)
-  end
   
   def populate_reviews(solutions)
     reviews = []
-    solutions.each do |s| 
-      review = s.to_hash.to_struct("Review")
-      review.workplace = Workplace.new(s[:workplace], s[:workplace_name])
-      review.source    = Source.new(s[:source], s[:source_name])
-      review.reviewer  = Reviewer.new(s[:reviewer], s[:reviewer_name])
-      review.audience  = Audience.new(s[:audience], s[:audience_name])
-      review.published = s[:issued] ? true : false # published?
-      ## query text of reviews here to avvoid "Temporary row length exceeded error" in Virtuoso on sorting long texts
-      query = QUERY.select(:text).from(REVIEWGRAPH).where([review.uri, RDF::REV.text, :text])
-      review.text = REPO.select(query).first[:text].to_s
-      ## end append text
+    solutions.each do |s|
+      review = review_to_struct(s)
       reviews << review
     end
-    reviews  
+    reviews
+  end
+
+  # populates individual review
+  def review_to_struct(s)
+    review = s.to_hash.to_struct("Review")
+    review.workplace = Workplace.new(s[:workplace], s[:workplace_name])
+    review.source    = Source.new(s[:source], s[:source_name])
+    review.reviewer  = Reviewer.new(s[:reviewer], s[:reviewer_name])
+    review.audience  = Audience.new( (s[:audience].to_s.split(', ')),
+                                    (s[:audience_name].to_s.split(', ')) )
+    review.published = s[:issued] ? true : false # published?
+    ## query text of reviews here to avvoid "Temporary row length exceeded error" in Virtuoso on sorting long texts
+    query = QUERY.select(:text).from(REVIEWGRAPH).where([review.uri, RDF::REV.text, :text])
+    review.text = REPO.select(query).first[:text].to_s
+    ## end append text
+    review
+  end
+  
+  ### methods for inserting review into Work
+  def populate_works_from_reviews(reviews)
+    works = []
+    reviews.each {|r| works << r.add_work }
+    works
+  end
+
+  # private methods  
+  # this method simply looks up work
+  def find_work
+    work = Work.new.find(:uri => self.work.to_s, :reviews => false)
+  end
+  
+  # this method adds review to work
+  def add_work
+    work = find_work.first
+    work.reviews = [self]
+    work
   end
   
   # deprecated
-  def populate_works(solutions, params={})
+  def old_populate_works(solutions, params={})
     # this method populates Work and Review objects, with optional clustering parameter
     works = []
     solutions.each do |solution|
@@ -187,12 +189,12 @@ class Review
   end
   
   # only allow query on uri, work, reviewer and workplace. Rest should query on work
-  def review_query(selects, params={:published=>true})
-    api = Hashie::Mash.new(:uri => :uri, :work=> :work, :reviewer => :reviewer, :workplace => :workplace)
+  def review_query(selects, params)
+    api = Hashie::Mash.new(:uri => :uri, :reviewer => :reviewer, :workplace => :workplace, :work=> :work)
     api.merge!(params)
-    puts params
+    puts "params: #{params}" if ENV['RACK_ENV'] == 'development'
     
-    # query RDF store for work and reviews
+    # query RDF store for reviews
     query = QUERY.select(*selects)
     query.group_digest(:audience, ',', 1000, 1)
     query.group_digest(:audience_name, ',', 1000, 1)
@@ -236,106 +238,6 @@ class Review
       [api[:reviewer], RDF::FOAF.account, :useraccount, :context => APIGRAPH],
       [:useraccount, RDF::FOAF.accountName, :accountName, :context => APIGRAPH]
       )      
-    # filter by published parameter
-    query.filter('bound(?issued)') if params[:published] == true
-    query.filter('!bound(?issued)') if params[:published] == false
-    
-    # optimize query in virtuoso, drastically improves performance on optionals
-    query.define('sql:select-option "ORDER"')
-    # limit, offset and order by params
-    params[:limit] ? query.limit(params[:limit]) : query.limit(10)
-    query.offset(params[:offset]) if params[:offset]
-    if /(author|title|reviewer|workplace|issued|modified|created)/.match(params[:order_by].to_s)
-      if /(desc|asc)/.match(params[:order].to_s)  
-        query.order_by("#{params[:order].upcase}(?#{params[:order_by]})")
-      else
-        query.order_by(params[:order_by].to_sym)
-      end
-    end
-    
-    puts "#{query.pp}" if ENV['RACK_ENV'] == 'development'
-    solutions = REPO.select(query)
-  end
-  
-  # deprecated
-  def old_review_query(selects, params={})
-    # this method queries RDF store with chosen selects and optional params from API
-    # allowed params merged with params given in api
-    api = Hashie::Mash.new(:uri => :uri, :isbn => :isbn, :title => :title, :author => :author, :author_id => :author_id, 
-          :reviewer => :reviewer, :work => :work_id, :workplace => :workplace)
-    api.merge!(params)
-    puts params
-    # do we have freetext searches on author/title?
-    author_search   = params[:author] ? params[:author].gsub(/[[:punct:]]/, '').split(" ") : nil
-    title_search    = params[:title] ? params[:title].gsub(/[[:punct:]]/, '').split(" ") : nil
-
-    # query RDF store for work and reviews
-    query = QUERY.select(*selects)
-    query.group_digest(:author, ', ', 1000, 1)
-    query.group_digest(:author_id, ', ', 1000, 1)
-    query.group_digest(:isbn, ', ', 1000, 1) if api[:isbn] == :isbn
-    query.group_digest(:review_audience, ',', 1000, 1)
-    query.sample(:cover_url)
-    query.from(REVIEWGRAPH)
-    query.from_named(BOOKGRAPH)
-    query.from_named(APIGRAPH)
-    query.distinct.where(
-      [api[:uri], RDF.type, RDF::REV.Review],
-      [api[:uri], RDF::DC.created, :created],
-      [api[:uri], RDF::DC.modified, :modified],
-      [api[:uri], RDF::REV.title, :review_title],
-      [api[:uri], RDF::DC.abstract, :review_abstract])
-    query.where.graph2(BOOKGRAPH).group(
-      [:book_id, RDF::REV.hasReview, api[:uri]],
-      [:book_id, RDF.type, RDF::FABIO.Manifestation],
-      [:book_id, RDF::BIBO.isbn, api[:isbn]],
-      [:book_id, RDF::DC.title, :book_title], # filtered by regex later
-      # work & author
-      [api[:work], RDF::FABIO.hasManifestation, :book_id], 
-      [api[:work], RDF::DC.creator, api[:author_id]],
-      [api[:work], RDF::DC.creator, :author_id],     # to get author_id in response
-      [api[:author_id], RDF::FOAF.name, :author])    # filtered by regex later
-      # source
-    query.where([api[:uri], RDF::DC.source, :review_source_id],
-      [:review_source_id, RDF::FOAF.name, :review_source, :context => APIGRAPH],
-      # reviewer
-      [api[:uri], RDF::REV.reviewer, api[:reviewer]],
-      [api[:reviewer], RDF::FOAF.name, :reviewer_name, :context => APIGRAPH],
-      # audience
-      [api[:uri], RDF::DC.audience, :review_audience_id],
-      [:review_audience_id, RDF::RDFS.label, :review_audience]
-      )
-      # workplace
-    if params[:workplace]
-      query.where([api[:reviewer], RDF::ORG.memberOf, :workplace_id, :context => APIGRAPH],
-      [:workplace_id, RDF::SKOS.prefLabel, api[:workplace], :context => APIGRAPH], # to get workplace in response
-      [:workplace_id, RDF::SKOS.prefLabel, :workplace, :context => APIGRAPH])
-    else
-      query.optional([api[:reviewer], RDF::ORG.memberOf, :workplace_id, :context => APIGRAPH],
-      [:workplace_id, RDF::SKOS.prefLabel, :workplace, :context => APIGRAPH])
-    end
-    query.filter('(lang(?review_audience) = "no")') 
-    # optional attributes
-    # NB! all these optionals adds extra ~2 sec to query
-    query.optional([:book_id, RDF::FOAF.depiction, :cover_url, :context => BOOKGRAPH])
-    query.optional([api[:uri], RDF::DC.issued, :issued]) # made optional to allow sorting by published true/false
-    query.optional(
-      [api[:reviewer], RDF::FOAF.account, :useraccount, :context => APIGRAPH],
-      [:useraccount, RDF::FOAF.accountName, :accountName, :context => APIGRAPH]
-      )      
-
-    if author_search
-      author_search.each do |author|
-        query.filter("regex(?author, \"#{author}\", \"i\")")
-      end
-    end
-
-    if title_search
-      title_search.each do |title|
-        query.filter("regex(?book_title, \"#{title}\", \"i\")")
-      end
-    end
-    
     # filter by published parameter
     query.filter('bound(?issued)') if params[:published] == true
     query.filter('!bound(?issued)') if params[:published] == false

@@ -39,11 +39,12 @@ module API
           error!("no reviews found", 200)
         else
           # found reviews, append to works
-          reviews.each do |review|
-            (@works ||=[]) << Work.new.find(:isbn => review.subject).first
-          end
-          logger.info "Works: #{@works.count} - Reviews: #{c=0 ; @works.each {|w| c += w.reviews.count};c}"
-          {:works => @works }
+          works = Review.new.populate_works_from_reviews(reviews)
+          #reviews.each do |review|
+          #  (@works ||=[]) << Work.new.find(:isbn => review.subject).first
+          #end
+          #logger.info "Works: #{@works.count} - Reviews: #{c=0 ; @works.each {|w| c += w.reviews.count};c}"
+          {:works => works }
         end
       end
   
