@@ -11,7 +11,8 @@ class Work
     self.isbns     = []
     self.reviews   = []
   end
-  # under construction
+
+  # Main Work lookup
   # params: uri, title, author, author's URI, isbn
   def find(params)
     return nil unless params[:uri] || params[:title] || params[:isbn] || params[:author] || params[:author_name]
@@ -37,19 +38,17 @@ class Work
       query.where([api[:uri], RDF.type, RDF::FABIO.Work]) :
       query.where([api[:uri], RDF.type, RDF::FABIO.Work],[:uri, RDF.type, RDF::FABIO.Work])
 
-    # author id
-    api[:author].is_a?(Symbol) ?
-      query.where([api[:uri], RDF::DC.creator, api[:author]],[api[:author], RDF::FOAF.name, :author_name]) :
-      query.where([api[:uri], RDF::DC.creator, api[:author]],[api[:author], RDF::FOAF.name, api[:author_name]],[:author, RDF::FOAF.name, :author_name])
+    # author, also include :author_name variable if queried by api for lookup
+    #api[:author_name].is_a?(Symbol) ?
+    #  query.where([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, api[:author_name]]) :
+    #  query.where([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, api[:author_name]], [api[:author], RDF::FOAF.name, :author_name])
+    query.where([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, :author_name])
     
-    # author 
-    api[:author_name].is_a?(Symbol) ?
-      query.where([:author, RDF::FOAF.name, api[:author_name]]) :
-      query.where([:author, RDF::FOAF.name, api[:author_name]],[:author, RDF::FOAF.name, :author_name])
     # isbn
     api[:isbn].is_a?(Symbol) ?
       query.where([:uri, RDF::BIBO.isbn, api[:isbn]]) :
       query.where([:uri, RDF::BIBO.isbn, api[:isbn]],[:uri, RDF::BIBO.isbn, :isbn])
+   
     query.where(
       [api[:uri], RDF::DC.title, :originalTitle],
       [api[:uri], RDF::BIBO.isbn, api[:isbn]],

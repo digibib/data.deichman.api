@@ -22,7 +22,7 @@ module API
           content_type 'json'
           logger.info "params: #{params}"
           works = Work.new.find(params)
-          error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) unless works
+          error!("Sorry, no work found to match criteria", 400) unless works
           {:works => works}
         else
           logger.error "invalid or missing params"
