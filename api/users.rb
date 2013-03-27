@@ -13,7 +13,7 @@ module API
         else
           logger.info "params: #{params}"
           reviewer = Reviewer.new.find(params)
-          error!("Sorry, user not found", 401) unless reviewer
+          error!("Sorry, user not found", 404) unless reviewer
           reviewer.password = nil
           {:reviewer => reviewer }
         end
@@ -48,7 +48,7 @@ module API
         logger.info "params: #{params}"
         reviewer = Reviewer.new.find(:api_key =>params[:api_key], :uri => params[:uri])
         error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviewer == "Invalid api_key"
-        error!("Sorry, reviewer not found in our base", 400) unless reviewer
+        error!("Sorry, reviewer not found in our base", 404) unless reviewer
         reviewer.update(params)
         reviewer.password = nil
         {:reviewer => reviewer}
@@ -64,7 +64,7 @@ module API
         logger.info "params: #{params}"
         reviewer = Reviewer.new.find(params)
         error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviewer == "Invalid api_key"
-        error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) unless reviewer
+        error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 404) unless reviewer
         result = reviewer.delete(params)
         {:result => result}
       end
