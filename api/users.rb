@@ -76,7 +76,7 @@ module API
         end
       post "/authenticate" do
         authenticated = false
-        user = Reviewer.new.find(:name => params["username"])
+        user = Reviewer.new.find(:accountName => params["username"])
         if user
           authenticated = true if user.accountName == params["username"] && user.authenticate(params["password"])
         else
