@@ -64,7 +64,7 @@ module API
         logger.info "params: #{params}"
         reviewer = Reviewer.new.find(params)
         error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviewer == "Invalid api_key"
-        error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 404) unless reviewer
+        error!("Sorry, \"#{params[:uri]}\" matches no reviewer in our base", 404) unless reviewer
         result = reviewer.delete(params)
         {:result => result}
       end
