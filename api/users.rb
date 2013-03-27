@@ -82,7 +82,7 @@ module API
         else
           error!("Sorry, username \"#{params[:username]}\" not found", 404)
         end
-        status 200 if authenticated
+        status 200
         {:authenticated => authenticated}
       end
     end
