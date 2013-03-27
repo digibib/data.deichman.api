@@ -27,8 +27,8 @@ class Work
     
     # disabled freetext author/title search
     # do we have freetext searches on author/title?
-    author_search   = params[:author_name] ? params[:author_name].gsub(/[[:punct:]]/, '').split(" ") : nil
-    title_search    = params[:title] ? params[:title].gsub(/[[:punct:]]/, '').split(" ") : nil
+    #author_search   = params[:author_name] ? params[:author_name].gsub(/[[:punct:]]/, '').split(" ") : nil
+    #title_search    = params[:title] ? params[:title].gsub(/[[:punct:]]/, '').split(" ") : nil
     
     query = QUERY.select(*selects).from(BOOKGRAPH)
     query.group_digest(:isbn, ', ', 1000, 1) if api[:isbn] == :isbn
@@ -39,11 +39,15 @@ class Work
       query.where([api[:uri], RDF.type, RDF::FABIO.Work],[:uri, RDF.type, RDF::FABIO.Work])
 
     # author, also include :author_name variable if queried by api for lookup
-    #api[:author_name].is_a?(Symbol) ?
-    #  query.where([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, api[:author_name]]) :
-    #  query.where([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, api[:author_name]], [api[:author], RDF::FOAF.name, :author_name])
-    query.where([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, :author_name])
+    api[:author_name].is_a?(Symbol) ?
+      query.where([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, api[:author_name]]) :
+      query.where([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, api[:author_name]], [api[:author], RDF::FOAF.name, :author_name])
+    #query.where([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, :author_name])
     
+    api[:title].is_a?(Symbol) ?
+      query.where([api[:uri], RDF::DC.title, api[:title]]) :
+      query.where([api[:uri], RDF::DC.title, api[:title]], [api[:uri], RDF::DC.title, :title])
+      
     # isbn
     api[:isbn].is_a?(Symbol) ?
       query.where([:uri, RDF::BIBO.isbn, api[:isbn]]) :
@@ -53,27 +57,30 @@ class Work
       [api[:uri], RDF::DC.title, :originalTitle],
       [api[:uri], RDF::BIBO.isbn, api[:isbn]],
       [api[:uri], RDF::FABIO.hasManifestation, :edition],
-      [:edition, RDF::DC.title, :title],
-      [:edition, RDF::DC.language, :lang]
-      )
+      [:edition, RDF::DC.language, :lang])
+    
+    api[:title].is_a?(Symbol) ?
+        query.where([:edition, RDF::DC.title, api[:title]]) :
+        query.where([:edition, RDF::DC.title, api[:title]], [:edition, RDF::DC.title, :title])
+      
     query.optional([:edition, RDF::FOAF.depiction, :cover_url])
 
-    if author_search
-      author_search.each do |author|
-        query.filter("regex(?author_name, \"#{author}\", \"i\")")
-      end
-    end
+    #if author_search
+    #  author_search.each do |author|
+    #    query.filter("regex(?author_name, \"#{author}\", \"i\")")
+    #  end
+    #end
 
-    if title_search
-      title_search.each do |title|
-        query.filter("regex(?title, \"#{title}\", \"i\")")
-      end
-    end
+    #if title_search
+    #  title_search.each do |title|
+    #    query.filter("regex(?title, \"#{title}\", \"i\")")
+    #  end
+    #end
 
     puts "#{query.pp}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
     return nil if solutions.empty? # not found!
-    puts solutions.inspect if ENV['RACK_ENV'] == 'development'
+    #puts solutions.inspect if ENV['RACK_ENV'] == 'development'
     
     works = cluster(solutions, params)
       #work.cover_url = work.cover_url.uniq
