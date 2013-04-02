@@ -62,7 +62,7 @@ class Review
         selects.delete(:work)
         uri = URI::parse(params[:work])
         uri = RDF::URI(uri)
-        solutions = review_query(selects, :work => uri)
+        solutions = review_query(selects, :work => uri, :order_by => params[:order_by], :order => params[:order], :limit => params[:limit], :offset => params[:offset])
         return nil if solutions.empty?
       rescue URI::InvalidURIError
         return "Invalid URI"
@@ -70,14 +70,14 @@ class Review
     elsif params.has_key?(:reviewer)
       reviewer = Reviewer.new.find(:uri => params[:reviewer])
       if reviewer
-        solutions = review_query(selects, :reviewer => reviewer.uri)
+        solutions = review_query(selects, :reviewer => reviewer.uri, :order_by => params[:order_by], :order => params[:order], :limit => params[:limit], :offset => params[:offset])
       else
         return "Invalid Reviewer"
       end
     elsif params.has_key?(:workplace)
-      reviewer = Workplace.new.find(:uri => params[:workplace])
+      reviewer = Workplace.new.find(:uri => params[:workplace], :order_by => params[:order_by], :order => params[:order], :limit => params[:limit], :offset => params[:offset])
       if reviewer
-        solutions = review_query(selects, :workplace => reviewer.workplace)
+        solutions = review_query(selects, :workplace => reviewer.workplace, :order_by => params[:order_by], :order => params[:order], :limit => params[:limit], :offset => params[:offset])
       else
         return "Invalid Workplace"
       end      
