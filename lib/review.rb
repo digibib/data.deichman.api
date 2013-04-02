@@ -2,7 +2,6 @@
 
 Review   = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :workplace, 
             :audience, :subject, :work, :edition, :created, :issued, :modified, :published)
-Audience = Struct.new(:uri, :label)
 
 class Review
   
@@ -105,8 +104,7 @@ class Review
     review.workplace = Workplace.new(s[:workplace], s[:workplace_name])
     review.source    = Source.new(s[:source], s[:source_name])
     review.reviewer  = Reviewer.new(s[:reviewer], s[:reviewer_name])
-    review.audience  = Audience.new( (s[:audience].to_s.split(', ')),
-                                    (s[:audience_name].to_s.split(', ')) )
+    review.audience  = s[:audience_name].to_s.split(',')
     review.published = s[:issued] ? true : false # published?
     ## query text of reviews here to avvoid "Temporary row length exceeded error" in Virtuoso on sorting long texts
     query = QUERY.select(:text).from(REVIEWGRAPH).where([review.uri, RDF::REV.text, :text])

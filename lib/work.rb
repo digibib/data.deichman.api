@@ -44,10 +44,6 @@ class Work
       query.where([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, api[:author_name]], [api[:author], RDF::FOAF.name, :author_name])
     #query.where([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, :author_name])
     
-    api[:title].is_a?(Symbol) ?
-      query.where([api[:uri], RDF::DC.title, api[:title]]) :
-      query.where([api[:uri], RDF::DC.title, api[:title]], [api[:uri], RDF::DC.title, :title])
-      
     # isbn
     api[:isbn].is_a?(Symbol) ?
       query.where([:uri, RDF::BIBO.isbn, api[:isbn]]) :
