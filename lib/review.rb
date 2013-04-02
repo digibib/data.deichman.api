@@ -268,7 +268,7 @@ class Review
     self.uri = source.autoincrement_resource(source.uri.to_s, resource = "review")
     return "Invalid UID" unless self.uri # break out if unable to generate unique ID
     
-    work = Work.new.find(params)
+    work = Work.new.find(:isbn => params[:isbn])
     return "Invalid ISBN" unless work
     
     if params[:reviewer]
