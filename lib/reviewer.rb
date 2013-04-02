@@ -42,16 +42,21 @@ class Reviewer
     params[:uri] = RDF::URI(params[:uri]) if params[:uri]
     api.merge!(params)
     # remove variable from selects array if variable given as param
-    selects.delete_if {|s| params[s]}
     
     query = QUERY.select(*selects).from(APIGRAPH)
     query.where([api[:uri], RDF.type, RDF::FOAF.Person],
+        [api[:uri], RDF::FOAF.account, :userAccount],
+        [:userAccount, RDF::FOAF.accountServiceHomepage, :accountServiceHomepage])
     # reviewer by foaf name
-      [api[:uri], RDF::FOAF.name, api[:name]],
+      api[:name].is_a?(Symbol) ?
+        query.where([api[:uri], RDF::FOAF.name, api[:name]]) :
+        query.where([api[:uri], RDF::FOAF.name, api[:name]], [api[:uri], RDF::FOAF.name, :name])
+        
     # reviewer by accountname
-      [api[:uri], RDF::FOAF.account, :userAccount],
-      [:userAccount, RDF::FOAF.accountName, api[:accountName]],
-      [:userAccount, RDF::FOAF.accountServiceHomepage, :accountServiceHomepage])
+      api[:accountName].is_a?(Symbol) ?
+        query.where([:userAccount, RDF::FOAF.accountName, api[:accountName]]) :
+        query.where([:userAccount, RDF::FOAF.accountName, api[:accountName]], [:userAccount, RDF::FOAF.accountName, :accountName])
+            
     # reviewer workplace
     query.optional(
       [api[:uri], RDF::ORG.memberOf, :workplace_id],

@@ -75,10 +75,11 @@ module API
           requires :password,   type: String, desc: "account password"
         end
       post "/authenticate" do
+        content_type 'json'
         authenticated = false
-        user = Reviewer.new.find(:accountName => params["username"])
+        user = Reviewer.new.find(:accountName => params[:username])
         if user
-          authenticated = true if user.accountName == params["username"] && user.authenticate(params["password"])
+          authenticated = true if user.accountName == params[:username] && user.authenticate(params[:password])
         else
           error!("Sorry, username \"#{params[:username]}\" not found", 404)
         end
