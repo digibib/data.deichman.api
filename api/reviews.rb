@@ -62,7 +62,8 @@ module API
         params do
           requires :api_key,   type: String, desc: "Authorization Key"
           requires :isbn,      type: String, desc: "ISBN of reviewed book"
-          optional :reviewer,  type: String, desc: "Reviewer's email", email: true 
+          optional :reviewer,  type: String, desc: "Reviewer's email", email: true
+          optional :reviewer_name,  type: String, desc: "Reviewer's name"
           optional :published, type: Boolean, desc: "Published - true/false"
           optional :series,    type: Boolean, desc: "Is review on a series of books? - NOT IMPLEMENTED YET"
           # allow creating draft without :title, :teaser & :text
@@ -75,7 +76,7 @@ module API
         end
       post "/" do
         content_type 'json'
-        valid_params = ['api_key','isbn','title','teaser','text','audience', 'reviewer', 'published', 'series']
+        valid_params = ['api_key','isbn','title','teaser','text','audience', 'reviewer', 'reviewer_name', 'published', 'series']
         if valid_params.any? {|p| params.has_key?(p) }
           params.delete_if {|p| !valid_params.include?(p) }
           work = Work.new.find(:isbn => params[:isbn])

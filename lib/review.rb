@@ -129,7 +129,6 @@ class Review
     work
   end
   
-  
   # this method simply looks up work
   def find_work
     work = Work.new.find(:uri => self.work, :reviews => false)
@@ -275,7 +274,8 @@ class Review
       params[:accountName] = params[:reviewer] # Reviewer takes :name parameter
       reviewer = Reviewer.new.find(:accountName => params[:reviewer])
       reviewer = Reviewer.new.create(:accountName => params[:accountName], 
-                                     :api_key => params[:api_key]) if reviewer.nil? # create new if not found
+                                     :api_key => params[:api_key],
+                                     :name => params[:reviewer_name]) if reviewer.nil? # create new if not found
       return "Invalid Reviewer ID" unless reviewer
       reviewer.save
     else
