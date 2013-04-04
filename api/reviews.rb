@@ -20,7 +20,7 @@ module API
             optional :author,      type: String, desc: "URI of Book author"
             optional :reviewer,    type: String, desc: "Reviewer's email, uri or name"
             optional :work,        type: String, desc: "URI of Work"
-            optional :workplace,   type: String, desc: "URI of Reviewer's workplace"
+            optional :source,      type: String, desc: "URI of Review's source"
             optional :limit,       type: Integer, desc: "Limit result"
             optional :offset,      type: Integer, desc: "Offset, for pagination" 
             optional :order_by,    type: String, desc: "Order of results" 
@@ -39,9 +39,9 @@ module API
         elsif reviews == "Invalid Reviewer"
           logger.error "Invalid Reviewer"
           error!("reviewer \"#{params[:reviewer]}\" not found", 400)
-        elsif reviews == "Invalid Workplace"
-          logger.error "Invalid Workplace"
-          error!("workplace \"#{params[:workplace]}\" not found", 400)          
+        elsif reviews == "Invalid Source"
+          logger.error "Invalid Source"
+          error!("workplace \"#{params[:source]}\" not found", 400)          
         elsif reviews.nil?
           logger.info "no reviews found"
           error!("no reviews found", 200)

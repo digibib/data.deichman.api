@@ -26,14 +26,14 @@ class Source
     api = Hashie::Mash.new(:uri => :uri, :name => :name)
     params[:uri] = RDF::URI(params[:uri]) if params[:uri]
     api.merge!(params)
-    p# remove variable from selects array if variable given as param
-    selects.delete_if {|s| params[s]}
+    # remove variable from selects array if variable given as param
+    #selects.delete_if {|s| params[s]}
     
     query = QUERY.select(*selects).from(APIGRAPH)
-    query.where(
-      [api[:uri], RDF.type, RDF::FOAF.Document], 
-      [api[:uri], RDF::FOAF.name, api[:name]],
-      [api[:uri], RDF::DEICHMAN.apikey, :api_key])
+    # source by uri
+    api[:uri].is_a?(Symbol) ?
+      query.where([api[:uri], RDF.type, RDF::FOAF.Document], [api[:uri], RDF::FOAF.name, api[:name]], [api[:uri], RDF::DEICHMAN.apikey, :api_key]) :
+      query.where([api[:uri], RDF.type, RDF::FOAF.Document], [api[:uri], RDF::FOAF.name, api[:name]], [api[:uri], RDF::DEICHMAN.apikey, :api_key], [:uri, RDF::FOAF.name, api[:name]])
     query.optional([api[:uri], RDF::FOAF.homepage, :homepage])
     query.limit(1)
     puts "#{query}" if ENV['RACK_ENV'] == 'development'

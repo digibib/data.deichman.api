@@ -7,7 +7,7 @@ class Review
   
   # return all reviews, but with limits...
   def all(params={:limit=>10, :offset=>0, :order_by=>"created", :order=>"desc"})
-    selects = [:uri, :work, :title, :teaser, :edition, :created, :issued, :modified, :source, :source_name, :subject, :reviewer, :reviewer_name, :accountName, :workplace, :workplace_name]
+    selects = [:uri, :work, :title, :teaser, :edition, :created, :issued, :modified, :source, :source_name, :subject, :reviewer, :reviewer_name, :accountName,]
     solutions = review_query(selects, params)
     return nil if solutions.empty?
     reviews = populate_reviews(solutions)
@@ -16,7 +16,7 @@ class Review
   # main method to find reviews, GET /api/reviews
   # params: uri, reviewer, workplace, published
   def find(params={})
-    selects = [:uri, :work, :title, :teaser, :edition, :created, :issued, :modified, :source, :source_name, :subject, :reviewer, :reviewer_name, :accountName, :workplace, :workplace_name]
+    selects = [:uri, :work, :title, :teaser, :edition, :created, :issued, :modified, :source, :source_name, :subject, :reviewer, :reviewer_name, :accountName]
 
     # this clause composes query attributes modified by params from API
     if params.has_key?(:uri)
@@ -74,12 +74,12 @@ class Review
       else
         return "Invalid Reviewer"
       end
-    elsif params.has_key?(:workplace)
-      reviewer = Workplace.new.find(:uri => params[:workplace], :order_by => params[:order_by], :order => params[:order], :limit => params[:limit], :offset => params[:offset])
-      if reviewer
-        solutions = review_query(selects, :workplace => reviewer.workplace, :order_by => params[:order_by], :order => params[:order], :limit => params[:limit], :offset => params[:offset])
+    elsif params.has_key?(:source)
+      source = Source.new.find(:uri => params[:source])
+      if source
+        solutions = review_query(selects, :source => source.uri, :order_by => params[:order_by], :order => params[:order], :limit => params[:limit], :offset => params[:offset])
       else
-        return "Invalid Workplace"
+        return "Invalid Source"
       end      
     else
       # do a general lookup
@@ -101,7 +101,8 @@ class Review
   # populates individual review
   def review_to_struct(s)
     review = s.to_hash.to_struct("Review")
-    review.workplace = Workplace.new(s[:workplace], s[:workplace_name])
+    # Workplace disabled
+    #review.workplace = Workplace.new(s[:workplace], s[:workplace_name])
     review.source    = Source.new(s[:source], s[:source_name])
     review.reviewer  = Reviewer.new(s[:reviewer], s[:reviewer_name])
     review.audience  = s[:audience_name].to_s.split(',')
@@ -133,63 +134,10 @@ class Review
   def find_work
     work = Work.new.find(:uri => self.work, :reviews => false)
   end
-  
-  # deprecated
-  def old_populate_works(solutions, params={})
-    # this method populates Work and Review objects, with optional clustering parameter
-    works = []
-    solutions.each do |solution|
-      # use already defined Work if present and :cluster options given
-      work = works.find {|w| w[:uri] == solution[:work_id].to_s} if params[:cluster]
-      # or make a new Work object
-      unless work
-        # populate work object (Struct)
-        ## HERE!
-        work = Work.new
-        work.uri   = solution[:work_id].to_s
-        work.isbns = (solution[:isbn] ? solution[:isbn].to_s.split(', ') : [params[:isbn]])
-        work.title = solution[:book_title].to_s
-        work.editions = solution[:book_id]
-        work.authors = solution[:author_id].to_s.split(', ')
-        work.reviews = []
-      end
-      # and fill with reviews
-      # append text of reviews here to avvoid "Temporary row length exceeded error" in Virtuoso on sorting long texts
-      review_uri = solution[:uri] ? solution[:uri] : params[:uri]
-      query = QUERY.select(:review_text).where([review_uri, RDF::REV.text, :review_text, :context => REVIEWGRAPH])
-      review_text = REPO.select(query).first[:review_text].to_s
-
-      # populate review object (Struct)
-      # map solutions to matching struct attributes
-      review = Review.new
-      review.members.each {|name| review[name] = solution[name] unless solution[name].nil? } 
-      # map the rest
-      review.title     = solution[:review_title].to_s
-      review.teaser    = solution[:review_abstract].to_s
-      review.text      = review_text
-      review.reviewer  = solution[:reviewer_name].to_s
-      review.source    = solution[:review_source].to_s
-      review.subject   = work.isbns
-      review.audience  = solution[:review_audience].to_s
-      review.published = solution[:issued] ? true : false # published?
-      
-      # insert review object into work
-      work.reviews << review
-       
-      # append to works array unless :cluster not set to true and work matching previous work
-      unless params[:cluster] && works.any? {|w| w[:uri] == solution[:work_id].to_s}
-        works << work
-      # if :cluster is set true and work not matching previous works
-      else 
-        works.map! {|w| (w[:uri] == solution[:work_id].to_s) ? work : w }
-      end
-    end
-    works
-  end
-  
-  # only allow query on uri, work, reviewer and workplace. Rest should query on work
+    
+  # only allow query on uri, work, reviewer and source. Rest should query on work
   def review_query(selects, params)
-    api = Hashie::Mash.new(:uri => :uri, :reviewer => :reviewer, :workplace => :workplace, :work=> :work)
+    api = Hashie::Mash.new(:uri => :uri, :reviewer => :reviewer, :source => :source, :work=> :work)
     api.merge!(params)
     puts "params: #{params}" if ENV['RACK_ENV'] == 'development'
     
@@ -206,22 +154,27 @@ class Review
       [api[:uri], RDF::DC.modified, :modified],
       [api[:uri], RDF::REV.title, :title],
       [api[:uri], RDF::DC.abstract, :teaser],
-      [api[:uri], RDF::DC.subject, :subject])
-    query.where.graph2(BOOKGRAPH).group(
-      [:edition, RDF::REV.hasReview, api[:uri]],
-      [:edition, RDF.type, RDF::FABIO.Manifestation],
-      [api[:work], RDF::FABIO.hasManifestation, :edition])
-      # source
-    query.where([api[:uri], RDF::DC.source, :source],
-      [:source, RDF::FOAF.name, :source_name, :context => APIGRAPH],
+      [api[:uri], RDF::DC.subject, :subject],
       # reviewer
       [api[:uri], RDF::REV.reviewer, api[:reviewer]],
       [api[:reviewer], RDF::FOAF.name, :reviewer_name, :context => APIGRAPH],
       # audience
       [api[:uri], RDF::DC.audience, :audience],
-      [:audience, RDF::RDFS.label, :audience_name]
-      )
+      [:audience, RDF::RDFS.label, :audience_name])
+      
+    query.where.group(
+      [:edition, RDF::REV.hasReview, api[:uri], :context => BOOKGRAPH],
+      [:edition, RDF.type, RDF::FABIO.Manifestation, :context => BOOKGRAPH],
+      [api[:work], RDF::FABIO.hasManifestation, :edition, :context => BOOKGRAPH])
+      
+    # source
+    api[:source].is_a?(Symbol) ?
+      query.where([api[:uri], RDF::DC.source, api[:source]], [api[:source], RDF::FOAF.name, :source_name, :context => APIGRAPH]) :
+      query.where([api[:uri], RDF::DC.source, api[:source]], [api[:source], RDF::FOAF.name, :source_name, :context => APIGRAPH], [:source, RDF::FOAF.name, :source_name, :context => APIGRAPH])
+    
       # workplace
+=begin
+  # Workplace disabled
     if params[:workplace]
       query.where([api[:reviewer], RDF::ORG.memberOf, api[:workplace], :context => APIGRAPH],
         [api[:workplace], RDF::SKOS.prefLabel, api[:workplace], :context => APIGRAPH], # to get workplace in response
@@ -230,6 +183,7 @@ class Review
       query.optional([api[:reviewer], RDF::ORG.memberOf, api[:workplace], :context => APIGRAPH],
         [api[:workplace], RDF::SKOS.prefLabel, :workplace_name, :context => APIGRAPH])
     end
+=end
     query.filter('(lang(?audience_name) = "no")') 
     # optional attributes
     query.optional([api[:uri], RDF::DC.issued, :issued]) # made optional to allow sorting by published true/false
@@ -246,7 +200,7 @@ class Review
     # limit, offset and order by params
     params[:limit] ? query.limit(params[:limit]) : query.limit(10)
     query.offset(params[:offset]) if params[:offset]
-    if /(author|title|reviewer|workplace|issued|modified|created)/.match(params[:order_by].to_s)
+    if /(author|title|reviewer|source|issued|modified|created)/.match(params[:order_by].to_s)
       if /(desc|asc)/.match(params[:order].to_s)  
         query.order_by("#{params[:order].upcase}(?#{params[:order_by]})")
       else
@@ -302,7 +256,8 @@ class Review
     self.work      = work.first.uri
     self.edition   = work.first.editions.first.uri
     self.reviewer  = reviewer.uri
-    self.workplace = reviewer.workplace
+    # workplace disabled
+    #self.workplace = reviewer.workplace
     self.created   = Time.now.xmlschema
     self.issued    = Time.now.xmlschema if params[:published]
     self.modified  = Time.now.xmlschema
