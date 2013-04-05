@@ -1,6 +1,6 @@
 #encoding: utf-8
 Author  = Struct.new(:uri, :name)
-Edition = Struct.new(:uri, :title, :cover)
+Edition = Struct.new(:uri, :title, :lang, :cover_url)
 Work = Struct.new(:uri, :originalTitle, :prefTitle, :isbns, :editions, :authors, :cover_url, :reviews)
 
 class Work
@@ -112,7 +112,7 @@ class Work
     work.isbns     = (cluster.first[:isbn] ? cluster.first[:isbn].to_s.split(', ') : [params[:isbn]])
     cluster.each do |s|
       work.authors   << Author.new(s[:author], s[:author_name]) unless work.authors.find {|a| a[:uri] == s[:author] }
-      work.editions  << Edition.new(s[:edition], s[:title], s[:cover_url]) unless work.editions.find {|a| a[:uri] == s[:edition] }
+      work.editions  << Edition.new(s[:edition], s[:title], s[:lang], s[:cover_url]) unless work.editions.find {|a| a[:uri] == s[:edition] }
       work.prefTitle  = s[:title] if s[:lang] == RDF::URI("http://lexvo.org/id/iso639-3/nob") || s[:lang] == RDF::URI("http://lexvo.org/id/iso639-3/nno")
     end
     work.reviews = fetch_reviews(work.uri) if params[:reviews] == true

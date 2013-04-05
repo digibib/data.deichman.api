@@ -107,9 +107,11 @@ class Review
     review.reviewer  = Reviewer.new(s[:reviewer], s[:reviewer_name])
     review.audience  = s[:audience_name].to_s.split(',')
     review.published = s[:issued] ? true : false # published?
-    ## query text of reviews here to avvoid "Temporary row length exceeded error" in Virtuoso on sorting long texts
-    query = QUERY.select(:text).from(REVIEWGRAPH).where([review.uri, RDF::REV.text, :text])
-    review.text = REPO.select(query).first[:text].to_s
+    ## query text and teaser of reviews here to avvoid "Temporary row length exceeded error" in Virtuoso on sorting long texts
+    query = QUERY.select(:text, :teaser).from(REVIEWGRAPH).where([review.uri, RDF::REV.text, :text]).optional([review.uri, RDF::DC.abstract, :teaser])
+    solutions = REPO.select(query)
+    review.text = solutions.first[:text].to_s
+    review.teaser = solutions.first[:teaser].to_s if solutions.first[:teaser]
     ## end append text
     review
   end
@@ -153,7 +155,6 @@ class Review
       [api[:uri], RDF::DC.created, :created],
       [api[:uri], RDF::DC.modified, :modified],
       [api[:uri], RDF::REV.title, :title],
-      [api[:uri], RDF::DC.abstract, :teaser],
       [api[:uri], RDF::DC.subject, :subject],
       # reviewer
       [api[:uri], RDF::REV.reviewer, api[:reviewer]],
