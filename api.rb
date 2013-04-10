@@ -19,13 +19,28 @@ class ApiErrorHandler < Grape::Middleware::Base
 end
 
 module API
+  
+  # Custom validators
+  class Email < Grape::Validations::SingleOptionValidator
+    def validate_param!(attr_name, params)
+      unless params[attr_name] =~ /[[:ascii:]]+@[[:ascii:]]+\.[[:ascii:]]{2,4}/
+        throw :error, :status => 400, :message => "#{attr_name}: must be a valid email"
+      end
+    end
+  end
+  
   class Root < Grape::API
     helpers do
       def logger
         logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
       end
     end
-  
+    
+    # load all external api routes
+    Dir[File.dirname(__FILE__) + '/api/*.rb'].each do |file|
+      require file
+    end
+
     version 'v1', :using => :header, :vendor => 'deichman.no'
     prefix 'api'
     rescue_from :all, :backtrace => true

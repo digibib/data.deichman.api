@@ -22,7 +22,7 @@ module API
       desc "creates a user"
         params do
           requires :api_key,     type: String, desc: "API key"
-          requires :accountName, type: String, desc: "Reviewer's email", regexp: /[[:ascii:]]+@[[:ascii:]]+\.[[:ascii:]]{2,4}/
+          requires :accountName, type: String, desc: "Reviewer's email", email: true
         end
       post "/" do
         content_type 'json'

@@ -23,8 +23,3 @@ SECRET_SESSION_KEY = repository["secret_session_key"]
 Dir[File.dirname(__FILE__) + '/../lib/*.rb'].each do |file|
   require file
 end
-
-# load all api routes
-Dir[File.dirname(__FILE__) + '/../api/*.rb'].each do |file|
-  require file
-end

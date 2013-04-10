@@ -28,7 +28,6 @@ class Workplace
       [:uri, RDF::SKOS.prefLabel, :prefLabel])
     query.optional([:uri, RDF::FOAF.homepage, :homepage])
     query.filter("regex(?prefLabel, \"#{params[:workplace]}\", \"i\") || regex(str(?uri), \"#{params[:workplace]}\", \"i\")") if params[:workplace]
-    puts query
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
     return nil if solutions.empty? # not found!
@@ -61,15 +60,12 @@ class Workplace
     # Delete first
     deletequery = QUERY.delete([self.uri, :p, :o]).graph(APIGRAPH)
     deletequery.where([self.uri, :p, :o],[self.uri, RDF.type, RDF::ORG.Organization])
-    puts deletequery
     puts "deletequery:\n #{deletequery}" if ENV['RACK_ENV'] == 'development'
     result = REPO.delete(deletequery)
     puts "delete result:\n #{result}" if ENV['RACK_ENV'] == 'development'
-    puts result
     # then update from new params
     params[:prefLabel] = params[:workplace] 
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
-    puts self
     save # save changes to RDF store
     self    
   end

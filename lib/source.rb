@@ -1,4 +1,6 @@
 #encoding: utf-8
+require 'securerandom'
+
 Source = Struct.new(:uri, :name, :homepage, :api_key)
 class Source
   def all
@@ -134,4 +136,61 @@ class Source
       resource_id = solutions.first[:s]
     end
   end
+  
+  def create(params)
+    return nil unless params[:name]
+    name = params[:name].urlize
+    # check if uri is unique
+    uri      = RDF::URI("http://data.deichman.no/source/#{name}")
+    return "source must be unique" if self.all.detect {|source| source.uri.to_s == uri.to_s }
+    
+    self.uri      = uri
+    self.name     = RDF::Literal(params[:name])
+    self.api_key  = ::SecureRandom.uuid
+    self.homepage = RDF::URI(params[:homepage]) if params[:homepage]
+    self
+  end
+  
+  def update(params={})
+    return nil unless self.uri
+    self.name     = RDF::Literal(params[:name])
+    self.homepage = RDF::URI(params[:homepage]) if params[:homepage]
+    
+    # Delete first
+    deletequery = QUERY.delete([self.uri, :p, :o]).graph(APIGRAPH)
+    deletequery.where([self.uri, :p, :o],[self.uri, RDF.type, RDF::FOAF.Document])
+    puts "deletequery:\n #{deletequery}" if ENV['RACK_ENV'] == 'development'
+    result = REPO.delete(deletequery)
+    puts "delete result:\n #{result}" if ENV['RACK_ENV'] == 'development'
+    save
+    self
+  end
+
+  def save
+    # create Source (foaf:Document)
+    insert_statements = []
+    insert_statements << RDF::Statement.new(self.uri, RDF.type, RDF::FOAF.Document)
+    insert_statements << RDF::Statement.new(self.uri, RDF::FOAF.name, self.name)
+    insert_statements << RDF::Statement.new(self.uri, RDF::DEICHMAN.apikey, self.api_key)
+    insert_statements << RDF::Statement.new(self.uri, RDF::FOAF.homepage, self.homepage) unless self.homepage.nil?
+    
+    query = QUERY.insert_data(insert_statements).graph(APIGRAPH)
+    puts "create source query: #{query}" if ENV['RACK_ENV'] == 'development'
+    result = REPO.insert_data(query)
+    return nil if result.empty?
+    puts "create source result: #{result}" if ENV['RACK_ENV'] == 'development'
+    self
+  end
+
+  def delete
+    # do nothing if source is not found
+    return nil unless self.uri
+    deletequery = QUERY.delete([self.uri, :p, :o]).graph(APIGRAPH)
+    deletequery.where([self.uri, :p, :o],[self.uri, RDF.type, RDF::FOAF.Document])
+    puts "deletequery:\n #{deletequery}" if ENV['RACK_ENV'] == 'development'
+    result = REPO.delete(deletequery)
+    puts "delete result:\n #{result}" if ENV['RACK_ENV'] == 'development'
+    return result
+  end
+      
 end

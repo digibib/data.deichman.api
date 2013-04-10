@@ -1,12 +1,4 @@
 #encoding: utf-8
-class Email < Grape::Validations::SingleOptionValidator
-  def validate_param!(attr_name, params)
-    unless params[attr_name] =~ /[[:ascii:]]+@[[:ascii:]]+\.[[:ascii:]]{2,4}/
-      throw :error, :status => 400, :message => "#{attr_name}: must be a valid email"
-    end
-  end
-end
-
 module API
   class Reviews < Grape::API
   # /api/reviews
