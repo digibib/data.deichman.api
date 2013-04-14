@@ -86,25 +86,27 @@ class Review
       solutions = review_query(selects, params)
     end
     return nil if solutions.empty?
-    reviews = populate_reviews(solutions)
+    reviews = populate_reviews(solutions, params)
   end  
   
-  def populate_reviews(solutions)
+  def populate_reviews(solutions, params)
     reviews = []
     solutions.each do |s|
-      review = review_to_struct(s)
+      review = review_to_struct(s, params)
       reviews << review
     end
     reviews
   end
 
   # populates individual review
-  def review_to_struct(s)
+  def review_to_struct(s, params)
     review = s.to_hash.to_struct("Review")
     # Workplace disabled
     #review.workplace = Workplace.new(s[:workplace], s[:workplace_name])
     review.source    = Source.new(s[:source], s[:source_name])
-    review.reviewer  = Reviewer.new(s[:reviewer], s[:reviewer_name])
+    params[:reviewer] ? 
+      review.reviewer  = Reviewer.new(params[:reviewer], s[:reviewer_name]) :
+      review.reviewer  = Reviewer.new(s[:reviewer], s[:reviewer_name])
     review.audience  = s[:audience_name].to_s.split(',')
     review.published = s[:issued] ? true : false # published?
     ## query text and teaser of reviews here to avvoid "Temporary row length exceeded error" in Virtuoso on sorting long texts
