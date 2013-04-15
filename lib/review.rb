@@ -7,7 +7,7 @@ class Review
   
   # return all reviews, but with limits...
   def all(params={:limit=>10, :offset=>0, :order_by=>"created", :order=>"desc"})
-    selects = [:uri, :work, :title, :teaser, :edition, :created, :issued, :modified, :source, :source_name, :subject, :reviewer, :reviewer_name, :accountName,]
+    selects = [:uri, :work, :title, :edition, :created, :issued, :modified, :source, :source_name, :subject, :reviewer, :reviewer_name, :accountName,]
     solutions = review_query(selects, params)
     return nil if solutions.empty?
     reviews = populate_reviews(solutions)
@@ -16,7 +16,7 @@ class Review
   # main method to find reviews, GET /api/reviews
   # params: uri, reviewer, workplace, published
   def find(params={})
-    selects = [:uri, :work, :title, :teaser, :edition, :created, :issued, :modified, :source, :source_name, :subject, :reviewer, :reviewer_name, :accountName]
+    selects = [:uri, :work, :title, :edition, :created, :issued, :modified, :source, :source_name, :subject, :reviewer, :reviewer_name, :accountName]
 
     # this clause composes query attributes modified by params from API
     if params.has_key?(:uri)
@@ -155,14 +155,13 @@ class Review
       [api[:uri], RDF::DC.created, :created],
       [api[:uri], RDF::DC.modified, :modified],
       [api[:uri], RDF::REV.title, :title],
-      [api[:uri], RDF::DC.subject, :subject],
       # reviewer
       [api[:uri], RDF::REV.reviewer, api[:reviewer]],
       [api[:reviewer], RDF::FOAF.name, :reviewer_name, :context => APIGRAPH],
       # audience
       [api[:uri], RDF::DC.audience, :audience],
       [:audience, RDF::RDFS.label, :audience_name])
-      
+    query.optional([api[:uri], RDF::DC.subject, :subject])
     query.where.group(
       [:edition, RDF::REV.hasReview, api[:uri], :context => BOOKGRAPH],
       [:edition, RDF.type, RDF::FABIO.Manifestation, :context => BOOKGRAPH],
