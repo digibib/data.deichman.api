@@ -7,7 +7,7 @@ class Review
   
   # return all reviews, but with limits...
   def all(params={:limit=>10, :offset=>0, :order_by=>"created", :order=>"desc"})
-    selects = [:uri, :work, :title, :edition, :created, :issued, :modified, :source, :source_name, :subject, :reviewer, :reviewer_name, :accountName,]
+    selects = [:uri, :work, :title, :edition, :created, :issued, :modified, :source, :source_name, :reviewer, :reviewer_name, :accountName,]
     solutions = review_query(selects, params)
     return nil if solutions.empty?
     reviews = populate_reviews(solutions)
@@ -16,7 +16,7 @@ class Review
   # main method to find reviews, GET /api/reviews
   # params: uri, reviewer, workplace, published
   def find(params={})
-    selects = [:uri, :work, :title, :edition, :created, :issued, :modified, :source, :source_name, :subject, :reviewer, :reviewer_name, :accountName]
+    selects = [:uri, :work, :title, :edition, :created, :issued, :modified, :source, :source_name, :reviewer, :reviewer_name, :accountName]
 
     # this clause composes query attributes modified by params from API
     if params.has_key?(:uri)
@@ -149,6 +149,7 @@ class Review
     query = QUERY.select(*selects)
     query.group_digest(:audience, ',', 1000, 1)
     query.group_digest(:audience_name, ',', 1000, 1)
+    query.group_digest(:subject, ',', 1000, 1)
     query.from(REVIEWGRAPH)
     query.from_named(BOOKGRAPH)
     query.from_named(APIGRAPH)
