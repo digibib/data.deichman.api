@@ -112,8 +112,10 @@ class Review
     ## query text and teaser of reviews here to avvoid "Temporary row length exceeded error" in Virtuoso on sorting long texts
     query = QUERY.select(:text, :teaser).from(REVIEWGRAPH).where([review.uri, RDF::REV.text, :text]).optional([review.uri, RDF::DC.abstract, :teaser])
     solutions = REPO.select(query)
-    review.text = solutions.first[:text].to_s
-    review.teaser = solutions.first[:teaser].to_s if solutions.first[:teaser]
+    unless solutions.empty?
+      review.text = solutions.first[:text].to_s
+      review.teaser = solutions.first[:teaser].to_s if solutions.first[:teaser]
+    end
     ## end append text
     review
   end
