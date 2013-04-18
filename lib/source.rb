@@ -147,14 +147,14 @@ class Source
     self.uri      = uri
     self.name     = RDF::Literal(params[:name])
     self.api_key  = ::SecureRandom.uuid
-    self.homepage = RDF::URI(params[:homepage]) if params[:homepage]
+    self.homepage = RDF::URI(params[:homepage]) unless params[:homepage].to_s.strip.length == 0
     self
   end
   
   def update(params={})
     return nil unless self.uri
-    self.name     = RDF::Literal(params[:name])
-    self.homepage = RDF::URI(params[:homepage]) if params[:homepage]
+    self.name     = RDF::Literal(params[:name]) if params[:name]
+    self.homepage = RDF::URI(params[:homepage]) unless params[:homepage].to_s.strip.length == 0
     
     # Delete first
     deletequery = QUERY.delete([self.uri, :p, :o]).graph(APIGRAPH)

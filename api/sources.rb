@@ -21,7 +21,7 @@ module API
       
       desc "creates a source"
         params do
-          requires :name,     type: String, desc: "Name of source"
+          requires :name,     type: String, length: 5, desc: "Name of source"
           optional :homepage, type: String, desc: "Source homepage"
         end
       post "/" do
@@ -29,6 +29,7 @@ module API
         error!('Unauthorized', 401) unless env['HTTP_SECRET_SESSION_KEY'] == SECRET_SESSION_KEY
         content_type 'json'
         logger.info "params: #{params}"
+        
         source = Source.new.create(params)
         error!("Sorry, source name must be unique", 400) if source == "source must be unique"
         source.save
@@ -39,7 +40,7 @@ module API
       desc "edit/update source"
         params do
           requires :uri,      type: String, desc: "URI of source"
-          optional :name,     type: String, desc: "Name of source"
+          optional :name,     type: String, length: 5, desc: "Name of source"
           optional :homepage, type: String, desc: "Source homepage"
         end
       put "/" do

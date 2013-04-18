@@ -33,7 +33,7 @@ module API
           error!("reviewer \"#{params[:reviewer]}\" not found", 400)
         elsif reviews == "Invalid Source"
           logger.error "Invalid Source"
-          error!("workplace \"#{params[:source]}\" not found", 400)          
+          error!("source \"#{params[:source]}\" not found", 400)          
         elsif reviews.nil?
           logger.info "no reviews found"
           error!("no reviews found", 200)
