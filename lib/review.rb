@@ -110,7 +110,7 @@ class Review
     review.audience  = s[:audience_name].to_s.split(',')
     review.published = s[:issued] ? true : false # published?
     ## query text and teaser of reviews here to avvoid "Temporary row length exceeded error" in Virtuoso on sorting long texts
-    query = QUERY.select(:text, :teaser).from(REVIEWGRAPH).where([review.uri, RDF::REV.text, :text]).optional([review.uri, RDF::DC.abstract, :teaser])
+    query = QUERY.select(:text, :teaser).from(REVIEWGRAPH).where.optional([review.uri, RDF::REV.text, :text]).optional([review.uri, RDF::DC.abstract, :teaser])
     solutions = REPO.select(query)
     unless solutions.empty?
       review.text = solutions.first[:text].to_s
