@@ -119,7 +119,7 @@ class Source
       parts << "'/id_'"
       
       # choose sequence origin, either from review source or from resource
-      resource == "review" ? parts << "str(bif:sequence_set ('#{source}', 0, 1))" : parts << "str(bif:sequence_set ('#{resource}, 0, 1'))"
+      resource == "review" ? parts << "str(bif:sequence_set ('#{source}', 0, 1))" : parts << "str(bif:sequence_set ('#{resource}', 0, 1))"
       
       # CONSTRUCT query  
       query = "CONSTRUCT { `iri( bif:CONCAT( "
