@@ -54,4 +54,14 @@
   foaf:accountServiceHomepage <http://data.deichman.no/source/test>;
   acc:password "secret";
   acc:lastActivity "2012-12-08T11:40:00+02:00"^^xsd:dateTime;
-  acc:status acc:ActivationNeeded.
+  acc:status acc:ActivationNeeded;
+  deich:mylist <http://data.deichman.no/mylist/id_0>.
+
+### 
+# MyList
+# PROTECTED GRAPH <http://data.deichman.no/sources>
+###
+
+<http://data.deichman.no/mylist/id_0> a rdf:Seq;
+  rdfs:label "testlist";
+  rdf:li <http://data.deichman.no/test/review/id_0>.

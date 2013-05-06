@@ -20,7 +20,7 @@ class MyList
     return nil if solutions.empty? # not found!
     
     puts solutions.inspect if ENV['RACK_ENV'] == 'development'
-    mylists = cluster(solutions)
+    lists = cluster(solutions)
   end
   
   # find list by uri
@@ -37,17 +37,18 @@ class MyList
     solutions = REPO.select(query)
     return nil if solutions.empty? # not found!
     # need to append uri to solution
-    solutions = solutions.first.merge(RDF::Query::Solution.new(:uri => uri))
-    puts solutions
+    solutions.each{|s| s.merge!(RDF::Query::Solution.new(:uri => uri))}
     puts solutions.inspect if ENV['RACK_ENV'] == 'development'
-    mylists = cluster(solutions)
+    list = cluster(solutions).first
   end
   
+  # not used! uses find method with separate query p.t.
   def find_by_uri(params)
     return nil unless params[:uri]
     self.all.detect {|mylist| mylist.uri == params[:uri] }
   end
   
+  # clusters solutions based on uri
   def cluster(solutions)
     lists = []
     distinct_lists = Marshal.load(Marshal.dump(solutions)).select(:uri).distinct
@@ -60,19 +61,18 @@ class MyList
     lists
   end
   
-  # populates MyList struct based on cluster, optionally with reviews
+  # populates MyList struct based on cluster
   def populate_list(cluster)
     # first solution creates MyList, the rest appends info
     list = MyList.new
     list.uri   = cluster.first[:uri] 
     list.label = cluster.first[:label]
     cluster.each { |s| list.items << s[:item] }
-    puts list.items
     list.items.reverse! # hack to simulate returned items in ordred sequence
     list
   end
   
-  
+  # creates a new MyList
   def create(params)
     # find source
     source = Source.new.find_by_apikey(params[:api_key])
@@ -111,9 +111,7 @@ class MyList
     # create MyList (RDF:Seq) in ordered sequence 
     insert_statements << RDF::Statement.new(self.uri, RDF.type, RDF.Seq)
     insert_statements << RDF::Statement.new(self.uri, RDF::RDFS.label, self.label)
-    self.items.each do |item|
-      insert_statements << RDF::Statement.new(self.uri, RDF.li, item)
-    end
+    self.items.each { |item| insert_statements << RDF::Statement.new(self.uri, RDF.li, RDF::URI("#{item}")) }
     query = QUERY.insert_data(insert_statements).graph(APIGRAPH)
     puts query
     puts "create mylist query: #{query}" if ENV['RACK_ENV'] == 'development'
@@ -132,7 +130,7 @@ class MyList
     
     # delete mylist
     deletequery = QUERY.delete([self.uri, :p, :o],[:userAccount, :p2, self.uri]).graph(APIGRAPH)
-    deletequery.where([self.uri, :p, :o],[:userAccount, :p2, self.uri])
+    deletequery.where([self.uri, :p, :o],[self.uri, RDF.type, RDF.Seq], [:userAccount, :p2, self.uri])
     puts deletequery
     puts "deletequery:\n #{deletequery}" if ENV['RACK_ENV'] == 'development'
     result = REPO.delete(deletequery)

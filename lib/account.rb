@@ -3,32 +3,32 @@ Account = Struct.new(:uri, :accountName, :password, :status, :accountServiceHome
 
 # main class for account lookup and create/update/delete
 class Account
+
+  # MyList is in ./lib/mylist.rb
+  def initialize
+    self.myLists = []
+  end
+  
   def all
-    query = QUERY.select(:uri, :accountName, :status, :accountServiceHomepage, :lastActivity).from(APIGRAPH)
-    query.group_digest(:myLists, ',', 1000, 1)
+    query = QUERY.select(:uri, :accountName, :status, :accountServiceHomepage, :lastActivity, :mylist).from(APIGRAPH)
     query.where(
       [:uri, RDF.type, RDF::SIOC.UserAccount],
       [:uri, RDF::FOAF.accountName, :accountName],
       [:uri, RDF::FOAF.accountServiceHomepage, :accountServiceHomepage])
     query.optional([:uri, RDF::ACC.lastActivity, :lastActivity])
     query.optional([:uri, RDF::ACC.status, :status])
-    query.optional([:uri, RDF::DEICHMAN.mylist, :myLists])
+    query.optional([:uri, RDF::DEICHMAN.mylist, :myList])
     puts query
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
     return nil if solutions.empty? # not found!
     puts solutions.inspect if ENV['RACK_ENV'] == 'development'
-    accounts = []
-    solutions.each do |s|
-      account = s.to_hash.to_struct("Account")
-      accounts << account
-    end
-    accounts
+    accounts = cluster(solutions)
   end
   
   def find(params)
     return nil unless params[:uri] || params[:accountName]
-    selects = [:uri, :accountName, :status, :password, :accountServiceHomepage]
+    selects = [:uri, :accountName, :status, :password, :accountServiceHomepage, :myList]
     api = Hashie::Mash.new(:uri => :uri, :accountName => :accountName)
     params[:uri] = RDF::URI(params[:uri]) if params[:uri]
     api.merge!(params)
@@ -36,7 +36,6 @@ class Account
     selects.delete(:uri) if params[:uri]
     selects.delete(:accountName) if params[:accountName]
     query = QUERY.select(*selects).from(APIGRAPH)
-    query.group_digest(:myLists, ',', 1000, 1)
     query.where(
       [api[:uri], RDF.type, RDF::SIOC.UserAccount],    
       [api[:uri], RDF::FOAF.accountName, api[:accountName]],
@@ -45,18 +44,46 @@ class Account
     query.optional([api[:uri], RDF::ACC.status, :status])
     query.optional([api[:uri], RDF::ACC.lastActivity, :lastActivity])
     query.optional([api[:uri], RDF::ACC.password, :password])
-    query.optional([:uri, RDF::DEICHMAN.mylist, :myLists])
+    query.optional([api[:uri], RDF::DEICHMAN.mylist, :myList])
 
-    puts query
     puts "#{query.pp}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
     return nil if solutions.empty? # not found!
+    # need to append uri to solution
+    solutions.each{|s| s.merge!(RDF::Query::Solution.new(:uri => params[:uri]))} if params[:uri]
+    solutions.each{|s| s.merge!(RDF::Query::Solution.new(:accountName => params[:accountName]))} if params[:accountName]
     puts solutions.inspect if ENV['RACK_ENV'] == 'development'
     # populate Account Struct    
-    self.members.each {|name| self[name] = solutions.first[name] unless solutions.first[name].nil? }
-    self.uri = params[:uri] if params[:uri]
-    self.accountName = params[:accountName] if params[:accountName]
-    self
+    account = cluster(solutions).first
+  end
+  
+  # clusters solutions based on uri
+  def cluster(solutions)
+    accounts = []
+    distinct_accounts = Marshal.load(Marshal.dump(solutions)).select(:uri).distinct
+    # loop each distinct account and iterate matching solutions into a new array
+    distinct_accounts.each do |da|
+      # make sure distinct filter is run on Marshal clone of solutions
+      cluster = Marshal.load(Marshal.dump(solutions)).filter {|solution| solution.uri == da.uri }
+      accounts << populate_account(cluster)
+    end 
+    accounts
+  end
+  
+  # populates Account struct based on cluster
+  def populate_account(cluster)
+    # first solution creates Account, the rest appends info
+    account = Account.new
+    account.uri = cluster.first[:uri] 
+    account.accountName = cluster.first[:accountName]
+    account.password = cluster.first[:password]
+    account.accountServiceHomepage = cluster.first[:accountServiceHomepage]
+    account.status = cluster.first[:status]
+    account.lastActivity = cluster.first[:lastActivity]
+    # then the clustered items
+    cluster.each { |s| account.myLists << s[:myList] if s[:myList]}
+    #list.items.reverse! # hack to simulate returned items in ordred sequence
+    account
   end
   
   def authenticate(password)
@@ -64,6 +91,7 @@ class Account
   end
   
   def create(params)
+    return nil unless params[:accountName]
     # find source
     source = Source.new.find_by_apikey(params[:api_key])
     return "Invalid api_key" unless source
@@ -89,7 +117,7 @@ class Account
     
     # Delete first
     deletequery = QUERY.delete([self.uri, :p, :o]).graph(APIGRAPH)
-    deletequery.where([self.uri, :p, :o],[self.userAccount, RDF.type, RDF::SIOC.UserAccount])
+    deletequery.where([self.uri, :p, :o],[self.uri, RDF.type, RDF::SIOC.UserAccount])
     #puts deletequery
     puts "deletequery:\n #{deletequery}" if ENV['RACK_ENV'] == 'development'
     result = REPO.delete(deletequery)
@@ -114,6 +142,7 @@ class Account
     # optionals
     insert_statements << RDF::Statement.new(self.uri, RDF::ACC.status, self.status) unless self.status.nil?
     insert_statements << RDF::Statement.new(self.uri, RDF::ACC.lastActivity, RDF::Literal(Time.now.xmlschema, :datatype => RDF::XSD.dateTime))
+    self.myLists.each { |item| insert_statements << RDF::Statement.new(self.uri, RDF::DEICHMAN.mylist, RDF::URI("#{item}")) }
     query = QUERY.insert_data(insert_statements).graph(APIGRAPH)
     puts query
     puts "create account query: #{query}" if ENV['RACK_ENV'] == 'development'
@@ -132,7 +161,7 @@ class Account
     
     # delete both reviewer and useraccount
     deletequery = QUERY.delete([self.uri, :p, :o]).graph(APIGRAPH)
-    deletequery.where([self.uri, :p, :o],[self.userAccount, RDF.type, RDF::SIOC.UserAccount])
+    deletequery.where([self.uri, :p, :o],[self.uri, RDF.type, RDF::SIOC.UserAccount])
     puts deletequery
     puts "deletequery:\n #{deletequery}" if ENV['RACK_ENV'] == 'development'
     result = REPO.delete(deletequery)

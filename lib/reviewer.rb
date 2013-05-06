@@ -13,7 +13,7 @@ class Reviewer
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
     return nil if solutions.empty? # not found!
-    #puts solutions.inspect if ENV['RACK_ENV'] == 'development'
+    puts solutions.inspect if ENV['RACK_ENV'] == 'development'
     reviewers = []
     solutions.each do |s|
       reviewer = s.to_hash.to_struct("Reviewer")

@@ -22,7 +22,6 @@ class Review
     if params.has_key?(:uri)
       # if uri param is Array, iterate URIs and merge solutions into separate works
       if params[:uri].is_a?(Array)
-        works = []
         solutions = RDF::Query::Solutions.new
         selects.delete(:uri)
         params[:uri].each do |u|

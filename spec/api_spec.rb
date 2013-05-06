@@ -6,7 +6,7 @@ describe API do
   include Rack::Test::Methods
 
   def app
-    API
+    API::Root
   end
   
   describe Review do
@@ -19,13 +19,13 @@ describe API do
             :title     => "A dummy review of Snømannen",
             :teaser    => "Teaser should be short and to the point",
             :text      => "Text should be weighted and both personal and attentive to details...",
-            :reviewer  => "anonymous",
+            :reviewer  => "test@test.com",
             :workplace => "Dummy workplace"}.to_json
         #last_response.status.should == 201
         result = JSON.parse(last_response.body)
-        #puts "response: #{response}"
+        #puts "response: #{result}"
         #response["work"]["author"].should == "Jo Nesbø"
-        result["review"]["title"].should == "A dummy review of Snømannen"
+        result["works"].first["reviews"].first["title"].should == "A dummy review of Snømannen"
       end
     end
     
