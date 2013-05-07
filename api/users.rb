@@ -110,12 +110,13 @@ module API
             optional :list,     type: String, desc: "MyList URI"
           end
         get "/" do
+          content_type 'json'
           mylists = []
           reviewer = Reviewer.new.find(:uri => params[:reviewer])
           error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviewer == "Invalid api_key"
           account = Account.new.find(:uri => reviewer.userAccount)
           unless params[:list]
-            mylists = account.myLists
+            account.myLists.each {|list| mylists << MyList.new.find(:uri => list) }
           else
             mylists << MyList.new.find(:uri=> params[:list])
           end
