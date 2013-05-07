@@ -268,7 +268,7 @@ class Review
     self.subject   = String.new.sanitize_isbn(params[:isbn])
     self.work      = work.first.uri
     self.edition   = work.first.editions.first.uri
-    self.reviewer  = Reviewer.new(reviewer.uri, account.accountName)
+    self.reviewer  = Reviewer.new(reviewer.uri, reviewer.name)
     # workplace disabled
     #self.workplace = reviewer.workplace
     self.created   = Time.now.xmlschema
@@ -324,7 +324,7 @@ class Review
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
     self.modified  = Time.now.xmlschema
     self.source    = source.uri
-    self.reviewer  = reviewer.uri
+    self.reviewer  = Reviewer.new(reviewer.uri, reviewer.name)
     # change issued if publish state changed
     self.issued = Time.now.xmlschema if publish
     self.issued = nil if unpublish
