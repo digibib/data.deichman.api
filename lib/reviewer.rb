@@ -25,9 +25,11 @@ class Reviewer
   # accept uri or userAccount
   def find(params)
     return nil unless params[:uri] || params[:userAccount]
+    selects = [:uri, :name, :workplaceHomepage, :userAccount]
     uri         = params[:uri] ? RDF::URI(params[:uri]) : :uri
     useraccount = params[:userAccount] ? RDF::URI(params[:userAccount]) : :userAccount
-    selects = [:name, :workplaceHomepage, :userAccount]
+    select.delete(:uri) if params[:uri]
+    select.delete(:userAccount) if params[:userAccount]
     
     query = QUERY.select(*selects).from(APIGRAPH)
     query.where(
