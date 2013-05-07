@@ -28,8 +28,8 @@ class Reviewer
     selects = [:uri, :name, :workplaceHomepage, :userAccount]
     uri         = params[:uri] ? RDF::URI(params[:uri]) : :uri
     useraccount = params[:userAccount] ? RDF::URI(params[:userAccount]) : :userAccount
-    select.delete(:uri) if params[:uri]
-    select.delete(:userAccount) if params[:userAccount]
+    selects.delete(:uri) if params[:uri]
+    selects.delete(:userAccount) if params[:userAccount]
     
     query = QUERY.select(*selects).from(APIGRAPH)
     query.where(
