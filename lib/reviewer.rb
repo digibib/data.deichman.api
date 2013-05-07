@@ -25,14 +25,14 @@ class Reviewer
   def find(params)
     return nil unless params[:uri]
     uri = RDF::URI(params[:uri]) 
-    selects = [:uri, :name, :workplaceHomepage, :userAccount]
+    selects = [:name, :workplaceHomepage, :userAccount]
     
     query = QUERY.select(*selects).from(APIGRAPH)
     query.where([uri, RDF.type, RDF::FOAF.Person],
       [uri, RDF.type, RDF::FOAF.Person],
       [uri, RDF::FOAF.name, :name],
       [uri, RDF::FOAF.account, :userAccount])
-      
+    query.optional([uri, RDF::FOAF.workplaceHomepage, :workplaceHomepage])
     puts "#{query.pp}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
     return nil if solutions.empty? # not found!
