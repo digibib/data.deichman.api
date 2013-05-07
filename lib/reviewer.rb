@@ -25,12 +25,12 @@ class Reviewer
   # accept uri or userAccount
   def find(params)
     return nil unless params[:uri] || params[:userAccount]
-    uri = RDF::URI(params[:uri])
-    useraccount = params[:userAccount] ? params[:userAccount] : :userAccount
+    uri         = params[:uri] ? RDF::URI(params[:uri]) : :uri
+    useraccount = params[:userAccount] ? RDF::URI(params[:userAccount]) : :userAccount
     selects = [:name, :workplaceHomepage, :userAccount]
     
     query = QUERY.select(*selects).from(APIGRAPH)
-    query.where([uri, RDF.type, RDF::FOAF.Person],
+    query.where(
       [uri, RDF.type, RDF::FOAF.Person],
       [uri, RDF::FOAF.name, :name],
       [uri, RDF::FOAF.account, useraccount])
@@ -41,8 +41,8 @@ class Reviewer
     puts solutions.inspect if ENV['RACK_ENV'] == 'development'
     # populate Review Struct    
     self.members.each {|name| self[name] = solutions.first[name] unless solutions.first[name].nil? } 
-    self.uri = uri
-    self.userAccount = params[:userAccount] if params[:userAccount]
+    self.uri         = uri if params[:uri]
+    self.userAccount = userAccount if params[:userAccount]
     self
   end
   
