@@ -7,19 +7,25 @@ module API
       desc "returns all users or specific user"
       get "/" do
         content_type 'json'
-        unless params[:uri] || params[:name] || params[:accountName]
+        unless params[:uri] || params[:accountName]
           reviewers = Reviewer.new.all
           reviewers.each {|r| r.userAccount = Account.new.find(:uri => r.userAccount) ; r.userAccount.password = nil }
           {:reviewers => reviewers }
         else
           logger.info "params: #{params}"
           reviewer = Reviewer.new.find(params)
+          unless reviewer
+            account  = Account.new.find(:accountName => params[:accountName]) 
+            reviewer = Reviewer.new.find(:userAccount => account.uri) if account
+          end
           error!("Sorry, user not found", 404) unless reviewer
-          reviewers.each {|r| r.userAccount = Account.new.find(:uri => r.userAccount) ; r.userAccount.password = nil }
+          reviewer.userAccount = account
+          reviewer.userAccount.password = nil
           {:reviewer => reviewer }
         end
       end
-
+      
+      
       desc "creates a user"
         params do
           requires :api_key,     type: String, desc: "API key"
