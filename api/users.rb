@@ -9,12 +9,13 @@ module API
         content_type 'json'
         unless params[:uri] || params[:name] || params[:accountName]
           reviewers = Reviewer.new.all
+          reviewers.each {|r| r.userAccount = Account.new.find(:uri => r.userAccount) ; r.userAccount.password = nil }
           {:reviewers => reviewers }
         else
           logger.info "params: #{params}"
           reviewer = Reviewer.new.find(params)
           error!("Sorry, user not found", 404) unless reviewer
-          reviewer.password = nil
+          reviewers.each {|r| r.userAccount = Account.new.find(:uri => r.userAccount) ; r.userAccount.password = nil }
           {:reviewer => reviewer }
         end
       end
@@ -33,9 +34,13 @@ module API
         account  = Account.new.create(params)
         error!("Sorry, \"unable to create account", 400) unless account
         account.save
+        # remove password from response
+        account.password     = nil
+        # save reviewer before returning
         reviewer.userAccount = account.uri
         reviewer.save
-        reviewer.password = nil
+        # return full account
+        reviewer.userAccount = account
         {:reviewer => reviewer}
       end
 

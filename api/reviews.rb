@@ -72,7 +72,7 @@ module API
         if valid_params.any? {|p| params.has_key?(p) }
           params.delete_if {|p| !valid_params.include?(p) }
           work = Work.new.find(:isbn => params[:isbn])
-          error!("Sorry, #{params[:isbn]} matches no known book in our base", 400) if work == "Invalid ISBN"
+          error!("Sorry, #{params[:isbn]} matches no known book in our base", 400) if work == "Invalid ISBN" || work.nil?
           review = Review.new.create(params)
           error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if review == "Invalid api_key"
           error!("Sorry, unable to create/obtain unique ID of reviewer", 400) if review == "Invalid Reviewer ID"

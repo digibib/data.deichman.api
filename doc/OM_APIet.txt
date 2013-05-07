@@ -1,0 +1,44 @@
+Om API-et
+---------
+
+Et API er et programmeringsgrensesnitt som skal gjøre det enklest mulig for applikasjoner å kommunisere om de viktigste funksjonene:
+opprette, finne, oppdatere og slette ressurser. 
+
+Dette gjør det mulig å enkelt koble seg på fra andre applikasjoner og bruke bokanbefalingsbasen både til å finne og lagre anbefalinger. 
+Vi har forsøkt å gjøre det enklest mulig ved å bruke REST/JSON som er dagens kommunikasjonsform/standard.
+
+Slik kan du og ditt bibliotek bidra
+-----------------------------------
+Hvis biblioteket ditt har en blogg, f.eks. wordpress, har vi allerede laget et plugin som kobler seg direkte til bokanbefalingsbasen. 
+Biblioteket trenger bare fylle inn noen ekstra felt, bl.a. isbn på omtalt bok, og pluginet vil sørge for å koble anmeldelsen til basen.
+
+Slik gjør du
+------------
+For å kunne hente ut anbefalinger fra basen er det bare å bruke APIet vårt som beskrevet nedenfor. 
+Hvis dere vil dele anbefalingen med andre (noe mange vil sette pris på!) er det bare å kontakte oss for å få en api-nøkkel som gir tilgang til å publisere i basen.
+APIet bruker standard CRUD (Create, Read, Update & Delete) som betyr at transaksjonene skjer via nettprotokollen 'http' som alle nettlesere kjenner.
+Metodene nedenfor beskriver basistransaksjonene i APIet for å finne, lage, oppdatere og slette anbefalinger. 
+Disse kan brukes i skjema eller applikasjoner på nettsiden eller bloggen deres.
+
+API-metoder
+-----------
+noen eksempler:
+
+hent anbefalinger:
+GET marc2rdf.deichman.no/api/reviews limit=10 order_by=issued
+
+slå opp en bok på isbn og finn anbefalinger:
+GET marc2rdf.deichman.no/api/works isbn=9789512075997 reviews=true
+
+legg til en ny anbefaling:
+POST marc2rdf.deichman.no/api/reviews isbn=9789512075997 api_key=(din apinøkkel her) title="Vent ikke, les boka" teaser="Denne boka gir deg sjøbein!" text="Her er den fulle og hele omtalen av favorittboka di!" reviewer=(din brukerid)
+
+( i responsen er det generert en unik id (URI) til anbefalingen som må brukes til å oppdatere eller slette )
+
+oppdater en anbefaling:
+PUT marc2rdf.deichman.no/api/reviews uri=(den unike id-en som kom når den ble opprettet) api_key=(din apinøkkel her) title="Vent ikke, les boka" teaser="Denne boka gir deg sjøbein!" text="Her er den fulle og hele omtalen av favorittboka di!"
+
+slett en anbefaling:
+DELETE marc2rdf.deichman.no/api/reviews uri=(den unike id-en som kom når den ble opprettet) api_key=(din apinøkkel her)
+
+Se github for utfyllende dokumentasjon.
