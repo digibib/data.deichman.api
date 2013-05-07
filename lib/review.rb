@@ -233,7 +233,10 @@ class Review
       params[:accountName] = params[:reviewer] # Reviewer takes :name parameter
       # first check if reviewer or account exists
       reviewer = Reviewer.new.find(:uri => params[:reviewer])
-      account  = Account.new.find(:accountName => params[:accountName]) unless reviewer
+      unless reviewer
+        account  = Account.new.find(:accountName => params[:accountName]) 
+        reviewer = Reviewer.new.find(:userAccount => account.uri) if account
+      end
       # create new Reviewer and Account if not found
       unless account
         reviewer = Reviewer.new.create(:name => params[:reviewer], :api_key => params[:api_key])           # Reviewer: reviewer name = accountName

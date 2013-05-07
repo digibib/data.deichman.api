@@ -22,16 +22,18 @@ class Reviewer
     reviewers
   end
   
+  # accept uri or userAccount
   def find(params)
-    return nil unless params[:uri]
-    uri = RDF::URI(params[:uri]) 
+    return nil unless params[:uri] || params[:userAccount]
+    uri = RDF::URI(params[:uri])
+    useraccount = params[:userAccount] ? params[:userAccount] : :userAccount
     selects = [:name, :workplaceHomepage, :userAccount]
     
     query = QUERY.select(*selects).from(APIGRAPH)
     query.where([uri, RDF.type, RDF::FOAF.Person],
       [uri, RDF.type, RDF::FOAF.Person],
       [uri, RDF::FOAF.name, :name],
-      [uri, RDF::FOAF.account, :userAccount])
+      [uri, RDF::FOAF.account, useraccount])
     query.optional([uri, RDF::FOAF.workplaceHomepage, :workplaceHomepage])
     puts "#{query.pp}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
@@ -40,6 +42,7 @@ class Reviewer
     # populate Review Struct    
     self.members.each {|name| self[name] = solutions.first[name] unless solutions.first[name].nil? } 
     self.uri = uri
+    self.userAccount = params[:userAccount] if params[:userAccount]
     self
   end
   
