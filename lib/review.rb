@@ -229,13 +229,19 @@ class Review
     return "Invalid ISBN" unless work
     
     if params[:reviewer]
+      # reviewer param is either reviewer uri or useraccount accountname 
       params[:accountName] = params[:reviewer] # Reviewer takes :name parameter
-      reviewer = Reviewer.new.find(:accountName => params[:reviewer])
-      reviewer = Reviewer.new.create(:accountName => params[:accountName], 
-                                     :api_key => params[:api_key],
-                                     :name => params[:reviewer_name]) if reviewer.nil? # create new if not found
-      return "Invalid Reviewer ID" unless reviewer
-      reviewer.save
+      # first check if reviewer or account exists
+      reviewer = Reviewer.new.find(:uri => params[:reviewer])
+      account  = Account.new.find(:accountName => params[:accountName]) unless reviewer
+      # create new Reviewer and Account if not found
+      unless account
+        reviewer = Reviewer.new.create(:name => params[:reviewer], :api_key => params[:api_key])           # Reviewer: reviewer name = accountName
+        account  = Account.new.create(:accountName => params[:accountName], :api_key => params[:api_key])  # Account: accountName
+        reviewer.userAccount = account.uri
+        reviewer.save
+        account.save
+      end
     else
       # default to anonymous user
       reviewer = Reviewer.new.find(:uri => "http://data.deichman.no/reviewer/id_0")
