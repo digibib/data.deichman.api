@@ -24,6 +24,7 @@ class Work
     params[:isbn] = String.new.sanitize_isbn("#{params[:isbn]}") if params[:isbn]
     api.merge!(params)
     selects.delete(:isbn) if api[:isbn] == :isbn
+    selects.delete(:uri)  if api[:uri]  == :isbn
     
     # disabled freetext author/title search
     # do we have freetext searches on author/title?
@@ -40,7 +41,7 @@ class Work
 
     # author, also include :author_name variable if queried by api for lookup
     api[:author_name].is_a?(Symbol) ?
-      query.optional([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, api[:author_name]]) :
+      query.where([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, api[:author_name]]) :
       query.where([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, api[:author_name]], [api[:author], RDF::FOAF.name, :author_name])
     #query.where([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, :author_name])
     
