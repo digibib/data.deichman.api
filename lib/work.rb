@@ -40,7 +40,7 @@ class Work
 
     # author, also include :author_name variable if queried by api for lookup
     api[:author_name].is_a?(Symbol) ?
-      query.where([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, api[:author_name]]) :
+      query.optional([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, api[:author_name]]) :
       query.where([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, api[:author_name]], [api[:author], RDF::FOAF.name, :author_name])
     #query.where([api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, :author_name])
     

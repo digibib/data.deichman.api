@@ -5,8 +5,8 @@ module API
     resource :works do
       desc "returns works by isbn, work uri, title or author"
         params do
-          optional :uri,         type: String, desc: "ISBN"
-          optional :isbn,        type: String, desc: "ISBN"
+          optional :uri,         type: String, desc: "URI of Work"
+          optional :isbn,        type: String, desc: "ISBN of Edition"
           optional :title,       type: String, desc: "Book title"
           optional :author_name, type: String, desc: "Book author"
           optional :author,      type: String, desc: "ID of Book author"

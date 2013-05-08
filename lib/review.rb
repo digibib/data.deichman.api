@@ -22,7 +22,6 @@ class Review
     if params.has_key?(:uri)
       # if uri param is Array, iterate URIs and merge solutions into separate works
       if params[:uri].is_a?(Array)
-        works = []
         solutions = RDF::Query::Solutions.new
         selects.delete(:uri)
         params[:uri].each do |u|
@@ -230,13 +229,22 @@ class Review
     return "Invalid ISBN" unless work
     
     if params[:reviewer]
+      # reviewer param is either reviewer uri or useraccount accountname 
       params[:accountName] = params[:reviewer] # Reviewer takes :name parameter
-      reviewer = Reviewer.new.find(:accountName => params[:reviewer])
-      reviewer = Reviewer.new.create(:accountName => params[:accountName], 
-                                     :api_key => params[:api_key],
-                                     :name => params[:reviewer_name]) if reviewer.nil? # create new if not found
-      return "Invalid Reviewer ID" unless reviewer
-      reviewer.save
+      # first check if reviewer or account exists
+      reviewer = Reviewer.new.find(:uri => params[:reviewer])
+      unless reviewer
+        account  = Account.new.find(:accountName => params[:accountName]) 
+        reviewer = Reviewer.new.find(:userAccount => account.uri) if account
+      end
+      # create new Reviewer and Account if not found
+      unless account
+        reviewer = Reviewer.new.create(:name => params[:reviewer], :api_key => params[:api_key])           # Reviewer: reviewer name = accountName
+        account  = Account.new.create(:accountName => params[:accountName], :api_key => params[:api_key])  # Account: accountName
+        reviewer.userAccount = account.uri
+        reviewer.save
+        account.save
+      end
     else
       # default to anonymous user
       reviewer = Reviewer.new.find(:uri => "http://data.deichman.no/reviewer/id_0")
@@ -260,7 +268,7 @@ class Review
     self.subject   = String.new.sanitize_isbn(params[:isbn])
     self.work      = work.first.uri
     self.edition   = work.first.editions.first.uri
-    self.reviewer  = reviewer.uri
+    self.reviewer  = Reviewer.new(reviewer.uri, reviewer.name)
     # workplace disabled
     #self.workplace = reviewer.workplace
     self.created   = Time.now.xmlschema
@@ -316,7 +324,7 @@ class Review
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
     self.modified  = Time.now.xmlschema
     self.source    = source.uri
-    self.reviewer  = reviewer.uri
+    self.reviewer  = Reviewer.new(reviewer.uri, reviewer.name)
     # change issued if publish state changed
     self.issued = Time.now.xmlschema if publish
     self.issued = nil if unpublish
