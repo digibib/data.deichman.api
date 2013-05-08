@@ -347,7 +347,7 @@ class Review
     insert_statements << RDF::Statement.new(self.uri, RDF::DC.modified, RDF::Literal(self.modified, :datatype => RDF::XSD.dateTime))
 
     # insert reviewer if found or created
-    insert_statements << RDF::Statement.new(self.uri, RDF::REV.reviewer, self.reviewer)
+    insert_statements << RDF::Statement.new(self.uri, RDF::REV.reviewer, self.reviewer.uri)
   
     # Optionals - Audience
     unless self.audience
