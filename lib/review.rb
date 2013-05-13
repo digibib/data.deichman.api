@@ -176,18 +176,6 @@ class Review
       query.where([api[:uri], RDF::DC.source, api[:source]], [api[:source], RDF::FOAF.name, :source_name, :context => APIGRAPH]) :
       query.where([api[:uri], RDF::DC.source, api[:source]], [api[:source], RDF::FOAF.name, :source_name, :context => APIGRAPH], [:source, RDF::FOAF.name, :source_name, :context => APIGRAPH])
     
-      # workplace
-=begin
-  # Workplace disabled
-    if params[:workplace]
-      query.where([api[:reviewer], RDF::ORG.memberOf, api[:workplace], :context => APIGRAPH],
-        [api[:workplace], RDF::SKOS.prefLabel, api[:workplace], :context => APIGRAPH], # to get workplace in response
-        [api[:workplace], RDF::SKOS.prefLabel, :workplace_name, :context => APIGRAPH])
-    else
-      query.optional([api[:reviewer], RDF::ORG.memberOf, api[:workplace], :context => APIGRAPH],
-        [api[:workplace], RDF::SKOS.prefLabel, :workplace_name, :context => APIGRAPH])
-    end
-=end
     query.filter('(lang(?audience_name) = "no")') 
     # optional attributes
     query.optional([api[:uri], RDF::DC.issued, :issued]) # made optional to allow sorting by published true/false
@@ -340,7 +328,7 @@ class Review
     insert_statements << RDF::Statement.new(self.uri, RDF::REV.title, RDF::Literal(self.title))
     insert_statements << RDF::Statement.new(self.uri, RDF::DC.abstract, RDF::Literal(self.teaser))
     insert_statements << RDF::Statement.new(self.uri, RDF::REV.text, RDF::Literal(self.text))
-    # add link to manifetation by isbn
+    # add link to edition by isbn
     insert_statements << RDF::Statement.new(self.uri, RDF::DC.subject, RDF::Literal(self.subject))
     insert_statements << RDF::Statement.new(self.uri, RDF::DC.created, RDF::Literal(self.created, :datatype => RDF::XSD.dateTime))
     insert_statements << RDF::Statement.new(self.uri, RDF::DC.issued, RDF::Literal(self.issued, :datatype => RDF::XSD.dateTime)) if self.issued
