@@ -8,11 +8,21 @@ The return format is JSON. All responses from /api/reviews and /api/works now re
 ```
 "works" : [
   { "uri" : "http://example.com/workid",
-    "title" : "a title",
+    "originalTitle" : "Title of work",
+    "prefTitle": "Norwegian title of work", 
     "authors": [
       {
       "uri": "http://example.com/authorid",
       "name": Author's name",
+      }
+    ],
+    "editions": [
+      {
+      "uri": "http://example.com/editionid",
+      "lang": Edition's language",
+      "title": Edition's title",
+      "isbn": Edition's isbn",
+      "cover_url": Edition coverimage",
       }
     ],
       ...
@@ -24,6 +34,15 @@ The return format is JSON. All responses from /api/reviews and /api/works now re
         "uri": "http://example.com/reviewer_id",
         "name": "Reviewer's name"
         },
+      "source": {
+        "name": "Deichmanske Bibliotek", 
+        "uri": "http://data.deichman.no/source/deichmanske_bibliotek"
+        },
+      "audience": [
+        "Voksen"
+        ],
+      "teaser": "Short teaser to review",
+      "text": "Full Text of review...",
       }
     ]
   }
