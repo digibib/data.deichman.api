@@ -125,14 +125,53 @@ module API
           error!("Need at least one param of title|teaser|text|audience|published", 400)      
         end
       end
-  
+
+      desc "updates a review by POST /update - for browser compatibility"
+        params do
+          requires :api_key,   type: String, desc: "Authorization Key"
+          requires :uri,       type: String, desc: "URI of review"
+          optional :title,     type: String, desc: "Title of review"
+          optional :teaser,    type: String, desc: "Abstract of review"
+          optional :text,      type: String, desc: "Text of review"
+          optional :audience,  type: String, desc: "Audience comma-separated, barn|ungdom|voksen|children|youth|adult"
+          optional :published, type: Boolean, desc: "Published - true/false"
+          #optional :reviewer, type: String, desc: "Name of reviewer"
+          #optional :source, type: String, desc: "Source of review"
+        end    
+      post "/update" do
+        content_type 'json'
+        #header['Content-Type'] = 'application/json; charset=utf-8'
+        valid_params = ['api_key','uri','title','teaser','text','audience','published']
+        # do we have a valid parameter?
+        if valid_params.any? {|p| params.has_key?(p) }
+          # delete params not listed in valid_params
+          logger.info "params before: #{params}"
+          params.delete_if {|p| !valid_params.include?(p) }
+          logger.info "params after: #{params}"
+          # is it in the base? uses params[:uri]
+          reviews = Review.new.find(:uri => params[:uri])
+          error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if reviews.nil?
+          logger.info "works: #{reviews}"
+          review = reviews.first.update(params)
+          error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if review == "Invalid api_key"
+          #throw :error, :status => 400, :message => "Sorry, unable to update review #{params[:uri]} ..." if result =~ /nothing to do/
+          logger.info "PUT: params: #{params} - review: #{review}"
+          works = Review.new.reviews_to_works(reviews)
+          #(works ||=[]) << Work.new.find(:isbn => review.subject).first
+          #works.first.reviews << review
+          {:works => works }
+        else
+          logger.error "invalid or missing params"   
+          error!("Need at least one param of title|teaser|text|audience|published", 400)      
+        end
+      end
+        
       desc "deletes a review"
         params do
           requires :api_key, type: String, desc: "Authorization Key"
           requires :uri,     type: String, desc: "URI of review"
         end    
-      delete "/" do
-        #header['Content-Type'] = 'application/json; charset=utf-8'
+      delete '/' do
         content_type 'json'
         # is it in the base?
         reviews = Review.new.find(:uri => params[:uri])
@@ -144,6 +183,25 @@ module API
         logger.info "DELETE: params: #{params} - result: #{reviews}"
         {:result => result }
       end
+
+      desc "deletes a review by POST /delete - for browser compatibility"
+        params do
+          requires :api_key, type: String, desc: "Authorization Key"
+          requires :uri,     type: String, desc: "URI of review"
+        end    
+      post "/delete" do
+        content_type 'json'
+        # is it in the base?
+        reviews = Review.new.find(:uri => params[:uri])
+        error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if reviews.nil?
+        # yes, then delete it!
+        result = reviews.first.delete(params)
+        error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviews == "Invalid api_key"
+        error!("Sorry, unable to delete review #{params[:uri]} ...", 400) if reviews.nil? || reviews =~ /nothing to do/
+        logger.info "DELETE: params: #{params} - result: #{reviews}"
+        {:result => result }
+      end
+      
     end
   end
 end
