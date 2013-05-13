@@ -1,8 +1,8 @@
 # REST API for Deichman's RDF-store
 
 ## Endpoint
-    http://data.deichman.no/api
-
+    http://anbefalinger.deichman.no/api
+    (fallback: http://marc2rdf.deichman.no/api)
 The return format is JSON. All responses from /api/reviews and /api/works now responds to the format:
 
 ```
@@ -73,17 +73,17 @@ Fetches one or more reviews
 * The `uri` must refer to a bookreview. `uri` can also be an Array of uris
 * `reviewer`, `work`, `author`, `reviewer`, and `source` must be a uri
 * `offset` and `limit` must be integers.
-* `order_by` allows values `author_name`, `title`, `reviewer``, `issued`, `modified`, `created` 
+* `order_by` allows values `author_name`, `title`, `reviewer`, `issued`, `modified`, `created` 
 * `order` must be `desc` or `asc`.
 
 Examples
 ```
-http GET http://data.deichman.no/api/reviews uri="http://data.deichman.no/bookreviews/deich3456"
-http GET http://data.deichman.no/api/reviews uri:='["http://data.deichman.no/bookreviews/deich3456",
+http GET http://anbefalinger.deichman.no/api/reviews uri="http://data.deichman.no/bookreviews/deich3456"
+http GET http://anbefalinger.deichman.no/api/reviews uri:='["http://data.deichman.no/bookreviews/deich3456",
                                                     "http://data.deichman.no/bookreviews/deich3457"]'
-http GET http://data.deichman.no/api/reviews reviewer="http://data.deichman.no/reviewer/id_0"
-http GET http://data.deichman.no/api/reviews work="http://data.deichman.no/work/x18370200_snoemannen"
-http GET http://data.deichman.no/api/reviews limit=20 offset=20 order_by=author_name order=desc
+http GET http://anbefalinger.deichman.no/api/reviews reviewer="http://data.deichman.no/reviewer/id_0"
+http GET http://anbefalinger.deichman.no/api/reviews work="http://data.deichman.no/work/x18370200_snoemannen"
+http GET http://anbefalinger.deichman.no/api/reviews limit=20 offset=20 order_by=author_name order=desc
 
 ```
 
@@ -101,11 +101,11 @@ Fetches one or more works, optionally with reviews
 
 Examples
 ```
-http GET http://data.deichman.no/api/works uri="http://data.deichman.no/work/x18370200_snoemannen" reviews=true
-http GET http://data.deichman.no/api/works uri:='["http://data.deichman.no/resource/work/x123456",
+http GET http://anbefalinger.deichman.no/api/works uri="http://data.deichman.no/work/x18370200_snoemannen" reviews=true
+http GET http://anbefalinger.deichman.no/api/works uri:='["http://data.deichman.no/resource/work/x123456",
                                                     "http://data.deichman.no/resource/work/x123456"]'
-http GET http://data.deichman.no/api/works title="Test Title"
-http GET http://data.deichman.no/api/works author="Jo Nesbø" reviews=true limit=10 order_by=author_name order=desc
+http GET http://anbefalinger.deichman.no/api/works title="Test Title"
+http GET http://anbefalinger.deichman.no/api/works author="Jo Nesbø" reviews=true limit=10 order_by=author_name order=desc
 ```
 
 ### POST /reviews
@@ -118,26 +118,28 @@ Creates a new review
 * Optional: `reviewer`, `audience`
 
     allowed audience values are `voksen`, `adult`, `ungdom`, `youth`, `children` or `barn`
-    can be multiple separated by either comma, slash or pipe (,/|)    
+    can be multiple separated by either comma, slash or pipe (,/|) 
+    `reviewer` must be valid e-mail. If e-mail is new, a new user and useraccount will be created. If no reviewer, anonymous will be used.   
 
 Example
 ```
-http POST http://data.deichman.no/api/reviews api_key="dummyapikey" isbn=9788243006218 title="Title of review"
+http POST http://anbefalinger.deichman.no/api/reviews api_key="dummyapikey" isbn=9788243006218 title="Title of review"
     teaser="A brief text for teaser, infoscreens, etc." text="The entire text of review. Lorem ipsum and the glory of utf-8"
-    reviewer="John Doe" audience="children"
+    reviewer="test@person.com" audience="children"
 ```
 
-### PUT /reviews
+### PUT /reviews (or POST /reviews/update for agents not supporting PUT/DELETE)
 
 Updates existing review
 
 #### Parameters
 
 * Required: `api_key`, `uri`
-* Optional: `isbn|title|teaser|text|reviewer|audience`
+* Optional: `title|teaser|text|reviewer|audience`
 
-
-### DELETE /reviews
+    `uri` must refer to the URI of an already published review 
+    
+### DELETE /reviews (or POST /reviews/delete for agents not supporting PUT/DELETE)
 
 Deletes a review
 
