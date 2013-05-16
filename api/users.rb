@@ -116,18 +116,17 @@ module API
       resource :mylists do
         desc "returns all users or specific user"
           params do
-            requires :api_key,  type: String, desc: "API key"
-            requires :reviewer, type: String, desc: "Reviewer URI"
+            optional :reviewer, type: String, desc: "Reviewer URI"
             optional :list,     type: String, desc: "MyList URI"
           end
         get "/" do
           content_type 'json'
           mylists = []
+          if params[:reviewer]
           reviewer = Reviewer.new.find(:uri => params[:reviewer])
-          error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviewer == "Invalid api_key"
+          error!("Sorry, \"#{params[:reviewer]}\" not found", 400) unless reviewer
           account = Account.new.find(:uri => reviewer.userAccount)
-          unless params[:list]
-            account.myLists.each {|list| mylists << MyList.new.find(:uri => list) }
+          account.myLists.each {|list| mylists << MyList.new.find(:uri => list) }
           else
             mylists << MyList.new.find(:uri=> params[:list])
           end
