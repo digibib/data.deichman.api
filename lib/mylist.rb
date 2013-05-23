@@ -113,7 +113,7 @@ class MyList
     insert_statements << RDF::Statement.new(self.uri, RDF::RDFS.label, self.label)
     self.items.each { |item| insert_statements << RDF::Statement.new(self.uri, RDF.li, RDF::URI("#{item}")) }
     query = QUERY.insert_data(insert_statements).graph(APIGRAPH)
-    puts query
+    #puts query
     puts "create mylist query: #{query}" if ENV['RACK_ENV'] == 'development'
     result = REPO.insert_data(query)
     return nil if result.empty?

@@ -227,7 +227,8 @@ class Review
       end
       # create new Reviewer and Account if not found
       unless account
-        reviewer = Reviewer.new.create(:name => params[:reviewer], :api_key => params[:api_key])           # Reviewer: reviewer name = accountName
+        name = params[:reviewer_name] ? params[:reviewer_name] : params[:accountName] # reviewer name = accountName if reviewer_name is not sent
+        reviewer = Reviewer.new.create(:name => name, :api_key => params[:api_key])
         account  = Account.new.create(:accountName => params[:accountName], :api_key => params[:api_key])  # Account: accountName
         reviewer.userAccount = account.uri
         reviewer.save

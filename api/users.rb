@@ -160,7 +160,7 @@ module API
             requires :api_key, type: String, desc: "API key"
             requires :uri,     type: String, desc: "MyList URI"
             optional :label,   type: String, desc: "MyList label"
-            optional :items,   type: Array, desc: "MyList Array"
+            optional :items,   type: Array,  desc: "MyList Array"
           end
         put "/" do
           content_type 'json'
@@ -182,7 +182,7 @@ module API
           logger.info "params: #{params}"
           mylist = MyList.new.find(:api_key => params[:api_key], :uri => params[:uri])
           error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if mylist == "Invalid api_key"
-          error!("Sorry, \"#{params[:uri]}\" matches no reviewer in our base", 404) unless mylist
+          error!("Sorry, \"#{params[:uri]}\" matches no list in our base", 404) unless mylist
           result = mylist.delete(params)
           {:result => result}
         end

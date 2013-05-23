@@ -66,7 +66,7 @@ The API is open for anyone to use, but a key is required in order to write to th
 
 Fetches one or more reviews
 
-#### Allowed parameters:   `reviewer`, `work`, `author`, `isbn`, `author_name`, `title`, `reviewer`, `source`
+#### Allowed parameters:   `reviewer`, `work`, `author`, `isbn`, `author_name`, `title`, `source`
 #### Filtering parameters: `order_by`, `order`, `limit`, `offset`, `published`, `cluster`
 
 * Other parameters will be ignored if `uri`, `reviewer` or `work`  is present.
@@ -115,11 +115,12 @@ Creates a new review
 #### Parameters
 
 * Required: `api_key`, `isbn`, `title`, `teaser`, `text`
-* Optional: `reviewer`, `audience`
+* Optional: `reviewer`, `reviewer_name`, `audience`
 
     allowed audience values are `voksen`, `adult`, `ungdom`, `youth`, `children` or `barn`
     can be multiple separated by either comma, slash or pipe (,/|) 
-    `reviewer` must be valid e-mail. If e-mail is new, a new user and useraccount will be created. If no reviewer, anonymous will be used.   
+    `reviewer` must be valid e-mail. If e-mail is new, a new user and useraccount will be created. If no reviewer, anonymous will be used.
+    Reviewer's name will be set to e-mail if `reviewer_name` param is not used  
 
 Example
 ```
