@@ -169,7 +169,7 @@ module API
           error!("Sorry, list not found in our base", 404) unless mylist
           error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if mylist == "Invalid api_key"
           mylist.update(params)
-          {:mylist => [mylist]}
+          {:mylists => [mylist]}
         end
 
         desc "deletes a list"
@@ -184,7 +184,7 @@ module API
           error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if mylist == "Invalid api_key"
           error!("Sorry, \"#{params[:uri]}\" matches no list in our base", 404) unless mylist
           result = mylist.delete(params)
-          {:result => result}
+          {:mylists => result}
         end
                     
       end # end MyLists
