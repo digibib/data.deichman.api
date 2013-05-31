@@ -67,8 +67,10 @@ class MyList
     list = MyList.new
     list.uri   = cluster.first[:uri] 
     list.label = cluster.first[:label]
-    cluster.each { |s| list.items << s[:item] }
-    list.items.reverse! # hack to simulate returned items in ordred sequence
+    list.items = cluster.first[:item]
+    #cluster.each { |s| list.items << s[:item] }
+    #list.items.reverse! # rdf store needs to write in reversed sequence!
+    list.items = list.items.to_s.split(',') if list.items
     list
   end
   
@@ -111,7 +113,9 @@ class MyList
     # create MyList (RDF:Seq) in ordered sequence 
     insert_statements << RDF::Statement.new(self.uri, RDF.type, RDF.Seq)
     insert_statements << RDF::Statement.new(self.uri, RDF::RDFS.label, self.label)
-    self.items.each { |item| insert_statements << RDF::Statement.new(self.uri, RDF.li, RDF::URI("#{item}")) }
+    # RDF Lists are not trivial, puts them into a long csv string instead
+    # self.items.each { |item| insert_statements << RDF::Statement.new(self.uri, RDF.li, RDF::URI("#{item}")) }
+    insert_statements << RDF::Statement.new(self.uri, RDF.li, RDF::Literal(self.items.join(',')) )
     query = QUERY.insert_data(insert_statements).graph(APIGRAPH)
     #puts query
     puts "create mylist query: #{query}" if ENV['RACK_ENV'] == 'development'

@@ -122,13 +122,15 @@ module API
         get "/" do
           content_type 'json'
           mylists = []
-          if params[:reviewer]
-          reviewer = Reviewer.new.find(:uri => params[:reviewer])
-          error!("Sorry, \"#{params[:reviewer]}\" not found", 400) unless reviewer
-          account = Account.new.find(:uri => reviewer.userAccount)
-          account.myLists.each {|list| mylists << MyList.new.find(:uri => list) }
-          else
+          if params[:list]
             mylists << MyList.new.find(:uri=> params[:list])
+          elsif params[:reviewer]
+            reviewer = Reviewer.new.find(:uri => params[:reviewer])
+            error!("Sorry, \"#{params[:reviewer]}\" not found", 400) unless reviewer
+            account = Account.new.find(:uri => reviewer.userAccount)
+            account.myLists.each {|list| mylists << MyList.new.find(:uri => list) }
+          else
+            mylists << MyList.new.all
           end
           {:mylists => mylists }
         end
