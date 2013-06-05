@@ -21,7 +21,7 @@ class Work
     # handle params
     params[:uri]    = RDF::URI(params[:uri]) if params[:uri]
     params[:author] = RDF::URI(params[:author]) if params[:author]
-    params[:isbn]   = String.new.sanitize_isbn("#{params[:isbn]}") if params[:isbn]
+    params[:isbn]   = String.sanitize_isbn("#{params[:isbn]}") if params[:isbn]
     api.merge!(params)
     selects.delete(:isbn)   if params[:isbn]
     selects.delete(:uri)    if params[:uri]
@@ -29,16 +29,40 @@ class Work
     selects.delete(:author) if params[:author]
     
     query = QUERY.select(*selects).from(BOOKGRAPH)
-
-    query.where(
-      [api[:uri], RDF.type, RDF::FABIO.Work],
-      [api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, api[:author_name]],
-      [api[:uri], RDF::DC.title, :originalTitle],
-      [api[:uri], RDF::FABIO.hasManifestation, :edition],
-      [:edition, RDF::DC.language, :lang],
-      [:edition, RDF::DC.title, api[:title]],
-      [:edition, RDF::BIBO.isbn, api[:isbn]])
-            
+    # compose query based on api params
+    if params[:author]
+      query.where(
+        [api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, api[:author_name]],
+        [api[:uri], RDF.type, RDF::FABIO.Work],
+        [api[:uri], RDF::DC.title, :originalTitle],
+        [api[:uri], RDF::FABIO.hasManifestation, :edition],
+        [:edition, RDF::DC.language, :lang],
+        [:edition, RDF::DC.title, api[:title]])
+      query.optional(
+        [:edition, RDF::BIBO.isbn, api[:isbn]])
+    elsif params[:isbn]
+      query.where(
+        [:edition, RDF::BIBO.isbn, api[:isbn]],
+        [:edition, RDF::DC.language, :lang],
+        [:edition, RDF::DC.title, api[:title]],
+        [api[:uri], RDF::FABIO.hasManifestation, :edition],
+        [api[:uri], RDF.type, RDF::FABIO.Work],
+        [api[:uri], RDF::DC.title, :originalTitle])
+      query.optional(
+        [api[:uri], RDF::DC.creator, api[:author]], 
+        [api[:author], RDF::FOAF.name, api[:author_name]])   
+    else
+      query.where(
+        [api[:uri], RDF.type, RDF::FABIO.Work],
+        [api[:uri], RDF::DC.title, :originalTitle],
+        [api[:uri], RDF::FABIO.hasManifestation, :edition],
+        [:edition, RDF::DC.language, :lang],
+        [:edition, RDF::DC.title, api[:title]])
+      query.optional(
+        [api[:uri], RDF::DC.creator, api[:author]], 
+        [api[:author], RDF::FOAF.name, api[:author_name]],
+        [:edition, RDF::BIBO.isbn, api[:isbn]])
+    end    
     query.optional([:edition, RDF::FOAF.depiction, :cover_url])
 
     puts "#{query.pp}" if ENV['RACK_ENV'] == 'development'

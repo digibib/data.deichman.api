@@ -166,10 +166,12 @@ class Review
       [api[:uri], RDF::DC.audience, :audience],
       [:audience, RDF::RDFS.label, :audience_name])
     query.optional([api[:uri], RDF::DC.subject, :subject])
-    query.where.group(
+    query.where(
+      [api[:work], RDF::REV.hasReview, api[:uri], :context => BOOKGRAPH])
+    query.optional(
       [:edition, RDF::REV.hasReview, api[:uri], :context => BOOKGRAPH],
-      [:edition, RDF.type, RDF::FABIO.Manifestation, :context => BOOKGRAPH],
-      [api[:work], RDF::FABIO.hasManifestation, :edition, :context => BOOKGRAPH])
+      [api[:work], RDF::FABIO.hasManifestation, :edition, :context => BOOKGRAPH],
+      [:edition, RDF.type, RDF::FABIO.Manifestation, :context => BOOKGRAPH])
       
     # source
     api[:source].is_a?(Symbol) ?
@@ -239,8 +241,8 @@ class Review
       reviewer = Reviewer.new.find(:uri => "http://data.deichman.no/reviewer/id_0")
     end
     
-    params[:teaser] = String.new.clean_text(params[:teaser]) if params[:teaser]
-    params[:text]   = String.new.clean_text(params[:text]) if params[:text] 
+    params[:teaser] = String.clean_text(params[:teaser]) if params[:teaser]
+    params[:text]   = String.clean_text(params[:text]) if params[:text] 
     # make sure we have audience!
     if params[:audience]
       if /([Bb]arn|[Un]gdom|[Vv]oksen|[Cc]hildren|[Yy]outh|[Aa]dult)/.match(params[:audience].to_s)
@@ -254,7 +256,7 @@ class Review
     # create review from params
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
     self.source    = source.uri
-    self.subject   = String.new.sanitize_isbn(params[:isbn])
+    self.subject   = String.sanitize_isbn(params[:isbn])
     self.work      = work.first.uri
     self.edition   = work.first.editions.first.uri
     self.reviewer  = Reviewer.new(reviewer.uri, reviewer.name)
@@ -296,8 +298,8 @@ class Review
     params.delete(:uri) # don't update uri!
     # reviewer
     reviewer = Reviewer.new.find(:uri => self.reviewer.uri)
-    params[:teaser] = String.new.clean_text(params[:teaser]) if params[:teaser]
-    params[:text]   = String.new.clean_text(params[:text]) if params[:text] 
+    params[:teaser] = String.clean_text(params[:teaser]) if params[:teaser]
+    params[:text]   = String.clean_text(params[:text]) if params[:text] 
     # make sure we have audience!
     if params[:audience]
       if /([Bb]arn|[Un]gdom|[Vv]oksen|[Cc]hildren|[Yy]outh|[Aa]dult)/.match(params[:audience].to_s)
@@ -344,7 +346,7 @@ class Review
       insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
     else
       if self.audience.is_a?(String)
-        audiences = String.new.split_param(self.audience)
+        audiences = String.split_param(self.audience)
         audiences.each do |audience|
           if audience=="barn" || audience=="children"
             insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/children"))

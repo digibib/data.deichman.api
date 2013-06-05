@@ -73,13 +73,19 @@ class String
     str.gsub(regexp, '')
   end
 
+  def to_class
+    Object.const_get(self)
+  end
+  
+  ## Class methods
+  
   # split values in param separated with comma or slash or pipe and return array
-  def split_param(param)
+  def self.split_param(param)
     params = param.downcase.gsub(/\s+/, '').split(/,|\/|\|/)
   end
 
   # this method cleans html tags and other presentation awkwardnesses  
-  def clean_text(text)
+  def self.clean_text(text)
     # first remove all but whitelisted html elements
     sanitized = Sanitize.clean(text, :elements => %w[p pre small em i strong strike b blockquote q cite code br h1 h2 h3 h4 h5 h6],
       :attributes => {'span' => ['class']})
@@ -88,13 +94,10 @@ class String
   end  
   
   # removes any char not accepted in ISBN
-  def sanitize_isbn(isbn)
+  def self.sanitize_isbn(isbn)
     isbn.strip.gsub(/[^0-9xX]/, '')
   end
 
-  def to_class
-    Object.const_get(self)
-  end
 end
 
 # patched Struct and Hash classes to allow easy conversion to/from JSON and Hash
