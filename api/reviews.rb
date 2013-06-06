@@ -22,8 +22,6 @@ module API
         end
   
       get "/" do
-        #header['Content-Type'] = 'application/json; charset=utf-8'
-        content_type 'json'
         reviews = Review.new.find(params)
         if reviews == "Invalid URI"
           logger.error "Invalid URI"
@@ -40,11 +38,6 @@ module API
         else
           # found reviews, append to works
           works = Review.new.reviews_to_works(reviews)
-          #reviews.each do |review|
-          #  work = Work.new.find(:work => review.work, :reviews => false)
-          #  work.first.reviews << review if work
-          #  (@works ||=[]) << work
-          #end
           logger.info "Works: #{works.count} - Reviews: #{c=0 ; works.each {|w| c += w.reviews.count};c}"
           {:works => works }
         end
@@ -100,7 +93,6 @@ module API
         end    
       put "/" do
         content_type 'json'
-        #header['Content-Type'] = 'application/json; charset=utf-8'
         valid_params = ['api_key','uri','title','teaser','text','audience','published']
         # do we have a valid parameter?
         if valid_params.any? {|p| params.has_key?(p) }
@@ -140,7 +132,6 @@ module API
         end    
       post "/update" do
         content_type 'json'
-        #header['Content-Type'] = 'application/json; charset=utf-8'
         valid_params = ['api_key','uri','title','teaser','text','audience','published']
         # do we have a valid parameter?
         if valid_params.any? {|p| params.has_key?(p) }

@@ -19,7 +19,6 @@ module API
       get "/" do
         valid_params = ['uri','isbn','title','author','author_name']
         if valid_params.any? {|p| params.has_key?(p) }
-          content_type 'json'
           logger.info "params: #{params}"
           works = Work.new.find(params)
           error!("Sorry, no work found to match criteria", 400) unless works

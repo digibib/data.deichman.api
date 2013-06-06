@@ -4,6 +4,7 @@ require "rubygems"
 require "bundler/setup"
 require "grape"
 require "json"
+require "rack/contrib" # needed for RACK::JSONP
 require_relative "./config/init.rb"
 
 # trap all exceptions and fail gracefuly with a 500 and a proper message
@@ -38,6 +39,8 @@ module API
   end
     
   class Root < Grape::API
+    use ApiErrorHandler
+    use Rack::JSONP
     helpers do
       def logger
         logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
@@ -53,8 +56,7 @@ module API
     prefix 'api'
     rescue_from :all, :backtrace => true
     format :json
-    default_format :json
-    use ApiErrorHandler
+    #default_format :json
     
     mount API::Reviews
     mount API::Works
@@ -70,7 +72,7 @@ module API
     end
     
     # Rescue and log validation errors gracefully
-    rescue_from Grape::Exceptions::ValidationError do |e|
+    rescue_from Grape::Exceptions::Validation do |e|
       logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
       logger.error "#{e.message}"
       Rack::Response.new(MultiJson.encode(

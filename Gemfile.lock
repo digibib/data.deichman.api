@@ -4,24 +4,24 @@ GEM
     activesupport (3.2.13)
       i18n (= 0.6.1)
       multi_json (~> 1.0)
-    addressable (2.3.3)
+    addressable (2.3.4)
     api_smith (1.2.0)
       hashie (~> 1.0)
       httparty
       net-http-persistent
-    backports (2.6.7)
-    builder (3.2.0)
+    backports (3.3.1)
+    builder (3.2.2)
     daemons (1.1.9)
     descendants_tracker (0.0.1)
-    diff-lcs (1.2.1)
+    diff-lcs (1.2.4)
     eventmachine (1.0.3)
-    grape (0.2.4)
+    grape (0.4.1)
       activesupport
       builder
-      hashie (~> 1.2)
+      hashie (>= 1.2.0)
       multi_json (>= 1.3.2)
-      multi_xml
-      rack
+      multi_xml (>= 0.5.2)
+      rack (>= 1.3.0)
       rack-accept
       rack-mount
       virtus
@@ -30,19 +30,21 @@ GEM
       multi_json (~> 1.0)
       multi_xml (>= 0.5.2)
     i18n (0.6.1)
-    json (1.7.7)
-    multi_json (1.7.2)
-    multi_xml (0.5.3)
+    json (1.8.0)
+    multi_json (1.7.6)
+    multi_xml (0.5.4)
     net-http-persistent (2.8)
     nokogiri (1.5.9)
     rack (1.5.2)
     rack-accept (0.4.5)
       rack (>= 0.4)
+    rack-contrib (1.1.0)
+      rack (>= 0.9.1)
     rack-mount (0.8.3)
       rack (>= 1.0.0)
     rack-test (0.6.2)
       rack (>= 1.0)
-    rdf (1.0.4)
+    rdf (1.0.6)
       addressable (>= 2.2)
     rdf-n3 (1.0.0)
       rdf (>= 1.0)
@@ -57,7 +59,7 @@ GEM
     rspec-core (2.13.1)
     rspec-expectations (2.13.0)
       diff-lcs (>= 1.1.3, < 2.0)
-    rspec-mocks (2.13.0)
+    rspec-mocks (2.13.1)
     sanitize (2.0.3)
       nokogiri (>= 1.4.4, < 1.6)
     shotgun (0.9)
@@ -66,8 +68,8 @@ GEM
       daemons (>= 1.0.9)
       eventmachine (>= 0.12.6)
       rack (>= 1.0.0)
-    virtus (0.5.4)
-      backports (~> 2.6.1)
+    virtus (0.5.5)
+      backports (~> 3.3)
       descendants_tracker (~> 0.0.1)
 
 PLATFORMS
@@ -76,8 +78,9 @@ PLATFORMS
 DEPENDENCIES
   builder
   bundler
-  grape (= 0.2.4)
+  grape
   json
+  rack-contrib
   rack-test
   rdf
   rdf-n3
