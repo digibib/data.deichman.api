@@ -60,8 +60,8 @@ class Work
         [:edition, RDF::DC.title, api[:title]])
       query.optional(
         [api[:uri], RDF::DC.creator, api[:author]], 
-        [api[:author], RDF::FOAF.name, api[:author_name]],
-        [:edition, RDF::BIBO.isbn, api[:isbn]])
+        [api[:author], RDF::FOAF.name, api[:author_name]])
+      query.optional([:edition, RDF::BIBO.isbn, api[:isbn]])
     end    
     query.optional([:edition, RDF::FOAF.depiction, :cover_url])
 
