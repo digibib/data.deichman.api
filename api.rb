@@ -56,7 +56,7 @@ module API
     prefix 'api'
     rescue_from :all, :backtrace => true
     format :json
-    #default_format :json
+    default_format :json
     
     mount API::Reviews
     mount API::Works
@@ -73,7 +73,7 @@ module API
     
     # Rescue and log validation errors gracefully
     # NB: Grape::Exceptions::ValidationError changes to Grape::Exceptions::Validation in future Grape releases!
-    rescue_from Grape::Exceptions::ValidationError do |e|
+    rescue_from Grape::Exceptions::Validation do |e|
       logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
       logger.error "#{e.message}"
       Rack::Response.new(MultiJson.encode(
