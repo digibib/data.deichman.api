@@ -15,13 +15,13 @@ GEM
     descendants_tracker (0.0.1)
     diff-lcs (1.2.4)
     eventmachine (1.0.3)
-    grape (0.4.1)
+    grape (0.2.4)
       activesupport
       builder
-      hashie (>= 1.2.0)
+      hashie (~> 1.2)
       multi_json (>= 1.3.2)
-      multi_xml (>= 0.5.2)
-      rack (>= 1.3.0)
+      multi_xml
+      rack
       rack-accept
       rack-mount
       virtus
@@ -78,7 +78,7 @@ PLATFORMS
 DEPENDENCIES
   builder
   bundler
-  grape
+  grape (= 0.2.4)
   json
   rack-contrib
   rack-test
