@@ -167,7 +167,8 @@ class Review
       [:audience, RDF::RDFS.label, :audience_name])
     query.optional([api[:uri], RDF::DC.subject, :subject])
     query.where(
-      [api[:work], RDF::REV.hasReview, api[:uri], :context => BOOKGRAPH])
+      [api[:work], RDF::REV.hasReview, api[:uri], :context => BOOKGRAPH],
+      [api[:work], RDF.type, RDF::FABIO.Work, :context => BOOKGRAPH])
     query.optional(
       [:edition, RDF::REV.hasReview, api[:uri], :context => BOOKGRAPH],
       [api[:work], RDF::FABIO.hasManifestation, :edition, :context => BOOKGRAPH],
