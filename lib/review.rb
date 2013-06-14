@@ -191,7 +191,7 @@ class Review
     query.filter('!bound(?issued)') if params[:published] == false
     
     # optimize query in virtuoso, drastically improves performance on optionals
-    query.define('sql:select-option "ORDER"')
+    #query.define('sql:select-option "ORDER"')
     # limit, offset and order by params
     params[:limit] ? query.limit(params[:limit]) : query.limit(10)
     query.offset(params[:offset]) if params[:offset]
