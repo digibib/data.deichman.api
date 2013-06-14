@@ -106,7 +106,7 @@ class Review
     params[:reviewer] ? 
       review.reviewer  = Reviewer.new(params[:reviewer], s[:reviewer_name]) :
       review.reviewer  = Reviewer.new(s[:reviewer], s[:reviewer_name])
-    review.audience  = s[:audience_name].to_s.split(',')
+    review.audience  = s[:audience_name].to_s.downcase.split(',')
     review.published = s[:issued] ? true : false # published?
     ## query text and teaser of reviews here to avvoid "Temporary row length exceeded error" in Virtuoso on sorting long texts
     query = QUERY.select(:text, :teaser).from(REVIEWGRAPH).where.optional([review.uri, RDF::REV.text, :text]).optional([review.uri, RDF::DC.abstract, :teaser])
@@ -247,12 +247,12 @@ class Review
     # make sure we have audience!
     if params[:audience]
       if /([Bb]arn|[Un]gdom|[Vv]oksen|[Cc]hildren|[Yy]outh|[Aa]dult)/.match(params[:audience].to_s)
-        params[:audience].downcase! 
+        params[:audience] = String.split_param(params[:audience])
       else
-        params[:audience] = "adult"
+        params[:audience] = Array("adult")
       end
     else 
-      params[:audience] = "adult"
+      params[:audience] = Array("adult")
     end
     # create review from params
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
@@ -304,9 +304,9 @@ class Review
     # make sure we have audience!
     if params[:audience]
       if /([Bb]arn|[Un]gdom|[Vv]oksen|[Cc]hildren|[Yy]outh|[Aa]dult)/.match(params[:audience].to_s)
-        params[:audience].downcase! 
+        params[:audience] = String.split_param(params[:audience])
       else
-        params[:audience] = "adult"
+        params[:audience] = Array("adult")
       end
     else
       # don't update audience unless match above
@@ -346,19 +346,14 @@ class Review
       # default to adult if not given
       insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
     else
-      if self.audience.is_a?(String)
-        audiences = String.split_param(self.audience)
-        audiences.each do |audience|
-          if audience=="barn" || audience=="children"
-            insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/children"))
-          elsif audience=="ungdom" || audience=="youth"
-            insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/youth"))
-          elsif audience=="voksen" || audience=="adult"
-            insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
-          end
+      self.audience.each.each do |audience|
+        if audience=="barn" || audience=="children"
+          insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/children"))
+        elsif audience=="ungdom" || audience=="youth"
+          insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/youth"))
+        elsif audience=="voksen" || audience=="adult"
+          insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, RDF::URI("http://data.deichman.no/audience/adult"))
         end
-      else
-        self.audience.each {|a| insert_statements << RDF::Statement.new(self.uri, RDF::DC.audience, self.audience.uri) }
       end
     end
     query = QUERY.insert_data(insert_statements).graph(REVIEWGRAPH)
