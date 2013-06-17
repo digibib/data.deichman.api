@@ -18,7 +18,7 @@ class ApiErrorHandler < Grape::Middleware::Base
     end
   end  
 end
-=begin
+
 module Grape
   module Middleware
     class Formatter < Base
@@ -30,7 +30,7 @@ module Grape
     end
   end
 end
-=end
+
 module API
   
   # Custom validators
@@ -79,8 +79,6 @@ module API
       # Of course this makes the request.body unavailable afterwards.
       # You can just use a helper method to store it away for later if needed. 
       logger.info "#{env['REMOTE_ADDR']} #{env['HTTP_USER_AGENT']} #{env['REQUEST_METHOD']} #{env['REQUEST_PATH']} -- Request: #{request.body.read}"
-      # rewind it afterwards
-      request.body.rewind
       # strip out empty params
       params.remove_empty_params!
     end
