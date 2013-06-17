@@ -8,6 +8,7 @@ require "rack/contrib" # needed for RACK::JSONP
 require_relative "./config/init.rb"
 
 # trap all exceptions and fail gracefuly with a 500 and a proper message
+=begin
 class ApiErrorHandler < Grape::Middleware::Base
   def call!(env)
     @env = env
@@ -18,7 +19,7 @@ class ApiErrorHandler < Grape::Middleware::Base
     end
   end  
 end
-
+=end
 module API
   
   # Custom validators
@@ -39,7 +40,7 @@ module API
   end
     
   class Root < Grape::API
-    use ApiErrorHandler
+    #use ApiErrorHandler
     use Rack::JSONP
     helpers do
       def logger
