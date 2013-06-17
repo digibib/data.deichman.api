@@ -64,7 +64,7 @@ class Work
       query.optional([:edition, RDF::BIBO.isbn, api[:isbn]])
     end    
     query.optional([:edition, RDF::FOAF.depiction, :cover_url])
-    query.optional([:edition, RDF::DEICHMAN.altDepictedBy, :altDepictedBy])
+    query.optional([:edition, RDF::IFS.altDepictedBy, :altDepictedBy])
 
     puts "#{query.pp}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
