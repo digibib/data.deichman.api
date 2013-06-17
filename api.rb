@@ -8,18 +8,18 @@ require "rack/contrib" # needed for RACK::JSONP
 require_relative "./config/init.rb"
 
 # trap all exceptions and fail gracefuly with a 500 and a proper message
-=begin
 class ApiErrorHandler < Grape::Middleware::Base
   def call!(env)
     @env = env
     begin
       @app.call(@env)
     rescue Exception => e
+      logger.error "#{e}"
       throw :error, :message => e.message || options[:default_message], :status => 500
     end
   end  
 end
-=end
+
 module API
   
   # Custom validators
@@ -40,7 +40,7 @@ module API
   end
     
   class Root < Grape::API
-    #use ApiErrorHandler
+    use ApiErrorHandler
     use Rack::JSONP
     helpers do
       def logger
@@ -67,16 +67,15 @@ module API
     before do
       # Of course this makes the request.body unavailable afterwards.
       # You can just use a helper method to store it away for later if needed. 
-      #logger.info "#{env}"
-      #logger.info "#{env['REMOTE_ADDR']} #{env['HTTP_USER_AGENT']} #{env['REQUEST_METHOD']} #{env['REQUEST_PATH']} -- Request: #{request.body.read}"
+      logger.info "#{env}"
+      logger.info "#{env['REMOTE_ADDR']} #{env['HTTP_USER_AGENT']} #{env['REQUEST_METHOD']} #{env['REQUEST_PATH']} -- Request: #{request.body.read}"
       # strip out empty params
       #params.remove_empty_params!
     end
     
     # Rescue and log validation errors gracefully
     # NB: Grape::Exceptions::ValidationError changes to Grape::Exceptions::Validation in future Grape releases!
-=begin
-    rescue_from Grape::Exceptions::Validation do |e|
+    rescue_from Grape::Exceptions::ValidationError do |e|
       logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
       logger.error "#{e.message}"
       Rack::Response.new(MultiJson.encode(
@@ -85,6 +84,5 @@ module API
           'param' => e.param),
            e.status) 
     end
-=end
   end  
 end
