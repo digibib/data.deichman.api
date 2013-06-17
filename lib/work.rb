@@ -29,6 +29,7 @@ class Work
     selects.delete(:author) if params[:author]
     
     query = QUERY.select(*selects).from(BOOKGRAPH)
+    query.sample(:altDepictedBy)
     # compose query based on api params
     if params[:author]
       query.where(
