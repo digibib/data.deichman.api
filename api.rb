@@ -14,6 +14,7 @@ class ApiErrorHandler < Grape::Middleware::Base
     begin
       @app.call(@env)
     rescue Exception => e
+      logger.error "#{e}"
       throw :error, :message => e.message || options[:default_message], :status => 500
     end
   end  
@@ -74,6 +75,7 @@ module API
     
     # Rescue and log validation errors gracefully
     # NB: Grape::Exceptions::ValidationError changes to Grape::Exceptions::Validation in future Grape releases!
+=begin
     rescue_from Grape::Exceptions::Validation do |e|
       logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
       logger.error "#{e.message}"
@@ -83,5 +85,6 @@ module API
           'param' => e.param),
            e.status) 
     end
+=end
   end  
 end
