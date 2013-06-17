@@ -19,18 +19,6 @@ class ApiErrorHandler < Grape::Middleware::Base
   end  
 end
 
-module Grape
-  module Middleware
-    class Formatter < Base
-      alias_method :_read_body_input, :read_body_input
-      def read_body_input
-        env['rack.input'].rewind if env['rack.input']
-        _read_body_input
-      end
-    end
-  end
-end
-
 module API
   
   # Custom validators
@@ -78,9 +66,10 @@ module API
     before do
       # Of course this makes the request.body unavailable afterwards.
       # You can just use a helper method to store it away for later if needed. 
-      logger.info "#{env['REMOTE_ADDR']} #{env['HTTP_USER_AGENT']} #{env['REQUEST_METHOD']} #{env['REQUEST_PATH']} -- Request: #{request.body.read}"
+      logger.info "#{env}"
+      #logger.info "#{env['REMOTE_ADDR']} #{env['HTTP_USER_AGENT']} #{env['REQUEST_METHOD']} #{env['REQUEST_PATH']} -- Request: #{request.body.read}"
       # strip out empty params
-      params.remove_empty_params!
+      #params.remove_empty_params!
     end
     
     # Rescue and log validation errors gracefully
