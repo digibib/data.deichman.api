@@ -14,7 +14,7 @@ class ApiErrorHandler < Grape::Middleware::Base
     begin
       @app.call(@env)
     rescue Exception => e
-      logger.error "#{e}"
+      #logger.error "#{e}"
       throw :error, :message => e.message || options[:default_message], :status => 500
     end
   end  
