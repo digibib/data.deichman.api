@@ -14,7 +14,6 @@ class ApiErrorHandler < Grape::Middleware::Base
     begin
       @app.call(@env)
     rescue Exception => e
-      #logger.error "#{e}"
       throw :error, :message => e.message || options[:default_message], :status => 500
     end
   end  
@@ -67,7 +66,7 @@ module API
     before do
       # Of course this makes the request.body unavailable afterwards.
       # You can just use a helper method to store it away for later if needed. 
-      logger.info "#{env}"
+      #logger.info "#{env}"
       #logger.info "#{env['REMOTE_ADDR']} #{env['HTTP_USER_AGENT']} #{env['REQUEST_METHOD']} #{env['REQUEST_PATH']} -- Request: #{request.body.read}"
       # strip out empty params
       #params.remove_empty_params!
