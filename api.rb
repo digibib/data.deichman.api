@@ -9,6 +9,11 @@ require_relative "./config/init.rb"
 
 # trap all exceptions and fail gracefuly with a 500 and a proper message
 class ApiErrorHandler < Grape::Middleware::Base
+
+  def logger
+    logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
+  end
+  
   def call!(env)
     @env = env
     begin
