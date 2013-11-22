@@ -19,7 +19,7 @@ POST /reviews
 ---------------------------------------------------------
 Parametre:
   påkrevd: api_key, isbn, title, teaser, text
-  valgfri: audience, reviewer
+  valgfri: audience, reviewer, reviewer_name
 
 PUT /reviews
 "Oppdaterer eksisterende anbefaling"
