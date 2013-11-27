@@ -1,2 +1,2 @@
 #!/bin/sh
-initctl restart api
+initctl $1 api
