@@ -1,2 +1,2 @@
 #!/bin/sh
-sudo service api restart
+sudo restart api
