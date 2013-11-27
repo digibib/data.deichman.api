@@ -7,7 +7,7 @@ class Review
   
   # return all reviews, but with limits...
   def all(params={:limit=>10, :offset=>0, :order_by=>"created", :order=>"desc"})
-    selects = [:uri, :work, :title, :edition, :created, :issued, :modified, :source, :source_name, :reviewer, :reviewer_name, :accountName,]
+    selects = [:uri, :work, :title, :edition, :created, :issued, :modified, :source, :license, :source_name, :reviewer, :reviewer_name, :accountName]
     solutions = review_query(selects, params)
     return nil if solutions.empty?
     reviews = populate_reviews(solutions)
@@ -16,7 +16,7 @@ class Review
   # main method to find reviews, GET /api/reviews
   # params: uri, reviewer, workplace, published
   def find(params={})
-    selects = [:uri, :work, :title, :edition, :created, :issued, :modified, :source, :source_name, :reviewer, :reviewer_name, :accountName]
+    selects = [:uri, :work, :title, :edition, :created, :issued, :modified, :source, :license, :source_name, :reviewer, :reviewer_name, :accountName]
 
     # this clause composes query attributes modified by params from API
     if params.has_key?(:uri)
@@ -159,6 +159,7 @@ class Review
       [api[:uri], RDF::DC.created, :created],
       [api[:uri], RDF::DC.modified, :modified],
       [api[:uri], RDF::REV.title, :title],
+      [api[:uri], RDF::DC.license, :license],
       # reviewer
       [api[:uri], RDF::REV.reviewer, api[:reviewer]],
       [api[:reviewer], RDF::FOAF.name, :reviewer_name, :context => APIGRAPH],
@@ -337,6 +338,9 @@ class Review
     insert_statements << RDF::Statement.new(self.uri, RDF::DC.created, RDF::Literal(self.created, :datatype => RDF::XSD.dateTime))
     insert_statements << RDF::Statement.new(self.uri, RDF::DC.issued, RDF::Literal(self.issued, :datatype => RDF::XSD.dateTime)) if self.issued
     insert_statements << RDF::Statement.new(self.uri, RDF::DC.modified, RDF::Literal(self.modified, :datatype => RDF::XSD.dateTime))
+    
+    # insert Creative Commons license
+    insert_statements << RDF::Statement.new(self.uri, RDF::DC.license, RDF::URI("http://creativecommons.org/licenses/by-sa/3.0/no/"))
 
     # insert reviewer if found or created
     insert_statements << RDF::Statement.new(self.uri, RDF::REV.reviewer, self.reviewer.uri)
