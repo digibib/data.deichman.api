@@ -1,6 +1,6 @@
 #encoding: utf-8
 
-Review   = Struct.new(:uri, :title, :teaser, :text, :source, :reviewer, :workplace, 
+Review   = Struct.new(:uri, :title, :teaser, :text, :source, :license, :reviewer, :workplace, 
             :audience, :subject, :work, :edition, :created, :issued, :modified, :published)
 
 class Review
