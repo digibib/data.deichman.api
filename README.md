@@ -1,5 +1,22 @@
 # REST API for Deichman's RDF-store
 
+This is the API used in the Book Recommendations project by Oslo Public Library.
+
+The reviews in the API are distributed under a Creative Commons license: [Navngivelse-DelPåSammeVilkår CC BY-SA 3.0 NO](http://creativecommons.org/licenses/by-sa/3.0/no/)
+
+## Available routes and HTTP methods
+The API will be expanded as we see fit. Currently only the `/reviews` and `/works` endpoints are implemented.
+
+The API is open for anyone to use, but a key is required in order to write to the API (i.e perform POST/PUT/DELETE requests). Please get in touch if your library wants to publish to our RDF-store.
+
+## The Reviews Endpoint 
+
+### Architecture
+
+![API architecture](https://github.com/digibib/data.deichman.api/raw/develop/doc/review_rdf.png)
+
+
+
 ## Endpoint
     http://anbefalinger.deichman.no/api
     (fallback: http://marc2rdf.deichman.no/api)
@@ -49,18 +66,6 @@ The return format is JSON. All responses from /api/reviews and /api/works now re
 ]
          
 ```
-
-## Available routes and HTTP methods
-The API will be expanded as we see fit. Currently only the `/reviews` and `/works` endpoints are implemented.
-
-The API is open for anyone to use, but a key is required in order to write to the API (i.e perform POST/PUT/DELETE requests). Please get in touch if your library wants to publish to our RDF-store.
-
-## The Reviews Endpoint 
-
-### Architecture
-
-![API architecture](https://github.com/digibib/data.deichman.api/raw/develop/doc/review_rdf.png)
-
 
 ### GET /reviews
 
