@@ -88,8 +88,11 @@ module API
         content_type 'json'
         logger.info "params: #{params}"
         reviewer = Reviewer.new.find(params)
+        useraccount = Account.new.find(:uri => reviewer.userAccount)
         error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviewer == "Invalid api_key"
+        error!("Sorry, account \"#{reviewer.userAccount}\" not found in our base", 404) unless useraccount
         error!("Sorry, \"#{params[:uri]}\" matches no reviewer in our base", 404) unless reviewer
+        res1 = useraccount.delete(params)
         result = reviewer.delete(params)
         {:result => result}
       end
