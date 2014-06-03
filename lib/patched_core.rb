@@ -87,8 +87,10 @@ class String
   # this method cleans html tags and other presentation awkwardnesses  
   def self.clean_text(text)
     # first remove all but whitelisted html elements
-    sanitized = Sanitize.clean(text, :elements => %w[p pre small em i strong strike b blockquote q cite code br h1 h2 h3 h4 h5 h6],
-      :attributes => {'span' => ['class']})
+    sanitized = Sanitize.clean(text, 
+      :elements => %w[p pre small em i strong strike b blockquote q cite code br h1 h2 h3 h4 h5 h6],
+      :attributes => {'span' => ['class']},
+      :remove_contents => %w[style script iframe])
     # then strip newlines, tabs carriage returns and return pretty text
     result = sanitized.gsub(/\s+/, ' ').squeeze(' ')
   end  
