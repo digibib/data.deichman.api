@@ -6,7 +6,8 @@ module API
       desc "returns reviews"
         params do
             optional :uri,         desc: "URI of review, accepts array"
-            optional :isbn,        type: String, desc: "ISBN of reviewed book" #, regexp: /^[0-9Xx-]+$/
+            # isbn should be looked up via /api/work
+            #optional :isbn,        type: String, desc: "ISBN of reviewed book" #, regexp: /^[0-9Xx-]+$/
             optional :title,       type: String, desc: "Book title"
             optional :author_name, type: String, desc: "Book author"
             optional :author,      type: String, desc: "URI of Book author"
