@@ -88,6 +88,7 @@ class Reviewer
     # create Reviewer (foaf:Person)
     insert_statements << RDF::Statement.new(self.uri, RDF.type, RDF::FOAF.Person)
     insert_statements << RDF::Statement.new(self.uri, RDF::FOAF.name, self.name)
+    insert_statements << RDF::Statement.new(self.uri, RDF::FOAF.name, self.workplaceHomepage) if self.workplaceHomepage
     insert_statements << RDF::Statement.new(self.uri, RDF::FOAF.account, RDF::URI(self.userAccount))
     query = QUERY.insert_data(insert_statements).graph(APIGRAPH)
 

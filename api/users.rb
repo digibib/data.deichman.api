@@ -59,7 +59,7 @@ module API
           requires :uri,       type: String, desc: "Reviewer URI"
           optional :name,      type: String, desc: "Reviewer's name"
           optional :password,  type: String, desc: "Account password"
-          #optional :workplace, type: String, desc: "Reviewer's workplace"
+          optional :workplace, type: String, desc: "Reviewer's workplace"
           optional :active,    type: Boolean, desc: "Active? - true/false"
         end
       put "/" do
@@ -69,9 +69,12 @@ module API
         error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviewer == "Invalid api_key"
         error!("Sorry, reviewer not found in our base", 404) unless reviewer
         # update Reviewer
-        if params[:name]
-          reviewer.update(:name => params[:name])
+        if params[:name] || params[:workplace]
+          reviewer.update(:api_key => params[:api_key], 
+                          :name => params[:name],
+                          :workplaceHomepage => params[:workplace])
         end
+        # update Account
         if params[:password] || params[:active] || params[:accountName]
           account = Account.new.find(:api_key => params[:api_key], :uri => reviewer.userAccount)
           account.update(params)
