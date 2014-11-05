@@ -9,7 +9,10 @@ module API
         content_type 'json'
         unless params[:uri] || params[:accountName]
           reviewers = Reviewer.new.all
-          reviewers.each {|r| r.userAccount = Account.new.find(:uri => r.userAccount) ; r.userAccount.password = nil }
+          reviewers.each do |r|
+            r.userAccount = Account.new.find(:uri => r.userAccount)
+            r.userAccount.password = nil if (r.userAccount && r.userAccount.password)
+          end
           {:reviewers => reviewers }
         else
           logger.info "params: #{params}"
@@ -66,7 +69,7 @@ module API
         error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviewer == "Invalid api_key"
         error!("Sorry, reviewer not found in our base", 404) unless reviewer
         # update Reviewer
-        if params[:name] 
+        if params[:name]
           reviewer.update(:name => params[:name])
         end
         if params[:password] || params[:active] || params[:accountName]
