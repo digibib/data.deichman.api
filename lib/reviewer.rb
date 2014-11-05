@@ -58,6 +58,7 @@ class Reviewer
     return nil unless self.uri # break out if unable to generate unique ID
     
     self.workplaceHomepage = RDF::URI("#{params[:workplaceHomepage]}") if params[:workplaceHomepage]
+    self.userAccount = RDF::URI("#{params[:userAccount]}") if params[:userAccount]
     self.name = "#{params[:name]}"
     self
   end
@@ -87,7 +88,7 @@ class Reviewer
     # create Reviewer (foaf:Person)
     insert_statements << RDF::Statement.new(self.uri, RDF.type, RDF::FOAF.Person)
     insert_statements << RDF::Statement.new(self.uri, RDF::FOAF.name, self.name)
-    insert_statements << RDF::Statement.new(self.uri, RDF::FOAF.account, self.userAccount)
+    insert_statements << RDF::Statement.new(self.uri, RDF::FOAF.account, RDF::URI(self.userAccount))
     query = QUERY.insert_data(insert_statements).graph(APIGRAPH)
 
     puts "create reviewer query: #{query}" if ENV['RACK_ENV'] == 'development'
