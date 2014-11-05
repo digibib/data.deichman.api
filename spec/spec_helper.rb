@@ -1,8 +1,8 @@
 require 'rubygems'
-require "rack/test"
+require 'rack/test'
 
 ENV["RACK_ENV"] ||= 'test'
- 
+
 require File.join(File.dirname(__FILE__), '..', 'api.rb')
 
 #if ENV['COVERAGE']

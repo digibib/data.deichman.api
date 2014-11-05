@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
-# encoding: UTF-8
+# coding: utf-8
+
 require "spec_helper"
 
 describe API do
@@ -38,21 +39,21 @@ describe API do
       end
   
       it "returns reviews of a title given and ISBN" do
-        get "/api/reviews", :isbn =>  "9788203193538"
+        get "/api/works", :isbn =>  "9788203193538", :reviews => true
         response = JSON.parse(last_response.body)
         response["works"].first["reviews"].count.should >= 1
       end
   
       it "sanitizes ISBN numbers" do
-        get "/api/reviews", :isbn =>  "9788203193538"
+        get "/api/works", :isbn =>  "9788203193538", :reviews => true
         response1 = JSON.parse(last_response.body)
-        get "/api/reviews", :isbn =>  "978-82-0319-3538(h.)"
+        get "/api/works", :isbn =>  "978-82-0319-3538(h.)", :reviews => true
         response2 = JSON.parse(last_response.body)
         response1["works"].count.should == response2["works"].count
       end
   
       it "returns reviews given a URI" do
-        get "/api/reviews", :isbn => "9788203193538", :order_by => 'created'
+        get "/api/works", :isbn =>  "9788203193538", :reviews => true, :order_by => 'created'
         response = JSON.parse(last_response.body)
         uri = response["works"].first["reviews"].first["uri"]
         
@@ -65,11 +66,13 @@ describe API do
       end
   
       it "ignores author & title params given an isbn" do
-        get "/api/reviews", :isbn   => "9788203193538",
+        get "/api/works",   :isbn   => "9788203193538",
                             :author => "Nesbø, Jo",
-                            :title  => "Snømannen"
+                            :title  => "Snømannen",
+                            :reviews => true
         response1 = JSON.parse(last_response.body)
-        get "/api/reviews", :isbn => "9788203193538"
+        puts response1.inspect
+        get "/api/works", :isbn =>  "9788203193538", :reviews => true
         response2 = JSON.parse(last_response.body)
         response1["works"].count.should == response2["works"].count
       end
@@ -103,7 +106,7 @@ describe API do
         response1["works"].count.should == response2["works"].count
       end
       
-      it "is returns reviewer and workplace" do
+      it "is returns reviewer name and uri" do
         get "/api/reviews", :isbn => "9788203193538", :order_by => 'created'
         response = JSON.parse(last_response.body)
         uri = response["works"].first["reviews"].first["uri"]
@@ -111,26 +114,26 @@ describe API do
         get "/api/reviews", :uri => uri
         response = JSON.parse(last_response.body)
         review = response["works"].first["reviews"].first
-        review["reviewer"].should  == "Anonymous"
-        review["workplace"].should == "Eksempelbibliotek"
+        review["reviewer"]["name"]  == "Anonymous"
+        review["reviewer"]["uri"] == "http://data.deichman.no/reviewer/id_0"
       end
       
-      it "allows case insensitive lookup on reviewer" do
-        get "/api/reviews", :reviewer => "anonymous"
+      it "allows lookup on reviewer" do
+        get "/api/reviews", :reviewer => "http://data.deichman.no/reviewer/id_0"
         response = JSON.parse(last_response.body)
         review = response["works"].first["reviews"].first
-        review["reviewer"].should == "Anonymous"
+        review["reviewer"]["uri"].should == "http://data.deichman.no/reviewer/id_0"
       end
     end
   
     describe 'PUT /reviews' do
       it "should demand api_key" do
-        get "/api/reviews", :isbn => "9788203193538", :order_by => 'created'
+        get "/api/works", :isbn => "9788203193538", :order_by => 'created', :reviews => true
         response = JSON.parse(last_response.body)
         uri = response["works"].first["reviews"].first["uri"]
         put "/api/reviews", {:uri    => uri,
                             :title   => "An updated review" }.to_json
-        #last_response.status.should == 400        
+        last_response.status.should == 500
         last_response.body.should match(/missing parameter: api_key/)
       end
   
@@ -138,22 +141,21 @@ describe API do
   
         put "/api/reviews", {:api_key => "test", 
                             :title    => "An updated review" }.to_json
-        last_response.status.should == 400                    
+        last_response.status.should == 500
         last_response.body.should match(/missing parameter: uri/)
       end
             
       it "should update a review" do
-        get "/api/reviews", :isbn => "9788203193538", :order_by => 'created'
+        get "/api/works", :isbn => "9788203193538", :order_by => 'created', :reviews => true
         response = JSON.parse(last_response.body)
         uri = response["works"].first["reviews"].first["uri"]
             
         put "/api/reviews", {:api_key => "test",
                             :uri      => uri,
                             :title    => "An updated review" }.to_json
-        #last_response.status.should == 200                    
+        last_response.status.should == 200 
         response = JSON.parse(last_response.body)
-        #puts response
-        response["review"]["title"].should == "An updated review"
+        response["works"].first["reviews"].first["title"].should == "An updated review"
       end
       
     end
@@ -161,7 +163,7 @@ describe API do
     describe 'DELETE /api/reviews' do
   
       it "should delete review" do
-        get "/api/reviews", :isbn => "9788203193538", :order_by => 'created'
+        get "/api/works", :isbn => "9788203193538", :order_by => 'created', :reviews => true
         response = JSON.parse(last_response.body)
         uri = response["works"].first["reviews"].first["uri"]
             
@@ -174,37 +176,48 @@ describe API do
   end
   
   describe Reviewer do
+
+    it "should demand correct api_key when creating a user" do
+      post "/api/users", {:accountName => "test@test.com", :api_key => "bogus"}.to_json
+      response = JSON.parse(last_response.body)
+      response["error"].should match(/(not a valid api key)/)
+    end
+
     it "should create a user" do
-      post "/api/users", {:name => "testdummy", :api_key => "test"}.to_json
+      post "/api/users", {:accountName => "test@test.com", :api_key => "test", :name => "dummy"}.to_json
       last_response.status.should == 201
       response = JSON.parse(last_response.body)
-      response["reviewer"]["accountName"].should == "testdummy"
+      response["reviewer"]["userAccount"]["accountName"].should == "test@test.com"
     end
     
     it "should get all users" do
       get "/api/users"
       last_response.status.should == 200
       response = JSON.parse(last_response.body)
-      response["users"].count.should >= 1
+      response["reviewers"].count.should >= 1
     end
     
     it "should return a specific user" do
-      get "/api/users", :name => "testdummy"
+      get "/api/users", :accountName => "test@test.com"
       last_response.status.should == 200
       response = JSON.parse(last_response.body)
-      response["user"]["name"].should == "testdummy"
-    end  
-    
-    it "should demand correct api_key when creating a user" do
-      post "/api/users", {:name => "testdummy", :api_key => "bogus"}.to_json
+      response["reviewer"]["userAccount"]["accountName"].should == "test@test.com"
+    end
+
+    it "should update a user" do
+      get "/api/users", :accountName => "test@test.com"
       response = JSON.parse(last_response.body)
-      response["error"].should match(/(not a valid api key)/)
-    end    
-    
+      uri = response["reviewer"]["uri"]
+
+      put "/api/users", {:uri => uri, :api_key => "test", :name => "modified dummyuser"}.to_json
+      response = JSON.parse(last_response.body)
+      response["reviewer"]["name"].should == "modified dummyuser"
+    end
+
     it "should delete a user" do
-      get "/api/users", :name => "testdummy"
+      get "/api/users", :accountName => "test@test.com"
       response = JSON.parse(last_response.body)
-      uri = response["user"]["uri"]
+      uri = response["reviewer"]["uri"]
       
       delete "/api/users", {:uri => uri, :api_key => "test"}.to_json
       last_response.status.should == 200

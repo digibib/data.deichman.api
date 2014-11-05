@@ -14,8 +14,8 @@ describe Review do
     end
     
     it "returns a specific review" do
-      work = Review.new.find :uri => "http://data.deichman.no/test/review/id_0"
-      work.first.reviews.first.uri.to_s.should == "http://data.deichman.no/test/review/id_0"
+      reviews = Review.new.find :uri => "http://data.deichman.no/test/review/id_0"
+      reviews.first.uri.to_s.should == "http://data.deichman.no/test/review/id_0"
     end
   end
 
@@ -27,7 +27,7 @@ describe Review do
           :title     => "A dummy review of Snømannen",
           :teaser    => "Teaser should be short and to the point",
           :text      => "Text should be weighted and both personal and attentive to details...",
-          :reviewer  => "anonymous",
+          :reviewer  => "test@test.com",
           :workplace => "Dummy workplace"
           }
       review = Review.new.create(params)
@@ -41,7 +41,7 @@ describe Review do
           :title     => "A dummy review of Snømannen",
           :teaser    => "Teaser should be short and to the point",
           :text      => "Text should be weighted and both personal and attentive to details...",
-          :reviewer  => "anonymous",
+          :reviewer  => "test@test.com",
           :workplace => "Dummy workplace"
           }
       review = Review.new.create(params)
