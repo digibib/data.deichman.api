@@ -18,7 +18,6 @@ class Account
     query.optional([:uri, RDF::ACC.lastActivity, :lastActivity])
     query.optional([:uri, RDF::ACC.status, :status])
     query.optional([:uri, RDF::DEICHMAN.mylist, :myList])
-    puts query
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
     return nil if solutions.empty? # not found!
