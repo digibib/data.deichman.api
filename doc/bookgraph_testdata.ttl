@@ -25,7 +25,7 @@
   dct:creator <http://data.deichman.no/person/x18370200>;
   bibo:isbn "9788203193538";
   fabio:hasManifestation <http://data.deichman.no/resource/tnr_1161898>;
-  rev:hasReview <http://data.deichman.no/test/review/id_123456>.
+  rev:hasReview <http://data.deichman.no/test/review/id_0>.
 
 ### 
 # Book
@@ -48,7 +48,7 @@
 	bibo:isbn "9788203193538";
 	bibo:numPages "438";
 	foaf:depiction <http://www.bokkilden.no/SamboWeb/servlet/VisBildeServlet?produktId=4417489>;
-  rev:hasReview <http://data.deichman.no/test/review/id_123456>.
+  rev:hasReview <http://data.deichman.no/test/review/id_0>.
 
 ### 
 # Author

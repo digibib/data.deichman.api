@@ -40,4 +40,5 @@
   dct:subject "9788203193538";
   dct:audience <http://data.deichman.no/audience/adult>;
   dct:source <http://data.deichman.no/source/test>;
+  dct:license <http://creativecommons.org/licenses/by-sa/3.0/no/> ;
   rev:reviewer <http://data.deichman.no/reviewer/id_0>.
