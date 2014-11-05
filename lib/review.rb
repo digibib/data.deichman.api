@@ -10,7 +10,7 @@ class Review
     selects = [:uri, :work, :title, :edition, :created, :issued, :modified, :source, :license, :source_name, :reviewer, :reviewer_name, :accountName]
     solutions = review_query(selects, params)
     return nil if solutions.empty?
-    reviews = populate_reviews(solutions)
+    reviews = populate_reviews(solutions, params)
   end
   
   # main method to find reviews, GET /api/reviews
