@@ -1,4 +1,5 @@
 source "http://rubygems.org"
+gem "rake"
 gem "builder"
 gem "bundler"
 gem "thin"
@@ -9,6 +10,7 @@ gem "rdf-n3"
 gem "rdf-virtuoso"
 gem "sanitize" 
 gem "rack-contrib" # needed for RACK::JSONP
+gem "multi_json", "1.10.1"
 
 group :development do
   gem 'shotgun'
