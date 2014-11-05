@@ -27,17 +27,13 @@ describe Reviewer do
       r = Reviewer.new.find(params)
       r.name.to_s.should == "dummy"
     end
-=begin
-    # Disabled 2014-11-04, not used
-    it "updates reviewer with workplace" do
+    it "updates reviewer with workplace homepage" do
       params = {:api_key => "test", :name => "dummy", :userAccount => "test@test.com"}
       r = Reviewer.new.find(params)
-      params[:workplace] = "Eksempelbibliotek"
+      params[:workplaceHomepage] = "http://example.library.com"
       r.update(params)
-      r.workplace.to_s.should == "Eksempelbibliotek"
+      r.workplaceHomepage.to_s.should == "http://example.library.com"
     end
-=end
-
     it "updates reviewer name" do
       params = {:api_key => "test", :userAccount => "test@test.com"}
       r = Reviewer.new.find(params)
@@ -48,7 +44,6 @@ describe Reviewer do
     it "deletes a reviewer" do
       params = {:api_key => "test", :userAccount => "test@test.com"}
       r = Reviewer.new.find(params)
-      puts r.inspect
       result = r.delete(params)
       result.should match(/(done)/)
     end  

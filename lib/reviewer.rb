@@ -71,7 +71,6 @@ class Reviewer
     # Delete first
     deletequery = QUERY.delete([self.uri, :p, :o]).graph(APIGRAPH)
     deletequery.where([self.uri, :p, :o],[self.uri, RDF.type, RDF::FOAF.Person])
-    #puts deletequery
     puts "deletequery:\n #{deletequery}" if ENV['RACK_ENV'] == 'development'
     result = REPO.delete(deletequery)
     puts "delete result:\n #{result}" if ENV['RACK_ENV'] == 'development'
@@ -88,7 +87,7 @@ class Reviewer
     # create Reviewer (foaf:Person)
     insert_statements << RDF::Statement.new(self.uri, RDF.type, RDF::FOAF.Person)
     insert_statements << RDF::Statement.new(self.uri, RDF::FOAF.name, self.name)
-    insert_statements << RDF::Statement.new(self.uri, RDF::FOAF.name, self.workplaceHomepage) if self.workplaceHomepage
+    insert_statements << RDF::Statement.new(self.uri, RDF::FOAF.workplaceHomepage, self.workplaceHomepage) if self.workplaceHomepage
     insert_statements << RDF::Statement.new(self.uri, RDF::FOAF.account, RDF::URI(self.userAccount))
     query = QUERY.insert_data(insert_statements).graph(APIGRAPH)
 
@@ -109,7 +108,6 @@ class Reviewer
     # delete both reviewer and useraccount
     deletequery = QUERY.delete([self.uri, :p, :o]).graph(APIGRAPH)
     deletequery.where([self.uri, :p, :o],[self.uri, RDF.type, RDF::FOAF.Person])
-    puts deletequery
     puts "deletequery:\n #{deletequery}" if ENV['RACK_ENV'] == 'development'
     result = REPO.delete(deletequery)
     puts "delete result:\n #{result}" if ENV['RACK_ENV'] == 'development'

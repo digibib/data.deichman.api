@@ -22,10 +22,8 @@ describe API do
             :text      => "Text should be weighted and both personal and attentive to details...",
             :reviewer  => "test@test.com",
             :workplace => "Dummy workplace"}.to_json
-        #last_response.status.should == 201
+        last_response.status.should == 201
         result = JSON.parse(last_response.body)
-        #puts "response: #{result}"
-        #response["work"]["author"].should == "Jo Nesbø"
         result["works"].first["reviews"].first["title"].should == "A dummy review of Snømannen"
       end
     end
@@ -61,7 +59,6 @@ describe API do
         puts last_request.inspect
         puts last_response.body
         response = JSON.parse(last_response.body)
-        #puts response
         response["works"].first["reviews"].first["title"].should == "A dummy review of Snømannen"
       end
   
@@ -93,7 +90,7 @@ describe API do
   
       it "returns reviews of a book given title and author" do
         get "/api/reviews", :author => "Nesbø, Jo", :title => "Snømannen"
-        #last_response.status.should == 200
+        last_response.status.should == 200
         response = JSON.parse(last_response.body)
         response["works"].first["reviews"].count.should >= 1
       end

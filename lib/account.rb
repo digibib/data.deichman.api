@@ -143,7 +143,6 @@ class Account
     insert_statements << RDF::Statement.new(self.uri, RDF::ACC.lastActivity, RDF::Literal(Time.now.xmlschema, :datatype => RDF::XSD.dateTime))
     self.myLists.each { |item| insert_statements << RDF::Statement.new(self.uri, RDF::DEICHMAN.mylist, RDF::URI("#{item}")) }
     query = QUERY.insert_data(insert_statements).graph(APIGRAPH)
-    puts query
     puts "create account query: #{query}" if ENV['RACK_ENV'] == 'development'
     result = REPO.insert_data(query)
     return nil if result.empty?
@@ -161,7 +160,6 @@ class Account
     # delete both reviewer and useraccount
     deletequery = QUERY.delete([self.uri, :p, :o]).graph(APIGRAPH)
     deletequery.where([self.uri, :p, :o],[self.uri, RDF.type, RDF::SIOC.UserAccount])
-    puts deletequery
     puts "deletequery:\n #{deletequery}" if ENV['RACK_ENV'] == 'development'
     result = REPO.delete(deletequery)
     puts "delete result:\n #{result}" if ENV['RACK_ENV'] == 'development'

@@ -17,12 +17,16 @@ module API
         else
           logger.info "params: #{params}"
           reviewer = Reviewer.new.find(params)
-          unless reviewer
+          if reviewer
+            reviewer.userAccount = Account.new.find(:uri => reviewer.userAccount)
+          else
             account  = Account.new.find(:accountName => params[:accountName]) 
-            reviewer = Reviewer.new.find(:userAccount => account.uri) if account
+          end
+          if account
+            reviewer = Reviewer.new.find(:userAccount => account.uri)
+            reviewer.userAccount = account if reviewer
           end
           error!("Sorry, user not found", 404) unless reviewer
-          reviewer.userAccount = account
           reviewer.userAccount.password = nil
           {:reviewer => reviewer }
         end
