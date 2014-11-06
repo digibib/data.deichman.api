@@ -16,7 +16,6 @@ class Source
     sources = []
     solutions.each do |s|
       source = s.to_hash.to_struct("Source")
-      source.api_key = nil
       sources << source
     end
     sources
