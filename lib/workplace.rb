@@ -17,7 +17,7 @@ class Workplace
     end
     workplaces
   end
-  
+
   def find(params)
     return nil unless params[:reviewer] || params[:workplace]
     # looks in apigraph for reviewer by either reviewer's foaf:name or reviewer account's foaf:accountName
@@ -33,20 +33,20 @@ class Workplace
     return nil if solutions.empty? # not found!
     puts solutions.inspect if ENV['RACK_ENV'] == 'development'
 
-    # populate Workplace Struct    
-    self.members.each {|name| self[name] = solutions.first[name] }  
+    # populate Workplace Struct
+    self.members.each {|name| self[name] = solutions.first[name] }
     self
   end
-  
+
   def create(params)
     # find source
     source = Source.new.find_by_apikey(params[:api_key])
     return "Invalid api_key" unless source
-    
+
     # create a new workplace id, with homepage and prefLabel
     self.uri = RDF::DEICHMAN.workplace + "/#{params[:workplace].urlize}"
     return nil unless self.uri # break out if unable to generate unique ID
-    
+
     self.prefLabel = "#{params[:workplace]}"
     self.homepage  = RDF::URI("#{params[:homepage]}") if params[:homepage]
     self
@@ -64,12 +64,12 @@ class Workplace
     result = REPO.delete(deletequery)
     puts "delete result:\n #{result}" if ENV['RACK_ENV'] == 'development'
     # then update from new params
-    params[:prefLabel] = params[:workplace] 
+    params[:prefLabel] = params[:workplace]
     self.members.each {|name| self[name] = params[name] unless params[name].nil? }
     save # save changes to RDF store
-    self    
+    self
   end
-  
+
   def save
     insert_statements = []
     # create Workplace (org:Organization)
@@ -77,7 +77,7 @@ class Workplace
     insert_statements << RDF::Statement.new(self.uri, RDF.type, RDF::FOAF.Organization)
     insert_statements << RDF::Statement.new(self.uri, RDF::SKOS.prefLabel, self.prefLabel)
     insert_statements << RDF::Statement.new(self.uri, RDF::FOAF.homepage, self.homepage) unless self.homepage.nil?
-    
+
     query = QUERY.insert_data(insert_statements).graph(APIGRAPH)
 
     puts "create reviewer query: #{query}" if ENV['RACK_ENV'] == 'development'
@@ -86,7 +86,7 @@ class Workplace
     puts "create reviewer result: #{result}" if ENV['RACK_ENV'] == 'development'
     self
   end
-    
+
   def delete
     # do nothing if workplace not found
     return nil unless self.uri

@@ -1,10 +1,10 @@
 #encoding: utf-8
 
-Review   = Struct.new(:uri, :title, :teaser, :text, :source, :license, :reviewer, :workplace, 
+Review   = Struct.new(:uri, :title, :teaser, :text, :source, :license, :reviewer, :workplace,
             :audience, :subject, :work, :edition, :created, :issued, :modified, :published)
 
 class Review
-  
+
   # return all reviews, but with limits...
   def all(params={:limit=>10, :offset=>0, :order_by=>"created", :order=>"desc"})
     selects = [:uri, :work, :title, :edition, :created, :issued, :modified, :source, :license, :source_name, :reviewer, :reviewer_name, :accountName]
@@ -12,7 +12,7 @@ class Review
     return nil if solutions.empty?
     reviews = populate_reviews(solutions, params)
   end
-  
+
   # main method to find reviews, GET /api/reviews
   # params: uri, reviewer, workplace, published
   def find(params={})
@@ -33,7 +33,7 @@ class Review
               # need to append uri to solution for later use
               solution = res.first.merge(RDF::Query::Solution.new(:uri => uri))
               # then merge into solutions
-              solutions << solution 
+              solutions << solution
             end
           rescue URI::InvalidURIError
             return "Invalid URI"
@@ -50,14 +50,14 @@ class Review
             # need to append uri to solution for later use
             solution = res.first.merge(RDF::Query::Solution.new(:uri => uri))
             # then merge into solutions
-            solutions << solution 
+            solutions << solution
           end
         rescue URI::InvalidURIError
           return "Invalid URI"
         end
       end
     elsif params.has_key?(:work)
-      begin 
+      begin
         selects.delete(:work)
         uri = URI::parse(params[:work])
         uri = RDF::URI(uri)
@@ -79,15 +79,15 @@ class Review
         solutions = review_query(selects, :source => source.uri, :order_by => params[:order_by], :order => params[:order], :limit => params[:limit], :offset => params[:offset])
       else
         return "Invalid Source"
-      end      
+      end
     else
       # do a general lookup
       solutions = review_query(selects, params)
     end
     return nil if solutions.empty?
     reviews = populate_reviews(solutions, params)
-  end  
-  
+  end
+
   def populate_reviews(solutions, params)
     reviews = []
     solutions.each do |s|
@@ -103,7 +103,7 @@ class Review
     # Workplace disabled
     #review.workplace = Workplace.new(s[:workplace], s[:workplace_name])
     review.source    = Source.new(s[:source], s[:source_name])
-    params[:reviewer] ? 
+    params[:reviewer] ?
       review.reviewer  = Reviewer.new(params[:reviewer], s[:reviewer_name]) :
       review.reviewer  = Reviewer.new(s[:reviewer], s[:reviewer_name])
     review.audience  = s[:audience_name].to_s.downcase.split(',')
@@ -118,7 +118,7 @@ class Review
     ## end append text
     review
   end
-  
+
   ### methods for inserting review into Work
   def reviews_to_works(reviews)
     works = []
@@ -134,18 +134,18 @@ class Review
     work.first.reviews = [self]
     work
   end
-  
+
   # this method simply looks up work
   def find_work
     work = Work.new.find(:uri => self.work, :reviews => false)
   end
-    
+
   # only allow query on uri, work, reviewer and source. Rest should query on work
   def review_query(selects, params)
-    api = Hashie::Mash.new(:uri => :uri, :reviewer => :reviewer, :source => :source, :work=> :work)
+    api = HashWithIndifferentAccess.new(:uri => :uri, :reviewer => :reviewer, :source => :source, :work=> :work)
     api.merge!(params)
     puts "params: #{params}" if ENV['RACK_ENV'] == 'development'
-    
+
     # query RDF store for reviews
     query = QUERY.select(*selects)
     query.group_digest(:audience, ',', 1000, 1)
@@ -155,7 +155,6 @@ class Review
     query.from_named(BOOKGRAPH)
     query.from_named(APIGRAPH)
     query.distinct.where(
-      [api[:uri], RDF.type, RDF::REV.Review],
       [api[:uri], RDF::DC.created, :created],
       [api[:uri], RDF::DC.modified, :modified],
       [api[:uri], RDF::REV.title, :title],
@@ -174,59 +173,58 @@ class Review
       [:edition, RDF::REV.hasReview, api[:uri], :context => BOOKGRAPH],
       [api[:work], RDF::FABIO.hasManifestation, :edition, :context => BOOKGRAPH],
       [:edition, RDF.type, RDF::FABIO.Manifestation, :context => BOOKGRAPH])
-      
+
     # source
     api[:source].is_a?(Symbol) ?
       query.where([api[:uri], RDF::DC.source, api[:source]], [api[:source], RDF::FOAF.name, :source_name, :context => APIGRAPH]) :
       query.where([api[:uri], RDF::DC.source, api[:source]], [api[:source], RDF::FOAF.name, :source_name, :context => APIGRAPH], [:source, RDF::FOAF.name, :source_name, :context => APIGRAPH])
-    
-    query.filter('(lang(?audience_name) = "no")') 
+
     # optional attributes
     query.optional([api[:uri], RDF::DC.issued, :issued]) # made optional to allow sorting by published true/false
     query.optional(
       [api[:reviewer], RDF::FOAF.account, :useraccount, :context => APIGRAPH],
       [:useraccount, RDF::FOAF.accountName, :accountName, :context => APIGRAPH]
-      )      
+      )
     # filter by published parameter
     query.filter('bound(?issued)') if params[:published] == true
     query.filter('!bound(?issued)') if params[:published] == false
-    
+
     # optimize query in virtuoso, drastically improves performance on optionals
     #query.define('sql:select-option "ORDER"')
     # limit, offset and order by params
     params[:limit] ? query.limit(params[:limit]) : query.limit(10)
     query.offset(params[:offset]) if params[:offset]
     if /(author|title|reviewer|source|issued|modified|created)/.match(params[:order_by].to_s)
-      if /(desc|asc)/.match(params[:order].to_s)  
+      if /(desc|asc)/.match(params[:order].to_s)
         query.order_by("#{params[:order].upcase}(?#{params[:order_by]})")
       else
         query.order_by(params[:order_by].to_sym)
       end
     end
-    
+
     puts "#{query.pp}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
   end
 
-  # this method creates a new Review object and inserts it into RDF store   
+  # this method creates a new Review object and inserts it into RDF store
   def create(params)
     # find source
     source = Source.new.find_by_apikey(params[:api_key])
     return "Invalid api_key" unless source
-    
+
     self.uri = source.autoincrement_resource(source.uri.to_s, resource = "review")
     return "Invalid UID" unless self.uri # break out if unable to generate unique ID
-    
+
     work = Work.new.find(:isbn => params[:isbn])
     return "Invalid ISBN" unless work
-    
+
     if params[:reviewer]
-      # reviewer param is either reviewer uri or useraccount accountname 
+      # reviewer param is either reviewer uri or useraccount accountname
       params[:accountName] = params[:reviewer] # Reviewer takes :name parameter
       # first check if reviewer or account exists
       reviewer = Reviewer.new.find(:uri => params[:reviewer])
       unless reviewer
-        account  = Account.new.find(:accountName => params[:accountName]) 
+        account  = Account.new.find(:accountName => params[:accountName])
         reviewer = Reviewer.new.find(:userAccount => account.uri) if account
       end
       # create new Reviewer and Account if not found
@@ -242,9 +240,9 @@ class Review
       # default to anonymous user
       reviewer = Reviewer.new.find(:uri => "http://data.deichman.no/reviewer/id_0")
     end
-    
+
     params[:teaser] = String.clean_text(params[:teaser]) if params[:teaser]
-    params[:text]   = String.clean_text(params[:text]) if params[:text] 
+    params[:text]   = String.clean_text(params[:text]) if params[:text]
     # make sure we have audience!
     if params[:audience]
       if /([Bb]arn|[Un]gdom|[Vv]oksen|[Cc]hildren|[Yy]outh|[Aa]dult)/.match(params[:audience].to_s)
@@ -252,7 +250,7 @@ class Review
       else
         params[:audience] = Array("adult")
       end
-    else 
+    else
       params[:audience] = Array("adult")
     end
     # create review from params
@@ -269,7 +267,7 @@ class Review
     self.modified  = Time.now.xmlschema
     self
   end
-  
+
   def update(params)
     # this method updates review and inserts into RDF store
     # first use api_key parameter to fetch source
@@ -277,11 +275,11 @@ class Review
     # find source
     source = Source.new.find_by_apikey(params[:api_key])
     return "Invalid api_key" unless source
-    
+
     # make publish or unpublish switches
     unpublish = true if self.published && !params[:published]
     publish   = true if !self.published && params[:published]
-    
+
     # Delete first
     # DO NOT delete DC.created and DC.issued properties on update unless published is changed
     deletequery = QUERY.delete([self.uri, :p, :o]).graph(REVIEWGRAPH)
@@ -291,17 +289,17 @@ class Review
     #deletequery.minus([self.uri, RDF::DC.issued, :o])
     deletequery.filter("?p != <#{RDF::DC.created.to_s}>")
     deletequery.filter("?p != <#{RDF::DC.issued.to_s}>") unless unpublish # keep issued unless unpublish state set
-    
+
     puts "deletequery:\n #{deletequery}" if ENV['RACK_ENV'] == 'development'
     result = REPO.delete(deletequery)
     puts "delete result:\n #{result}" if ENV['RACK_ENV'] == 'development'
-    
+
     # Then update
     params.delete(:uri) # don't update uri!
     # reviewer
     reviewer = Reviewer.new.find(:uri => self.reviewer.uri)
     params[:teaser] = String.clean_text(params[:teaser]) if params[:teaser]
-    params[:text]   = String.clean_text(params[:text]) if params[:text] 
+    params[:text]   = String.clean_text(params[:text]) if params[:text]
     # make sure we have audience!
     if params[:audience]
       if /([Bb]arn|[Un]gdom|[Vv]oksen|[Cc]hildren|[Yy]outh|[Aa]dult)/.match(params[:audience].to_s)
@@ -322,7 +320,7 @@ class Review
     self.issued = Time.now.xmlschema if publish
     self.issued = nil if unpublish
     save # save changes to RDF store
-    self    
+    self
   end
 
   # this method actually saves the review
@@ -338,13 +336,13 @@ class Review
     insert_statements << RDF::Statement.new(self.uri, RDF::DC.created, RDF::Literal(self.created, :datatype => RDF::XSD.dateTime))
     insert_statements << RDF::Statement.new(self.uri, RDF::DC.issued, RDF::Literal(self.issued, :datatype => RDF::XSD.dateTime)) if self.issued
     insert_statements << RDF::Statement.new(self.uri, RDF::DC.modified, RDF::Literal(self.modified, :datatype => RDF::XSD.dateTime))
-    
+
     # insert Creative Commons license
     insert_statements << RDF::Statement.new(self.uri, RDF::DC.license, RDF::URI("http://creativecommons.org/licenses/by-sa/3.0/no/"))
 
     # insert reviewer if found or created
     insert_statements << RDF::Statement.new(self.uri, RDF::REV.reviewer, self.reviewer.uri)
-  
+
     # Optionals - Audience
     unless self.audience
       # default to adult if not given
@@ -363,7 +361,7 @@ class Review
     query = QUERY.insert_data(insert_statements).graph(REVIEWGRAPH)
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     result = REPO.insert_data(query)
-    
+
     # also insert hasReview property on work and book
     hasreview_statements  = []
     hasreview_statements << RDF::Statement.new(RDF::URI(self.work), RDF::REV.hasReview, self.uri)
@@ -372,16 +370,16 @@ class Review
     result                = REPO.insert_data(query)
     self
   end
-    
+
   # this method deletes review from RDF store
   def delete(params)
     # do nothing if review is not found
     return nil unless self.uri
-    
+
     # check api_key
     source = Source.new.find_by_apikey(params[:api_key])
     return "Invalid api_key" unless source
-        
+
     # then delete review, but only if source matches
     query  = QUERY.delete([self.uri, :p, :o])
     query.where([self.uri, RDF::DC.source, source.uri], [self.uri, :p, :o]).graph(REVIEWGRAPH)

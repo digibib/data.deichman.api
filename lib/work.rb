@@ -17,7 +17,7 @@ class Work
   def find(params)
     return nil unless params[:uri] || params[:title] || params[:isbn] || params[:author] || params[:author_name]
     selects = [:uri, :originalTitle, :title, :lang, :edition, :isbn, :author, :author_name, :cover_url]
-    api = Hashie::Mash.new(:uri => :uri, :name => :name, :isbn => :isbn, :author => :author, :author_name => :author_name, :title => :title)
+    api = HashWithIndifferentAccess.new(:uri => :uri, :name => :name, :isbn => :isbn, :author => :author, :author_name => :author_name, :title => :title)
     # handle params
     params[:uri]    = RDF::URI(params[:uri]) if params[:uri]
     params[:author] = RDF::URI(params[:author]) if params[:author]
@@ -27,7 +27,7 @@ class Work
     selects.delete(:uri)    if params[:uri]
     selects.delete(:title)  if params[:title]
     selects.delete(:author) if params[:author]
-    
+
     query = QUERY.select(*selects).from(BOOKGRAPH)
     query.sample(:altDepictedBy)
     # compose query based on api params
@@ -50,8 +50,8 @@ class Work
         [api[:uri], RDF.type, RDF::FABIO.Work],
         [api[:uri], RDF::DC.title, :originalTitle])
       query.optional(
-        [api[:uri], RDF::DC.creator, api[:author]], 
-        [api[:author], RDF::FOAF.name, api[:author_name]])   
+        [api[:uri], RDF::DC.creator, api[:author]],
+        [api[:author], RDF::FOAF.name, api[:author_name]])
     else
       query.where(
         [api[:uri], RDF.type, RDF::FABIO.Work],
@@ -60,30 +60,30 @@ class Work
         [:edition, RDF::DC.language, :lang],
         [:edition, RDF::DC.title, api[:title]])
       query.optional(
-        [api[:uri], RDF::DC.creator, api[:author]], 
+        [api[:uri], RDF::DC.creator, api[:author]],
         [api[:author], RDF::FOAF.name, api[:author_name]])
       query.optional([:edition, RDF::BIBO.isbn, api[:isbn]])
-    end    
+    end
     query.optional([:edition, RDF::FOAF.depiction, :cover_url])
     query.optional([:edition, RDF::IFACE.altDepictedBy, :altDepictedBy])
 
     puts "#{query.pp}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
-    
+
     return nil if solutions.empty? # not found!
     # append to solution if given as params
     solutions.each{|s| s.merge!(RDF::Query::Solution.new(:uri    => params[:uri]))} if params[:uri]
     solutions.each{|s| s.merge!(RDF::Query::Solution.new(:author => params[:author]))} if params[:author]
     solutions.each{|s| s.merge!(RDF::Query::Solution.new(:isbn   => params[:isbn]))} if params[:isbn]
     solutions.each{|s| s.merge!(RDF::Query::Solution.new(:title  => params[:title]))} if params[:title]
-    
+
     puts solutions.inspect if ENV['RACK_ENV'] == 'development'
-    
+
     works = cluster(solutions, params)
   end
-  
+
   # This method populates works and authors on works with clustering
-  # params: 
+  # params:
   #   :cluster => (Bool) Cluster under distinct works. Default false
   #   :reviews => (Bool) Include reviews               Default true
   def cluster(solutions, params)
@@ -95,15 +95,15 @@ class Work
         # make sure distinct filter is run on Marshal clone of solutions
         cluster = Marshal.load(Marshal.dump(solutions)).filter {|solution| solution.uri == ds.uri }
         works << populate_work(cluster, params)
-      end 
+      end
     works
   end
-  
+
   # populates work struct based on cluster, optionally with reviews
   def populate_work(cluster, params)
     # first solution creates Work, the rest appends info
     work = Work.new
-    work.uri       =  cluster.first[:uri] 
+    work.uri       =  cluster.first[:uri]
     work.originalTitle = cluster.first[:originalTitle]
     work.cover_url = cluster.first[:cover_url] if cluster.first[:cover_url]
     #work.isbns     = (cluster.first[:isbn] ? cluster.first[:isbn].to_s.split(', ') : [params[:isbn]])
@@ -115,12 +115,12 @@ class Work
     work.reviews = fetch_reviews(work.uri) if params[:reviews] == true
     work
   end
-  
+
   # not used
   def to_self(work)
-    self.members.each {|name| self[name] = work[name] } 
+    self.members.each {|name| self[name] = work[name] }
   end
-  
+
   def fetch_reviews(uri)
     Review.new.find(:work => uri, :published => true)
   end

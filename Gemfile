@@ -2,21 +2,21 @@ source "http://rubygems.org"
 gem "rake"
 gem "builder"
 gem "bundler"
-gem "thin"
+gem "puma"
 gem "json"
-gem "grape", '0.2.4' #:git => 'https://github.com/intridea/grape.git'
+gem "grape"
 gem "rdf"
-gem "rdf-n3"
 gem "rdf-virtuoso"
-gem "sanitize" 
+gem "sanitize"
 gem "rack-contrib" # needed for RACK::JSONP
-gem "multi_json", "1.10.1"
+gem "multi_json"
 
 group :development do
   gem 'shotgun'
 end
 
 group :test do
+  #gem "rdf-n3"
   gem "rspec"
   gem "rack-test"
   gem "rspec-core"

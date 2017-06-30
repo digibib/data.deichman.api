@@ -2,8 +2,11 @@
 module API
   class Sources < Grape::API
   # /api/sources
-    resource :sources do 
-  
+
+    format :json
+
+    resource :sources do
+
       desc "returns all users or specific user"
       get "/" do
         # Sources is a protected module
@@ -12,13 +15,13 @@ module API
         unless params[:uri] || params[:name]
           sources = {:sources => Source.new.all }
         else
-          logger.info "params: #{params}"
+          #puts "params: #{params}"
           source = Source.new.find(params)
           error!("Sorry, source not found", 401) unless source
           {:source => source }
         end
       end
-      
+
       desc "creates a source"
         params do
           requires :name,     type: String, length: 5, desc: "Name of source"
@@ -28,15 +31,15 @@ module API
         # Sources is a protected module
         error!('Unauthorized', 401) unless env['HTTP_SECRET_SESSION_KEY'] == SECRET_SESSION_KEY
         content_type 'json'
-        logger.info "params: #{params}"
-        
+        #puts "params: #{params}"
+
         source = Source.new.create(params)
         error!("Sorry, source name must be unique", 400) if source == "source must be unique"
         source.save
         source.api_key = nil
         {:source => source}
       end
-      
+
       desc "edit/update source"
         params do
           requires :uri,      type: String, desc: "URI of source"
@@ -52,14 +55,14 @@ module API
         if valid_params.any? {|p| params.has_key?(p) }
           source = Source.new.find(:uri => params[:uri])
           source.update(params)
-          logger.info "updated source: #{source}"
+          #puts "updated source: #{source}"
           { :source => source}
         else
-          logger.error "invalid or missing params"   
-          error!("Need at least one param of uri|name|homepage", 400)      
+          puts "invalid or missing params"
+          error!("Need at least one param of uri|name|homepage", 400)
         end
       end
-      
+
       desc "delete a source"
         params do
           requires :uri,      type: String, desc: "URI of source"
@@ -70,9 +73,9 @@ module API
         content_type 'json'
         source = Source.new.find(:uri => params[:uri])
         result = source.delete
-        logger.info "DELETE: params: #{params} - deleted source: #{source}"
+        #puts "DELETE: params: #{params} - deleted source: #{source}"
         { :result => result }
-      end 
+      end
     end
   end
 end

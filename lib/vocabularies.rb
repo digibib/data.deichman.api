@@ -3,7 +3,6 @@ require 'rdf'
 
 module RDF
   class BIBO < RDF::Vocabulary("http://purl.org/ontology/bibo/");end
-  class RDFS < RDF::Vocabulary("http://www.w3.org/2000/01/rdf-schema#");end
   class XFOAF < RDF::Vocabulary("http://www.foafrealm.org/xfoaf/0.1/")
     property :name
   end
@@ -18,12 +17,10 @@ module RDF
   class RDA < RDF::Vocabulary("http://rdvocab.info/Elements/");end
   class GEONAMES < RDF::Vocabulary("http://www.geonames.org/ontology#")
     property :name
-  end  
-  class MO < RDF::Vocabulary("http://purl.org/ontology/mo/");end
+  end
   class YAGO < RDF::Vocabulary("http://dbpedia.org/class/yago/");end
   class CTAG < RDF::Vocabulary("http://commontag.org/ns#");end
   class RADATANA < RDF::Vocabulary("http://def.bibsys.no/xmlns/radatana/1.0#");end
-  class SIOC < RDF::Vocabulary("http://rdfs.org/sioc/ns#");end
   class ACC < RDF::Vocabulary("http://purl.org/NET/acc#");end
   class ORG < RDF::Vocabulary("http://www.w3.org/ns/org#");end
   class IFACE < RDF::Vocabulary("http://www.multimedian.nl/projects/n9c/interface#");end

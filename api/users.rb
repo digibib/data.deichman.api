@@ -2,6 +2,9 @@
 module API
   class Users < Grape::API
   # /api/users
+
+    format :json
+
     resource :users do
 
       desc "returns all users or specific user"
@@ -15,12 +18,12 @@ module API
           end
           {:reviewers => reviewers }
         else
-          logger.info "params: #{params}"
+          #puts "params: #{params}"
           reviewer = Reviewer.new.find(params)
           if reviewer
             reviewer.userAccount = Account.new.find(:uri => reviewer.userAccount)
           else
-            account  = Account.new.find(:accountName => params[:accountName]) 
+            account  = Account.new.find(:accountName => params[:accountName])
           end
           if account
             reviewer = Reviewer.new.find(:userAccount => account.uri)
@@ -31,8 +34,8 @@ module API
           {:reviewer => reviewer }
         end
       end
-      
-      
+
+
       desc "creates a user"
         params do
           requires :api_key,     type: String, desc: "API key"
@@ -40,7 +43,7 @@ module API
         end
       post "/" do
         content_type 'json'
-        logger.info "params: #{params}"
+        #puts "params: #{params}"
         reviewer = Reviewer.new.create(params)
         error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviewer == "Invalid api_key"
         error!("Sorry, \"unable to create reviewer", 400) unless reviewer
@@ -68,13 +71,13 @@ module API
         end
       put "/" do
         content_type 'json'
-        logger.info "params: #{params}"
+        #puts "params: #{params}"
         reviewer = Reviewer.new.find(:api_key =>params[:api_key], :uri => params[:uri])
         error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviewer == "Invalid api_key"
         error!("Sorry, reviewer not found in our base", 404) unless reviewer
         # update Reviewer
         if params[:name] || params[:workplace]
-          reviewer.update(:api_key => params[:api_key], 
+          reviewer.update(:api_key => params[:api_key],
                           :name => params[:name],
                           :workplaceHomepage => params[:workplace])
         end
@@ -96,7 +99,7 @@ module API
         end
       delete "/" do
         content_type 'json'
-        logger.info "params: #{params}"
+        #puts "params: #{params}"
         reviewer = Reviewer.new.find(params)
         useraccount = Account.new.find(:uri => reviewer.userAccount)
         error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviewer == "Invalid api_key"
@@ -124,7 +127,7 @@ module API
         status 200
         {:authenticated => authenticated}
       end
-    
+
       # MyLists specific to user
       resource :mylists do
         desc "returns all users or specific user"
@@ -147,7 +150,7 @@ module API
           end
           {:mylists => mylists }
         end
-        
+
         desc "creates a list"
           params do
             requires :api_key,  type: String, desc: "API key"
@@ -157,7 +160,7 @@ module API
           end
         post "/" do
           content_type 'json'
-          logger.info "params: #{params}"
+          #puts "params: #{params}"
           reviewer = Reviewer.new.find(:uri => params[:reviewer])
           error!("Sorry, reviewer not found in our base", 404) unless reviewer
           error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviewer == "Invalid api_key"
@@ -169,7 +172,7 @@ module API
           account.update(params)
           {:mylists => [mylist]}
         end
-        
+
         desc "updates a list"
           params do
             requires :api_key, type: String, desc: "API key"
@@ -179,7 +182,7 @@ module API
           end
         put "/" do
           content_type 'json'
-          logger.info "params: #{params}"
+          #puts "params: #{params}"
           mylist = MyList.new.find(:api_key =>params[:api_key], :uri => params[:uri])
           error!("Sorry, list not found in our base", 404) unless mylist
           error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if mylist == "Invalid api_key"
@@ -194,14 +197,14 @@ module API
           end
         delete "/" do
           content_type 'json'
-          logger.info "params: #{params}"
+          #puts "params: #{params}"
           mylist = MyList.new.find(:api_key => params[:api_key], :uri => params[:uri])
           error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if mylist == "Invalid api_key"
           error!("Sorry, \"#{params[:uri]}\" matches no list in our base", 404) unless mylist
           result = mylist.delete(params)
           {:mylists => result}
         end
-                    
+
       end # end MyLists
     end
   end

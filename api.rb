@@ -1,5 +1,4 @@
 #encoding: utf-8
-$stdout.sync = true
 require "rubygems"
 require "bundler/setup"
 require "grape"
@@ -10,25 +9,21 @@ require_relative "./config/init.rb"
 # trap all exceptions and fail gracefuly with a 500 and a proper message
 class ApiErrorHandler < Grape::Middleware::Base
 
-  def logger
-    logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
-  end
-  
   def call!(env)
     @env = env
     begin
       @app.call(@env)
     rescue Exception => e
-      logger.error "#{e}"
+      puts "#{e}"
       throw :error, :message => e.message || options[:default_message], :status => 500
     end
-  end  
+  end
 end
 
 module API
-  
+
   # Custom validators
-  class Email < Grape::Validations::SingleOptionValidator
+  class Email < Grape::Validations::Base
     def validate_param!(attr_name, params)
       unless params[attr_name] =~ /[[:ascii:]]+@[[:ascii:]]+\.[[:ascii:]]{2,4}/
         throw :error, :status => 400, :message => "#{attr_name}: must be a valid email"
@@ -36,58 +31,46 @@ module API
     end
   end
 
-  class Length < Grape::Validations::SingleOptionValidator
+  class Length < Grape::Validations::Base
     def validate_param!(attr_name, params)
       unless params[attr_name].length >= @option
         throw :error, :status => 400, :message => "#{attr_name}: must be at least #{@option} characters long"
       end
     end
   end
-    
+
   class Root < Grape::API
     use ApiErrorHandler
     use Rack::JSONP
-    helpers do
-      def logger
-        logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
-      end
+
+    version 'v1', :using => :header, :vendor => 'deichman.no'
+    prefix 'api' # FIXME this does not work, routes are mounted at root path: host:port/route
+    format :json
+    default_format :json
+    rescue_from :all, :backtrace => true
+
+    before do
+      puts "#{env['REMOTE_ADDR']} #{env['HTTP_USER_AGENT']} #{env['REQUEST_METHOD']} #{env['REQUEST_PATH']}"
     end
-    
+
+    # Rescue and log validation errors gracefully
+    rescue_from Grape::Exceptions::Validation do |e|
+      puts "#{e.message}"
+      Rack::Response.new(MultiJson.encode(
+          'status' => e.status,
+          'message' => e.message,
+          'param' => e.param),
+           e.status)
+    end
+
     # load all external api routes
     Dir[File.dirname(__FILE__) + '/api/*.rb'].each do |file|
       require file
     end
 
-    version 'v1', :using => :header, :vendor => 'deichman.no'
-    prefix 'api'
-    rescue_from :all, :backtrace => true
-    format :json
-    default_format :json
-    
     mount API::Reviews
     mount API::Works
     mount API::Users
     mount API::Sources
-    
-    before do
-      # Of course this makes the request.body unavailable afterwards.
-      # You can just use a helper method to store it away for later if needed. 
-      logger.info "#{env}"
-      logger.info "#{env['REMOTE_ADDR']} #{env['HTTP_USER_AGENT']} #{env['REQUEST_METHOD']} #{env['REQUEST_PATH']} -- Request: #{request.body.read}"
-      # strip out empty params
-      #params.remove_empty_params!
-    end
-    
-    # Rescue and log validation errors gracefully
-    # NB: Grape::Exceptions::ValidationError changes to Grape::Exceptions::Validation in future Grape releases!
-    rescue_from Grape::Exceptions::ValidationError do |e|
-      logger = Logger.new(File.expand_path("../logs/#{ENV['RACK_ENV']}.log", __FILE__))
-      logger.error "#{e.message}"
-      Rack::Response.new(MultiJson.encode(
-          'status' => e.status,
-          'message' => e.message,
-          'param' => e.param),
-           e.status) 
-    end
-  end  
+  end
 end

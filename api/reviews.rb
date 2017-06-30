@@ -2,6 +2,9 @@
 module API
   class Reviews < Grape::API
   # /api/reviews
+
+    format :json
+
     resource :reviews do
       desc "returns reviews"
         params do
@@ -15,35 +18,35 @@ module API
             optional :work,        type: String, desc: "URI of Work"
             optional :source,      type: String, desc: "URI of Review's source"
             optional :limit,       type: Integer, desc: "Limit result"
-            optional :offset,      type: Integer, desc: "Offset, for pagination" 
-            optional :order_by,    type: String, desc: "Order of results" 
-            optional :order,       type: String, desc: "Ascending or Descending order" 
-            optional :published,   type: Boolean, desc: "Sort by published - true/false" 
-            optional :cluster,     type: Boolean, desc: "cluster by works - true/false" 
+            optional :offset,      type: Integer, desc: "Offset, for pagination"
+            optional :order_by,    type: String, desc: "Order of results"
+            optional :order,       type: String, desc: "Ascending or Descending order"
+            optional :published,   type: Boolean, desc: "Sort by published - true/false"
+            optional :cluster,     type: Boolean, desc: "cluster by works - true/false"
         end
-  
+
       get "/" do
         reviews = Review.new.find(params)
         if reviews == "Invalid URI"
-          logger.error "Invalid URI"
+          puts "Invalid URI"
           error!("\"#{params[:uri]}\" is not a valid URI", 400)
         elsif reviews == "Invalid Reviewer"
-          logger.error "Invalid Reviewer"
+          puts "Invalid Reviewer"
           error!("reviewer \"#{params[:reviewer]}\" not found", 400)
         elsif reviews == "Invalid Source"
-          logger.error "Invalid Source"
-          error!("source \"#{params[:source]}\" not found", 400)          
+          puts "Invalid Source"
+          error!("source \"#{params[:source]}\" not found", 400)
         elsif reviews.nil?
-          logger.info "no reviews found"
+          #puts "no reviews found"
           error!("no reviews found", 200)
         else
           # found reviews, append to works
           works = Review.new.reviews_to_works(reviews)
-          logger.info "Works: #{works.count} - Reviews: #{c=0 ; works.each {|w| c += w.reviews.count};c}"
+          #puts "Works: #{works.count} - Reviews: #{c=0 ; works.each {|w| c += w.reviews.count};c}"
           {:works => works }
         end
       end
-  
+
       desc "creates a review"
         params do
           requires :api_key,   type: String, desc: "Authorization Key"
@@ -72,12 +75,12 @@ module API
           error!("Sorry, unable to create/obtain unique ID of reviewer", 400) if review == "Invalid Reviewer ID"
           error!("Sorry, unable to generate unique ID of review", 400) if review == "Invalid UID"
           result = review.save
-          logger.info "POST: params: #{params} - review: #{review}"
+          #puts "POST: params: #{params} - review: #{review}"
           work.first.reviews << review
           {:works => work }
         else
-          logger.error "invalid or missing params"   
-          error!("Need at least one param of title|teaser|text|audience|reviewer|published", 400)      
+          puts "invalid or missing params"
+          error!("Need at least one param of title|teaser|text|audience|reviewer|published", 400)
         end
       end
       desc "updates a review"
@@ -91,31 +94,31 @@ module API
           optional :published, type: Boolean, desc: "Published - true/false"
           #optional :reviewer, type: String, desc: "Name of reviewer"
           #optional :source, type: String, desc: "Source of review"
-        end    
+        end
       put "/" do
         content_type 'json'
         valid_params = ['api_key','uri','title','teaser','text','audience','published']
         # do we have a valid parameter?
         if valid_params.any? {|p| params.has_key?(p) }
           # delete params not listed in valid_params
-          logger.info "params before: #{params}"
+          #puts "params before: #{params}"
           params.delete_if {|p| !valid_params.include?(p) }
-          logger.info "params after: #{params}"
+          #puts "params after: #{params}"
           # is it in the base? uses params[:uri]
           reviews = Review.new.find(:uri => params[:uri])
           error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if reviews.nil?
-          logger.info "works: #{reviews}"
+          #puts "works: #{reviews}"
           review = reviews.first.update(params)
           error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if review == "Invalid api_key"
           #throw :error, :status => 400, :message => "Sorry, unable to update review #{params[:uri]} ..." if result =~ /nothing to do/
-          logger.info "PUT: params: #{params} - review: #{review}"
+          #puts "PUT: params: #{params} - review: #{review}"
           works = Review.new.reviews_to_works(reviews)
           #(works ||=[]) << Work.new.find(:isbn => review.subject).first
           #works.first.reviews << review
           {:works => works }
         else
-          logger.error "invalid or missing params"   
-          error!("Need at least one param of title|teaser|text|audience|published", 400)      
+          puts "invalid or missing params"
+          error!("Need at least one param of title|teaser|text|audience|published", 400)
         end
       end
 
@@ -130,39 +133,39 @@ module API
           optional :published, type: Boolean, desc: "Published - true/false"
           #optional :reviewer, type: String, desc: "Name of reviewer"
           #optional :source, type: String, desc: "Source of review"
-        end    
+        end
       post "/update" do
         content_type 'json'
         valid_params = ['api_key','uri','title','teaser','text','audience','published']
         # do we have a valid parameter?
         if valid_params.any? {|p| params.has_key?(p) }
           # delete params not listed in valid_params
-          logger.info "params before: #{params}"
+          #puts "params before: #{params}"
           params.delete_if {|p| !valid_params.include?(p) }
-          logger.info "params after: #{params}"
+          #puts "params after: #{params}"
           # is it in the base? uses params[:uri]
           reviews = Review.new.find(:uri => params[:uri])
           error!("Sorry, \"#{params[:uri]}\" matches no review in our base", 400) if reviews.nil?
-          logger.info "works: #{reviews}"
+          #puts "works: #{reviews}"
           review = reviews.first.update(params)
           error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if review == "Invalid api_key"
           #throw :error, :status => 400, :message => "Sorry, unable to update review #{params[:uri]} ..." if result =~ /nothing to do/
-          logger.info "PUT: params: #{params} - review: #{review}"
+          #puts "PUT: params: #{params} - review: #{review}"
           works = Review.new.reviews_to_works(reviews)
           #(works ||=[]) << Work.new.find(:isbn => review.subject).first
           #works.first.reviews << review
           {:works => works }
         else
-          logger.error "invalid or missing params"   
-          error!("Need at least one param of title|teaser|text|audience|published", 400)      
+          puts "invalid or missing params"
+          error!("Need at least one param of title|teaser|text|audience|published", 400)
         end
       end
-        
+
       desc "deletes a review"
         params do
           requires :api_key, type: String, desc: "Authorization Key"
           requires :uri,     type: String, desc: "URI of review"
-        end    
+        end
       delete '/' do
         content_type 'json'
         # is it in the base?
@@ -172,7 +175,7 @@ module API
         result = reviews.first.delete(params)
         error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviews == "Invalid api_key"
         error!("Sorry, unable to delete review #{params[:uri]} ...", 400) if reviews.nil? || reviews =~ /nothing to do/
-        logger.info "DELETE: params: #{params} - result: #{reviews}"
+        #puts "DELETE: params: #{params} - result: #{reviews}"
         {:result => result }
       end
 
@@ -180,7 +183,7 @@ module API
         params do
           requires :api_key, type: String, desc: "Authorization Key"
           requires :uri,     type: String, desc: "URI of review"
-        end    
+        end
       post "/delete" do
         content_type 'json'
         # is it in the base?
@@ -190,10 +193,10 @@ module API
         result = reviews.first.delete(params)
         error!("Sorry, \"#{params[:api_key]}\" is not a valid api key", 400) if reviews == "Invalid api_key"
         error!("Sorry, unable to delete review #{params[:uri]} ...", 400) if reviews.nil? || reviews =~ /nothing to do/
-        logger.info "DELETE: params: #{params} - result: #{reviews}"
+        #puts "DELETE: params: #{params} - result: #{reviews}"
         {:result => result }
       end
-      
+
     end
   end
 end

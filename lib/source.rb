@@ -6,7 +6,7 @@ class Source
   def all
     query = QUERY.select(:uri, :name, :homepage, :api_key).from(APIGRAPH)
     query.where(
-      [:uri, RDF.type, RDF::FOAF.Document], 
+      [:uri, RDF.type, RDF::FOAF.Document],
       [:uri, RDF::FOAF.name, :name],
       [:uri, RDF::DEICHMAN.apikey, :api_key])
     query.optional([:uri, RDF::FOAF.homepage, :homepage])
@@ -24,12 +24,12 @@ class Source
   def find(params)
     return nil unless params[:uri] || params[:name]
     selects = [:uri, :name, :homepage, :api_key]
-    api = Hashie::Mash.new(:uri => :uri, :name => :name)
+    api = HashWithIndifferentAccess.new(:uri => :uri, :name => :name)
     params[:uri] = RDF::URI(params[:uri]) if params[:uri]
     api.merge!(params)
     # remove variable from selects array if variable given as param
     #selects.delete_if {|s| params[s]}
-    
+
     query = QUERY.select(*selects).from(APIGRAPH)
     # source by uri
     api[:uri].is_a?(Symbol) ?
@@ -40,21 +40,21 @@ class Source
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
     return nil if solutions.empty?
-    
-    # populate Source Struct    
-    self.members.each {|name| self[name] = solutions.first[name] }  
+
+    # populate Source Struct
+    self.members.each {|name| self[name] = solutions.first[name] }
     self
   end
-    
+
   def find_by_apikey(api_key)
     # fetch source by api key in protected graph
-    # each source needs three statements: 
+    # each source needs three statements:
     # <source> a foaf:Document ;
     #          foaf:name "Label" ;
-    #          deichman:apikey "apikey" .    
+    #          deichman:apikey "apikey" .
     query = QUERY.select(:uri, :name, :homepage).from(APIGRAPH)
     query.where(
-      [:uri, RDF.type, RDF::FOAF.Document], 
+      [:uri, RDF.type, RDF::FOAF.Document],
       [:uri, RDF::FOAF.name, :name],
       [:uri, RDF::DEICHMAN.apikey, "#{api_key}"])
     query.optional([:uri, RDF::FOAF.homepage, :homepage])
@@ -62,9 +62,9 @@ class Source
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
     return nil if solutions.empty?
-    
-    # populate Source Struct    
-    self.members.each {|name| self[name] = solutions.first[name] }  
+
+    # populate Source Struct
+    self.members.each {|name| self[name] = solutions.first[name] }
     self.api_key = api_key
     self
   end
@@ -86,26 +86,26 @@ class Source
       parts << "bif:REPLACE(str(?source), 'http://data.deichman.no/source/', '/')" if resource == "review"
       parts << "'/#{resource}'"
       parts << "'/id_'"
-      
+
       # choose sequence origin, either from review source or from resource
       resource == "review" ? parts << "str(bif:sequence_next ('#{source}'))" : parts << "str(bif:sequence_next ('#{resource}'))"
-      
-      # CONSTRUCT query  
+
+      # CONSTRUCT query
       query = "CONSTRUCT { `iri( bif:CONCAT( "
       query << parts.join(', ').to_s
       query << " ) )` a <#{RDF::DEICHMAN.DummyClass}> } "
       query << "WHERE { <#{source}> a <#{RDF::FOAF.Document}> ; <#{RDF::FOAF.name}> ?name . ?source a <#{RDF::FOAF.Document}> ; <#{RDF::FOAF.name}> ?name }"
       query << " ORDER BY(?source) LIMIT 1"
       puts "constructing #{resource} id: #{query}" if ENV['RACK_ENV'] == 'development'
-      
+
       solutions = REPO.construct(query)
-      
+
       return nil if solutions.empty?
       puts "constructed #{resource} id: #{solutions.first[:s]}" if ENV['RACK_ENV'] == 'development'
       resource_id = solutions.first[:s]
     end
   end
-  
+
   def get_last_id(source, resource = "review")
     if source
       # convert to string if RDF::URI
@@ -116,45 +116,45 @@ class Source
       parts << "bif:REPLACE(str(?source), 'http://data.deichman.no/source/', '/')" if resource == "review"
       parts << "'/#{resource}'"
       parts << "'/id_'"
-      
+
       # choose sequence origin, either from review source or from resource
       resource == "review" ? parts << "str(bif:sequence_set ('#{source}', 0, 1))" : parts << "str(bif:sequence_set ('#{resource}', 0, 1))"
-      
-      # CONSTRUCT query  
+
+      # CONSTRUCT query
       query = "CONSTRUCT { `iri( bif:CONCAT( "
       query << parts.join(', ').to_s
       query << " ) )` a <#{RDF::DEICHMAN.DummyClass}> } "
       query << "WHERE { <#{source}> a <#{RDF::FOAF.Document}> ; <#{RDF::FOAF.name}> ?name . ?source a <#{RDF::FOAF.Document}> ; <#{RDF::FOAF.name}> ?name }"
       query << " ORDER BY(?source) LIMIT 1"
       puts "constructed #{resource} id: #{query}" if ENV['RACK_ENV'] == 'development'
-      
+
       solutions = REPO.construct(query)
-      
+
       return nil if solutions.empty?
       puts "constructed #{resource} id: #{solutions.first[:s]}" if ENV['RACK_ENV'] == 'development'
       resource_id = solutions.first[:s]
     end
   end
-  
+
   def create(params)
     return nil unless params[:name]
     name = params[:name].urlize
     # check if uri is unique
     uri      = RDF::URI("http://data.deichman.no/source/#{name}")
     return "source must be unique" if self.all.detect {|source| source.uri.to_s == uri.to_s }
-    
+
     self.uri      = uri
     self.name     = RDF::Literal(params[:name])
     self.api_key  = ::SecureRandom.uuid
     self.homepage = RDF::URI(params[:homepage]) unless params[:homepage].to_s.strip.length == 0
     self
   end
-  
+
   def update(params={})
     return nil unless self.uri
     self.name     = RDF::Literal(params[:name]) if params[:name]
     self.homepage = RDF::URI(params[:homepage]) unless params[:homepage].to_s.strip.length == 0
-    
+
     # Delete first
     deletequery = QUERY.delete([self.uri, :p, :o]).graph(APIGRAPH)
     deletequery.where([self.uri, :p, :o],[self.uri, RDF.type, RDF::FOAF.Document])
@@ -172,7 +172,7 @@ class Source
     insert_statements << RDF::Statement.new(self.uri, RDF::FOAF.name, self.name)
     insert_statements << RDF::Statement.new(self.uri, RDF::DEICHMAN.apikey, self.api_key)
     insert_statements << RDF::Statement.new(self.uri, RDF::FOAF.homepage, self.homepage) unless self.homepage.nil?
-    
+
     query = QUERY.insert_data(insert_statements).graph(APIGRAPH)
     puts "create source query: #{query}" if ENV['RACK_ENV'] == 'development'
     result = REPO.insert_data(query)
@@ -191,5 +191,5 @@ class Source
     puts "delete result:\n #{result}" if ENV['RACK_ENV'] == 'development'
     return result
   end
-      
+
 end
