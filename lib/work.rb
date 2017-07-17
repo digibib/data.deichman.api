@@ -2,6 +2,7 @@
 Author  = Struct.new(:uri, :name)
 Edition = Struct.new(:uri, :title, :lang, :cover_url, :altDepictedBy, :isbn)
 Work = Struct.new(:uri, :originalTitle, :prefTitle, :editions, :authors, :cover_url, :reviews)
+AUTHOR_ROLE = RDF::URI("http://data.deichman.no/role#author")
 
 class Work
 
@@ -33,41 +34,47 @@ class Work
     # compose query based on api params
     if params[:author]
       query.where(
-        [api[:uri], RDF::DC.creator, api[:author]], [api[:author], RDF::FOAF.name, api[:author_name]],
-        [api[:uri], RDF.type, RDF::FABIO.Work],
-        [api[:uri], RDF::DC.title, :originalTitle],
-        [api[:uri], RDF::FABIO.hasManifestation, :edition],
-        [:edition, RDF::DC.language, :lang],
-        [:edition, RDF::DC.title, api[:title]])
+        [api[:uri], RDF::DEICH.contributor, :contrib],
+        [:contrib, RDF::DEICH.role, AUTHOR_ROLE],
+        [:contrib, RDF::DEICH.agent, api[:author]],
+        [api[:author], RDF::DEICH.name, api[:author_name]],
+        [api[:uri], RDF::DEICH.mainTitle, :originalTitle],
+        [:edition, RDF::DEICH.publicationOf, api[:uri]],
+        [:edition, RDF::DEICH.language, :lang],
+        [:edition, RDF::DEICH.mainTitle, api[:title]])
       query.optional(
-        [:edition, RDF::BIBO.isbn, api[:isbn]])
+        [:edition, RDF::DEICH.isbn, api[:isbn]])
     elsif params[:isbn]
       query.where(
-        [:edition, RDF::BIBO.isbn, api[:isbn]],
-        [:edition, RDF::DC.language, :lang],
-        [:edition, RDF::DC.title, api[:title]],
-        [api[:uri], RDF::FABIO.hasManifestation, :edition],
-        [api[:uri], RDF.type, RDF::FABIO.Work],
-        [api[:uri], RDF::DC.title, :originalTitle])
+        [:edition, RDF::DEICH.isbn, api[:isbn]],
+        [:edition, RDF::DEICH.language, :lang],
+        [:edition, RDF::DEICH.mainTitle, api[:title]],
+        [:edition, RDF::DEICH.publicationOf, api[:uri]],
+        [api[:uri], RDF::DEICH.mainTitle, :originalTitle])
       query.optional(
-        [api[:uri], RDF::DC.creator, api[:author]],
-        [api[:author], RDF::FOAF.name, api[:author_name]])
+        [api[:uri],RDF::DEICH.contributor, :contrib],
+        [:contrib, RDF::DEICH.role, AUTHOR_ROLE],
+        [:contrib, RDF::DEICH.agent, api[:author]],
+        [api[:author], RDF::DEICH.name, api[:author_name]])
     else
       query.where(
-        [api[:uri], RDF.type, RDF::FABIO.Work],
-        [api[:uri], RDF::DC.title, :originalTitle],
-        [api[:uri], RDF::FABIO.hasManifestation, :edition],
-        [:edition, RDF::DC.language, :lang],
-        [:edition, RDF::DC.title, api[:title]])
+        [api[:uri], RDF::DEICH.mainTitle, :originalTitle],
+        [:edition, RDF::DEICH.publicationOf, api[:uri]],
+        [:edition, RDF::DEICH.language, :lang],
+        [:edition, RDF::DEICH.mainTitle, api[:title]])
       query.optional(
-        [api[:uri], RDF::DC.creator, api[:author]],
-        [api[:author], RDF::FOAF.name, api[:author_name]])
-      query.optional([:edition, RDF::BIBO.isbn, api[:isbn]])
+        [api[:uri],RDF::DEICH.contributor, :contrib],
+        [:contrib, RDF::DEICH.role, AUTHOR_ROLE],
+        [:contrib, RDF::DEICH.agent, api[:author]],
+        [api[:author], RDF::DEICH.name, api[:author_name]])
+      query.optional([:edition, RDF::DEICH.isbn, api[:isbn]])
     end
-    query.optional([:edition, RDF::FOAF.depiction, :cover_url])
-    query.optional([:edition, RDF::IFACE.altDepictedBy, :altDepictedBy])
+    query.optional([:edition, RDF::DEICH.hasImage, :cover_url])
+    query.optional(
+      [:anyEdition, RDF::DEICH.publicationOf, api[:uri]],
+      [:anyEdition, RDF::DEICH.hasImage, :altDepictedBy])
 
-    puts "#{query.pp}" if ENV['RACK_ENV'] == 'development'
+    puts "#{query.pp}" #if ENV['RACK_ENV'] == 'development'
     solutions = REPO.select(query)
 
     return nil if solutions.empty? # not found!

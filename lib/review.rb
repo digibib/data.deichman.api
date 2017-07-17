@@ -164,15 +164,9 @@ class Review
       [api[:reviewer], RDF::FOAF.name, :reviewer_name, :context => APIGRAPH],
       # audience
       [api[:uri], RDF::DC.audience, :audience],
-      [:audience, RDF::RDFS.label, :audience_name])
+      [:audience, RDF::RDFS.label, :audience_name],
+      [api[:work], RDF::REV.hasReview, api[:uri]])
     query.optional([api[:uri], RDF::DC.subject, :subject])
-    query.where(
-      [api[:work], RDF::REV.hasReview, api[:uri], :context => BOOKGRAPH],
-      [api[:work], RDF.type, RDF::FABIO.Work, :context => BOOKGRAPH])
-    query.optional(
-      [:edition, RDF::REV.hasReview, api[:uri], :context => BOOKGRAPH],
-      [api[:work], RDF::FABIO.hasManifestation, :edition, :context => BOOKGRAPH],
-      [:edition, RDF.type, RDF::FABIO.Manifestation, :context => BOOKGRAPH])
 
     # source
     api[:source].is_a?(Symbol) ?
@@ -362,11 +356,10 @@ class Review
     puts "#{query}" if ENV['RACK_ENV'] == 'development'
     result = REPO.insert_data(query)
 
-    # also insert hasReview property on work and book
+    # insert hasReview property on work
     hasreview_statements  = []
     hasreview_statements << RDF::Statement.new(RDF::URI(self.work), RDF::REV.hasReview, self.uri)
-    hasreview_statements << RDF::Statement.new(RDF::URI(self.edition), RDF::REV.hasReview, self.uri)
-    query                 = QUERY.insert_data(hasreview_statements).graph(BOOKGRAPH)
+    query                 = QUERY.insert_data(hasreview_statements).graph(REVIEWGRAPH)
     result                = REPO.insert_data(query)
     self
   end
@@ -386,8 +379,8 @@ class Review
     puts query
     result = REPO.delete(query)
     # and delete hasReview reference from work and manifestation
-    query  = QUERY.delete([:workandbook, RDF::REV.hasReview, self.uri])
-    query.where([:workandbook, RDF::REV.hasReview, self.uri]).graph(BOOKGRAPH)
+    query  = QUERY.delete([:work, RDF::REV.hasReview, self.uri]).graph(REVIEWGRAPH)
+    query.where([:work, RDF::REV.hasReview, self.uri]).graph(REVIEWGRAPH)
     result = REPO.delete(query)
   end
 end

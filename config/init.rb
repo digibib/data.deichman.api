@@ -12,7 +12,7 @@ REPO        = RDF::Virtuoso::Repository.new(
               :timeout => 30)
 
 REVIEWGRAPH        = RDF::URI("http://data.deichman.no/reviews")
-BOOKGRAPH          = RDF::URI("http://data.deichman.no/books")
+BOOKGRAPH          = RDF::URI("lsext")
 APIGRAPH           = RDF::URI("http://data.deichman.no/sources")
 QUERY              = RDF::Virtuoso::Query
 BASE_URI           = "http://data.deichman.no"
