@@ -88,7 +88,7 @@ class Source
       parts << "'/id_'"
 
       # choose sequence origin, either from review source or from resource
-      resource == "review" ? parts << "str(bif:sequence_next ('#{source}'))" : parts << "str(bif:sequence_next ('#{resource}'))"
+      resource == "review" ? parts << "str(bif:sequence_next ('#{source}') + 9999)" : parts << "str(bif:sequence_next ('#{resource}') + 9999)"
 
       # CONSTRUCT query
       query = "CONSTRUCT { `iri( bif:CONCAT( "
