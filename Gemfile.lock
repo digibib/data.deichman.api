@@ -35,7 +35,7 @@ GEM
     multi_xml (0.5.4)
     net-http-persistent (2.8)
     nokogiri (1.5.9)
-    rack (1.5.2)
+    rack (2.2.3)
     rack-accept (0.4.5)
       rack (>= 0.4)
     rack-contrib (1.1.0)
