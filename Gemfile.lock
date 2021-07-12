@@ -7,7 +7,8 @@ GEM
       minitest (~> 5.1)
       tzinfo (~> 1.1)
       zeitwerk (~> 2.2, >= 2.2.2)
-    addressable (2.3.4)
+    addressable (2.8.0)
+      public_suffix (>= 2.0.2, < 5.0)
     api_smith (1.2.0)
       hashie (~> 1.0)
       httparty
@@ -55,6 +56,7 @@ GEM
       mini_portile2 (~> 2.4.0)
     nokogumbo (2.0.2)
       nokogiri (~> 1.8, >= 1.8.4)
+    public_suffix (4.0.6)
     rack (2.2.3)
     rack-accept (0.4.5)
       rack (>= 0.4)
